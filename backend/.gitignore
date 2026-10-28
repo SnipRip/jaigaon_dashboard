@@ -1,0 +1,19 @@
+node_modules
+dist
+coverage
+/src/generated
+
+# Environment variables stay out of version control
+.env
+.env.*
+!.env.example
+
+# Agent and AI tooling stays on the local machine
+agent/
+.agents/
+.claude/
+.cursor/
+.windsurf/
+CLAUDE.md
+AGENTS.md
+skills-lock.json

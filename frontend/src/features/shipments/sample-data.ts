@@ -1,0 +1,72 @@
+// SAMPLE DATA for shipments: the trucks that carried the sample export
+// invoices. Drivers, seals and agents are invented.
+import type { Shipment } from "./types";
+
+export const shipments: Shipment[] = [
+  {
+    id: "shp-2627-0004",
+    number: "SHP/2627/0004",
+    date: "2026-10-09",
+    customerId: "druk-builders",
+    invoiceIds: ["exp-2627-0003"],
+    vehicleNumber: "WB74F2210",
+    transporterId: "royal-transport",
+    driverName: "Driver 5",
+    driverPhone: "+919800000205",
+    destination: "Phuentsholing",
+    borderPoint: "Jaigaon LCS",
+    customsAgent: "Border Clearing Agency (sample)",
+    sealNumber: "SEAL-0041",
+    packages: 36,
+    grossWeightKg: 31680,
+    status: "delivered",
+    events: [
+      { status: "planned", date: "2026-10-08" },
+      { status: "loading", date: "2026-10-09" },
+      { status: "in-transit", date: "2026-10-09", note: "Challan RTL/1142, e-way bill 391000000002" },
+      { status: "at-border", date: "2026-10-10", note: "Shipping bill 4100002 filed" },
+      { status: "cleared", date: "2026-10-10", note: "LEO given" },
+      { status: "delivered", date: "2026-10-11", note: "Unloaded at site, signed delivery note" },
+    ],
+  },
+  {
+    id: "shp-2627-0005",
+    number: "SHP/2627/0005",
+    date: "2026-10-21",
+    customerId: "tashi-construction",
+    invoiceIds: ["exp-2627-0004"],
+    vehicleNumber: "WB73E4821",
+    transporterId: "royal-transport",
+    driverName: "Driver 6",
+    driverPhone: "+919800000206",
+    destination: "Thimphu",
+    borderPoint: "Jaigaon LCS",
+    customsAgent: "Border Clearing Agency (sample)",
+    sealNumber: "SEAL-0047",
+    packages: 58,
+    grossWeightKg: 7480,
+    status: "at-border",
+    events: [
+      { status: "planned", date: "2026-10-20" },
+      { status: "loading", date: "2026-10-21" },
+      { status: "in-transit", date: "2026-10-21", note: "Challan RTL/1187, e-way bill 391000000001" },
+      { status: "at-border", date: "2026-10-22", note: "Shipping bill 4100001 filed; waiting for LEO" },
+    ],
+  },
+  {
+    id: "shp-2627-0006",
+    number: "SHP/2627/0006",
+    date: "2026-10-29",
+    customerId: "tashi-construction",
+    invoiceIds: ["exp-2627-0005"],
+    vehicleNumber: "WB73E1234",
+    driverName: "Driver 3",
+    driverPhone: "+919800000203",
+    destination: "Thimphu",
+    borderPoint: "Jaigaon LCS",
+    status: "planned",
+    events: [{ status: "planned", date: "2026-10-27", note: "Own truck; invoice still a draft" }],
+  },
+];
+
+export const nextShipmentSequence = 7;
