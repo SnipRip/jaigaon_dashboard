@@ -1,10 +1,20 @@
 "use client";
 
 import { Tooltip as RadixTooltip } from "radix-ui";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
-/** Wrap the app once so tooltips share one delay. */
-export const TooltipProvider = RadixTooltip.Provider;
+/**
+ * Wrap the app once so tooltips share one delay: the first waits, the next
+ * one along a row opens at once. Tooltips only ever label their control, so
+ * the pointer never needs to reach them; they close as soon as it leaves.
+ */
+export function TooltipProvider({ children }: { children: ReactNode }) {
+  return (
+    <RadixTooltip.Provider delayDuration={300} skipDelayDuration={400} disableHoverableContent>
+      {children}
+    </RadixTooltip.Provider>
+  );
+}
 
 interface TooltipProps {
   label: string;
@@ -14,18 +24,26 @@ interface TooltipProps {
   children: ReactNode;
 }
 
-// A styled hint for icon-only controls, used in place of the browser's
-// `title` tooltip. The control still needs its own `aria-label`.
+// A hint for icon-only controls, in place of the browser's `title`. The
+// control still needs its own `aria-label`.
+//
+// Open state is held here and never set while disabled: otherwise Radix
+// marks a disabled tooltip open on hover, nothing ever closes it (there is
+// no content to leave), and every link hovered on the expanded sidebar pops
+// up at once when the sidebar folds to its icon rail.
 export function Tooltip({ label, side = "top", disabled, children }: TooltipProps) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <RadixTooltip.Root>
+    <RadixTooltip.Root open={open && !disabled} onOpenChange={(next) => setOpen(next && !disabled)}>
       <RadixTooltip.Trigger asChild>{children}</RadixTooltip.Trigger>
       {!disabled && (
         <RadixTooltip.Portal>
           <RadixTooltip.Content
             side={side}
-            sideOffset={8}
-            className="z-30 rounded-full border border-white/20 bg-ink/80 px-3 py-1.5 text-xs font-bold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_8px_24px_rgb(20_40_90/0.3)] backdrop-blur-md"
+            sideOffset={10}
+            collisionPadding={12}
+            className="glass-popover z-30 max-w-[260px] origin-(--radix-tooltip-content-transform-origin) animate-tooltip-in px-3.5 py-2 text-[12.5px] leading-snug font-bold text-ink [border-radius:999px] data-[side=bottom]:[--tooltip-y:-4px] data-[side=left]:[--tooltip-x:4px] data-[side=right]:[--tooltip-x:-4px] data-[side=top]:[--tooltip-y:4px]"
           >
             {label}
           </RadixTooltip.Content>

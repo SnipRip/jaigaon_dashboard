@@ -30,7 +30,7 @@ export function AppShell({ children, searchIndex }: { children: ReactNode; searc
   const closeDrawer = () => setDrawerOpen(false);
 
   return (
-    <TooltipProvider delayDuration={200}>
+    <TooltipProvider>
       <div className="relative min-h-screen">
         <PageBackdrop />
         <PointerLight />
