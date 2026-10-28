@@ -18,29 +18,29 @@ export function Topbar({ onOpenMenu, searchIndex }: { onOpenMenu: () => void; se
   const user = useCurrentUser();
 
   return (
-    <GlassSurface as="header" className="flex min-h-[72px] items-center gap-3 py-3 pr-3.5 pl-3.5 sm:gap-3.5 lg:pl-6">
+    <GlassSurface as="header" className="flex min-h-14 items-center gap-2.5 py-2.5 pr-3 pl-3 lg:pl-[18px]">
       <button
         type="button"
         onClick={onOpenMenu}
         aria-label="Open menu"
-        className="glass-control glass-press flex size-11 shrink-0 items-center justify-center hover:bg-white/80 lg:hidden"
+        className="glass-control glass-press flex size-8 shrink-0 items-center justify-center hover:bg-neutral-tint/60 lg:hidden"
       >
-        <Menu aria-hidden="true" className="size-5" />
+        <Menu aria-hidden="true" className="size-4" />
       </button>
 
       <div className="mr-auto flex min-w-0 flex-col">
-        <h1 className="truncate text-[22px] leading-tight font-bold tracking-tight">{page?.label ?? "Jaigaon Quality Enterprise"}</h1>
-        {page && <span className="truncate text-[13px] font-medium text-muted">{page.summary}</span>}
+        <h1 className="truncate text-[17px] leading-tight font-semibold tracking-[-0.01em]">{page?.label ?? "Jaigaon Quality Enterprise"}</h1>
+        {page && <span className="truncate text-xs text-muted">{page.summary}</span>}
       </div>
 
       <GlobalSearch index={searchIndex} />
 
-      <Link href="/quotations/new" className={buttonClasses("primary", "shrink-0 max-sm:w-11 max-sm:px-0")}>
-        <Plus aria-hidden="true" className="size-[18px]" />
+      <Link href="/quotations/new" className={buttonClasses("primary", "shrink-0 max-sm:w-8 max-sm:px-0")}>
+        <Plus aria-hidden="true" />
         <span className="max-sm:sr-only">New quotation</span>
       </Link>
-      <Link href="/settings" aria-label="Account settings" className="glass-press shrink-0 rounded-full">
-        <UserAvatar name={user.displayName} className="size-11 text-sm" />
+      <Link href="/settings" aria-label="Account settings" className="shrink-0 rounded-full">
+        <UserAvatar name={user.displayName} />
       </Link>
     </GlassSurface>
   );

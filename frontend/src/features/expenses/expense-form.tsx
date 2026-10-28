@@ -7,6 +7,7 @@ import { Controller, useForm, useWatch } from "react-hook-form";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { FilePicker } from "@/components/ui/file-picker";
 import { FilterChip } from "@/components/ui/filter-chip";
+import { FilterGroup } from "@/components/ui/filter-group";
 import { FormMessage } from "@/components/ui/form-message";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { SelectField, type SelectOption } from "@/components/ui/select-field";
@@ -92,9 +93,9 @@ export function ExpenseForm({ heads, vendors, accounts, targets, suggestedNumber
   const errorText = (message?: string) => message && <p className="text-xs font-semibold text-danger-strong">{message}</p>;
 
   return (
-    <form onSubmit={onSubmit} noValidate className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-      <div className="@container flex min-w-0 flex-col gap-4">
-        <GlassCard className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} noValidate className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="@container flex min-w-0 flex-col gap-3.5">
+        <GlassCard className="flex flex-col gap-3.5">
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>New expense</CardTitle>
             <StatusChip tone="neutral">{suggestedNumber}</StatusChip>
@@ -132,20 +133,20 @@ export function ExpenseForm({ heads, vendors, accounts, targets, suggestedNumber
           </div>
         </GlassCard>
 
-        <GlassCard className="flex flex-col gap-4">
+        <GlassCard className="flex flex-col gap-3.5">
           <CardTitle>Who was paid</CardTitle>
           <Controller
             control={control}
             name="payeeKind"
             render={({ field }) => (
-              <div className="flex flex-wrap gap-2">
+              <FilterGroup label="Paid to">
                 <FilterChip selected={field.value === "vendor"} onClick={() => field.onChange("vendor")}>
                   A vendor on record
                 </FilterChip>
                 <FilterChip selected={field.value === "other"} onClick={() => field.onChange("other")}>
                   Someone else (cash slip)
                 </FilterChip>
-              </div>
+              </FilterGroup>
             )}
           />
           <div className="grid gap-3.5 @xl:grid-cols-2">
@@ -176,13 +177,13 @@ export function ExpenseForm({ heads, vendors, accounts, targets, suggestedNumber
           </div>
         </GlassCard>
 
-        <GlassCard className="flex flex-col gap-4">
+        <GlassCard className="flex flex-col gap-3.5">
           <CardTitle>Whose profit it reduces</CardTitle>
           <Controller
             control={control}
             name="allocationKind"
             render={({ field }) => (
-              <div className="flex flex-wrap gap-2">
+              <FilterGroup label="Where the cost lands">
                 {ALLOCATIONS.map((option) => (
                   <FilterChip
                     key={option.value}
@@ -195,7 +196,7 @@ export function ExpenseForm({ heads, vendors, accounts, targets, suggestedNumber
                     {option.label}
                   </FilterChip>
                 ))}
-              </div>
+              </FilterGroup>
             )}
           />
           <p className="-mt-2 text-sm font-medium text-muted">{ALLOCATIONS.find((option) => option.value === allocationKind)?.hint}.</p>
@@ -222,17 +223,17 @@ export function ExpenseForm({ heads, vendors, accounts, targets, suggestedNumber
           <FilePicker label="Bill or slip" accept="application/pdf,image/*" file={file} onChange={setFile} hint="Kept with the expense once file storage is chosen." />
           {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
           <div className="flex flex-wrap gap-2.5">
-            <Button type="submit" className="h-[50px] px-6">
+            <Button type="submit" size="lg">
               Save expense
             </Button>
-            <Link href="/expenses" className={buttonClasses("neutral", "ml-auto h-[50px]")}>
+            <Link href="/expenses" className={buttonClasses("neutral", "ml-auto", "lg")}>
               Back to expenses
             </Link>
           </div>
         </GlassCard>
       </div>
 
-      <GlassCard className="flex flex-col gap-3 xl:sticky xl:top-4">
+      <GlassCard className="flex flex-col gap-3 xl:sticky xl:top-3.5">
         <CardTitle>Amount</CardTitle>
         <dl className="flex flex-col gap-1.5 text-sm font-semibold">
           <div className="flex justify-between">
@@ -244,7 +245,7 @@ export function ExpenseForm({ heads, vendors, accounts, targets, suggestedNumber
             <dd className="tabular-nums">{formatRate(expenseGst(figures))}</dd>
           </div>
           <div className="my-1 border-t border-line" />
-          <div className="flex justify-between text-lg font-extrabold">
+          <div className="flex justify-between text-lg font-semibold">
             <dt>Paid</dt>
             <dd className="tabular-nums">{formatRate(expenseTotal(figures))}</dd>
           </div>

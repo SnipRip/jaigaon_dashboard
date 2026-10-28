@@ -120,8 +120,8 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates }: It
   const unitOptions = units.map((unit) => ({ value: unit, label: unit }));
 
   return (
-    <form onSubmit={onSubmit} noValidate className="@container flex min-w-0 flex-col gap-4">
-      <GlassCard className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} noValidate className="@container flex min-w-0 flex-col gap-3.5">
+      <GlassCard className="flex flex-col gap-3.5">
         <div className="flex flex-wrap items-center gap-2">
           <CardTitle>Basics</CardTitle>
           {group && (
@@ -183,7 +183,7 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates }: It
           <TextField label="Description" placeholder="Grade, make, length" error={errors.description?.message} {...register("description")} />
         </div>
         {group && item?.attributeValues && (
-          <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-muted">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted">
             Attributes:
             {Object.entries(item.attributeValues).map(([name, value]) => (
               <StatusChip key={name} tone="neutral">
@@ -194,8 +194,8 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates }: It
         )}
       </GlassCard>
 
-      <div className="grid items-start gap-4 @4xl:grid-cols-2">
-        <GlassCard className="flex flex-col gap-4">
+      <div className="grid items-start gap-3.5 @4xl:grid-cols-2">
+        <GlassCard className="flex flex-col gap-3.5">
           <CardTitle>Units</CardTitle>
           <InheritedField
             label="Base unit (stock is counted in this)"
@@ -214,7 +214,7 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates }: It
           </InheritedField>
 
           <div className="flex flex-col gap-2.5">
-            <span className="text-xs font-bold text-muted">Other units this item is bought or sold in</span>
+            <span className="text-xs font-medium text-muted">Other units this item is bought or sold in</span>
             {alternateUnits.fields.map((field, index) => {
               const row = conversions?.[index];
               const unitPicker = (
@@ -259,7 +259,7 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates }: It
                     </Button>
                   </div>
                   {row?.unit && Number(row.quantity) > 0 && (
-                    <p className="pl-1 text-xs font-bold text-brand-strong">
+                    <p className="pl-1 text-xs font-semibold text-brand-strong">
                       {row.perBase ? `1 ${baseUnit} = ${row.quantity} ${row.unit}` : `1 ${row.unit} = ${row.quantity} ${baseUnit}`}
                     </p>
                   )}
@@ -285,7 +285,7 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates }: It
           />
         </GlassCard>
 
-        <GlassCard className="flex flex-col gap-4">
+        <GlassCard className="flex flex-col gap-3.5">
           <CardTitle>Tax</CardTitle>
           <div className="flex flex-col gap-1.5">
             <TextField
@@ -300,7 +300,7 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates }: It
               <button
                 type="button"
                 onClick={() => setValue("hsn", suggestedHsn, { shouldDirty: true, shouldValidate: true })}
-                className="self-start text-xs font-bold text-brand hover:underline"
+                className="self-start text-xs font-semibold text-brand hover:underline"
               >
                 Use {suggestedHsn}, suggested by the sub-category
               </button>
@@ -334,8 +334,8 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates }: It
         </GlassCard>
       </div>
 
-      <div className="grid items-start gap-4 @4xl:grid-cols-2">
-        <GlassCard className="flex flex-col gap-4">
+      <div className="grid items-start gap-3.5 @4xl:grid-cols-2">
+        <GlassCard className="flex flex-col gap-3.5">
           <div className="flex items-center justify-between gap-2">
             <CardTitle>Sales</CardTitle>
             {margin !== undefined && Number.isFinite(margin) && (
@@ -358,7 +358,7 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates }: It
           </p>
         </GlassCard>
 
-        <GlassCard className="flex flex-col gap-4">
+        <GlassCard className="flex flex-col gap-3.5">
           <CardTitle>Purchase</CardTitle>
           <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3.5">
             <TextField label={`Cost price per ${baseUnit} (₹)`} inputMode="decimal" error={errors.costPrice?.message} {...register("costPrice")} />
@@ -370,7 +370,7 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates }: It
         </GlassCard>
       </div>
 
-      <GlassCard className="flex flex-col gap-4">
+      <GlassCard className="flex flex-col gap-3.5">
         <CardTitle>Inventory</CardTitle>
         <div className="grid gap-3.5 @2xl:grid-cols-3">
           {isNew ? (
@@ -400,12 +400,12 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates }: It
       <GlassCard className="flex flex-col gap-3">
         {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
         <div className="flex flex-wrap gap-2.5">
-          <Button type="submit" className="h-[50px] px-6">
+          <Button type="submit" size="lg">
             {isNew ? "Save item" : "Save changes"}
           </Button>
           <Button
             variant="neutral"
-            className="h-[50px]"
+            size="lg"
             disabled={!isDirty}
             onClick={() => {
               reset();
@@ -415,7 +415,7 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates }: It
           >
             Discard changes
           </Button>
-          <Link href="/items" className={buttonClasses("neutral", "ml-auto h-[50px]")}>
+          <Link href="/items" className={buttonClasses("neutral", "ml-auto", "lg")}>
             Back to items
           </Link>
         </div>

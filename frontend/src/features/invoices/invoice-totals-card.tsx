@@ -15,7 +15,7 @@ interface InvoiceTotalsCardProps {
 // off, grand total in figures and words, and whether an e-way bill is due.
 export function InvoiceTotalsCard({ totals, tax, currency }: InvoiceTotalsCardProps) {
   const row = (label: string, value: number, strong = false) => (
-    <div className={strong ? "flex justify-between text-lg font-extrabold" : "flex justify-between text-sm font-semibold"}>
+    <div className={strong ? "flex justify-between text-lg font-semibold" : "flex justify-between text-sm font-semibold"}>
       <dt>{label}</dt>
       <dd className="tabular-nums">{formatRate(value)}</dd>
     </div>

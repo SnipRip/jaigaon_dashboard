@@ -43,7 +43,7 @@ export function DispatchDocumentsPanel({ invoice, grandTotal, einvoice, onChange
   };
 
   return (
-    <GlassCard className="flex flex-col gap-4">
+    <GlassCard className="flex flex-col gap-3.5">
       <div className="flex flex-wrap items-center gap-2">
         <CardTitle>{invoice.kind === "export" ? "Export documents" : "Transport documents"}</CardTitle>
         <StatusChip tone={done === required.length ? "success" : "warning"}>
@@ -60,12 +60,12 @@ export function DispatchDocumentsPanel({ invoice, grandTotal, einvoice, onChange
         if (inStage.length === 0 || (stage === "E-invoice" && !einvoice)) return null;
         return (
           <section key={stage} className="flex flex-col gap-2">
-            <h3 className="text-xs font-extrabold tracking-wide text-muted uppercase">{stage}</h3>
+            <h3 className="text-xs font-semibold tracking-wide text-muted uppercase">{stage}</h3>
             <ul className="flex flex-col gap-2">
               {inStage.map((type) => {
                 const document = invoice.documents[type.kind];
                 return (
-                  <li key={type.kind} className={clsx("glass-inset flex items-start gap-3 rounded-[18px] p-3", !document && isRequired(type) && "ring-1 ring-warning/30 ring-inset")}>
+                  <li key={type.kind} className={clsx("glass-inset flex items-start gap-3 rounded-(--radius-tile) p-3", !document && isRequired(type) && "ring-1 ring-warning/30 ring-inset")}>
                     {document ? (
                       <CircleCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-success" />
                     ) : (
@@ -73,7 +73,7 @@ export function DispatchDocumentsPanel({ invoice, grandTotal, einvoice, onChange
                     )}
                     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-sm font-bold">{type.name}</span>
+                        <span className="text-sm font-semibold">{type.name}</span>
                         {!isRequired(type) && <StatusChip tone="neutral">Optional</StatusChip>}
                       </div>
                       {document ? (
@@ -88,7 +88,7 @@ export function DispatchDocumentsPanel({ invoice, grandTotal, einvoice, onChange
                         <span className="text-xs font-medium text-muted">{type.purpose}</span>
                       )}
                       {type.kind === "brc" && !document && invoice.status === "issued" && (
-                        <span className="text-xs font-bold text-warning-strong">
+                        <span className="text-xs font-semibold text-warning-strong">
                           Payment due in by {formatDate(realisationDueDate(invoice))} (FEMA period; confirm with the bank)
                         </span>
                       )}

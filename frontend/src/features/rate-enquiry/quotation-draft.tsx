@@ -24,17 +24,17 @@ export function QuotationDraft({ customerId, customerName, lines, onQuantityChan
   const continueHref = `/quotations/new?customer=${encodeURIComponent(customerId)}&lines=${encodeURIComponent(carried.map((line) => `${line.product.sku}:${line.quantity}`).join(","))}`;
 
   return (
-    <GlassCard aria-label="Quotation draft" className="flex flex-col gap-4">
+    <GlassCard aria-label="Quotation draft" className="flex flex-col gap-3.5">
       <div className="flex items-center justify-between gap-2.5">
         <div className="flex flex-col gap-0.5">
-          <h2 className="text-[17px] font-extrabold">New quotation</h2>
+          <h2 className="text-[17px] font-semibold">New quotation</h2>
           <span className="text-xs font-semibold text-muted">{customerName}</span>
         </div>
         <StatusChip tone="neutral">Draft</StatusChip>
       </div>
 
       {lines.length === 0 ? (
-        <p className="border-y border-line py-6 text-center text-sm font-semibold text-muted">
+        <p className="border-y border-line py-6 text-center text-[13px] text-muted">
           Add products from the list to start a quotation.
         </p>
       ) : (
@@ -43,7 +43,7 @@ export function QuotationDraft({ customerId, customerName, lines, onQuantityChan
             const inputId = `qty-${line.product.sku}`;
             return (
               <li key={line.product.sku} className="flex flex-col gap-2 border-t border-line py-3">
-                <div className="flex justify-between gap-2.5 text-[13px] font-extrabold">
+                <div className="flex justify-between gap-2.5 text-[13px] font-semibold">
                   <span>{line.product.name}</span>
                   <span className="tabular-nums">{formatInr(lineValue(line))}</span>
                 </div>
@@ -68,11 +68,11 @@ export function QuotationDraft({ customerId, customerName, lines, onQuantityChan
       <dl className="flex flex-col gap-2 text-[13px] font-semibold tabular-nums">
         <div className="flex items-baseline justify-between">
           <dt className="text-muted">Quotation value</dt>
-          <dd className="text-[22px] font-extrabold">{formatInr(totals.value)}</dd>
+          <dd className="text-xl font-semibold tabular-nums">{formatInr(totals.value)}</dd>
         </div>
         <div className="flex justify-between">
           <dt className="text-muted">Estimated profit</dt>
-          <dd className="font-extrabold text-success-strong">
+          <dd className="font-semibold text-success-strong">
             {formatInr(totals.profit)} · {formatPercent(totals.marginPct)}
           </dd>
         </div>
@@ -86,7 +86,7 @@ export function QuotationDraft({ customerId, customerName, lines, onQuantityChan
         <Link
           href={continueHref}
           aria-disabled={carried.length === 0}
-          className={buttonClasses("primary", carried.length === 0 ? "pointer-events-none h-[50px] text-[15px] opacity-55" : "h-[50px] text-[15px]")}
+          className={buttonClasses("primary", carried.length === 0 ? "pointer-events-none opacity-55" : undefined, "lg")}
         >
           <FileText aria-hidden="true" className="size-5" />
           Continue as a quotation

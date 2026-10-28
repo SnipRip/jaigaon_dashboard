@@ -7,8 +7,8 @@ export function UserAvatar({ name, className }: { name: string; className?: stri
     <span
       aria-hidden="true"
       className={clsx(
-        "flex shrink-0 items-center justify-center glass-tinted rounded-full bg-success font-extrabold text-white uppercase",
-        className ?? "size-9 text-sm",
+        "flex shrink-0 items-center justify-center rounded-full bg-success font-semibold text-white uppercase",
+        className ?? "size-8 text-xs",
       )}
     >
       {initialsOf(name)}

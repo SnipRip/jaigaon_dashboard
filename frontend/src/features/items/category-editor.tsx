@@ -56,7 +56,7 @@ export function CategoryEditor({ draft, parent, units, gstRates, submitLabel, on
   });
 
   return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+    <form onSubmit={submit} noValidate className="flex flex-col gap-3.5">
       <CategoryFields control={control} register={register} errors={errors} units={units} gstRates={gstRates} parent={parent} />
       <div className="flex flex-wrap gap-2.5">
         <Button type="submit" disabled={Boolean(draft) && !isDirty}>

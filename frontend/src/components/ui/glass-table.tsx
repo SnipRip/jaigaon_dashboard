@@ -8,7 +8,7 @@ import type { TableHTMLAttributes } from "react";
 // with the card title.
 export function GlassTable({ className, ...props }: TableHTMLAttributes<HTMLTableElement>) {
   return (
-    <div className="-mx-3 overflow-x-auto">
+    <div className="-mx-2.5 overflow-x-auto">
       <table className={clsx("glass-table w-full text-[13px]", className)} {...props} />
     </div>
   );

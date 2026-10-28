@@ -10,7 +10,7 @@ import { TradingChart } from "@/features/dashboard/trading-chart";
 export const metadata: Metadata = { title: "Dashboard" };
 
 // Two-thirds / one-third rows that stack on narrow screens.
-const SPLIT_ROW = "grid gap-4 xl:grid-cols-[2fr_1fr]";
+const SPLIT_ROW = "grid gap-3.5 xl:grid-cols-[2fr_1fr]";
 
 export default function DashboardPage() {
   return (

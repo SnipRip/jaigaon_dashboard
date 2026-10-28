@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/filter-chip";
+import { FilterGroup } from "@/components/ui/filter-group";
 import { SelectField } from "@/components/ui/select-field";
 import { TextField } from "@/components/ui/text-field";
 import { latestRate } from "./hsn-rules";
@@ -70,14 +71,14 @@ export function HsnForm({ hsn, gstRates, takenCodes, onSave, onCancel }: HsnForm
         control={control}
         name="kind"
         render={({ field }) => (
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Code type">
+          <FilterGroup label="Code type">
             <FilterChip selected={field.value === "HSN"} disabled={Boolean(hsn)} onClick={() => field.onChange("HSN")}>
               HSN · goods
             </FilterChip>
             <FilterChip selected={field.value === "SAC"} disabled={Boolean(hsn)} onClick={() => field.onChange("SAC")}>
               SAC · services
             </FilterChip>
-          </div>
+          </FilterGroup>
         )}
       />
       <div className="grid gap-3.5 sm:grid-cols-[160px_1fr]">
@@ -112,11 +113,17 @@ export function HsnForm({ hsn, gstRates, takenCodes, onSave, onCancel }: HsnForm
         control={control}
         name="reverseCharge"
         render={({ field }) => (
-          <div className="flex flex-col gap-1.5">
-            <FilterChip selected={field.value} onClick={() => field.onChange(!field.value)} className="self-start">
-              {field.value ? "Reverse charge: yes" : "Reverse charge: no"}
-            </FilterChip>
-            <p className="text-xs font-semibold text-muted">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-muted">Reverse charge</span>
+            <FilterGroup label="Reverse charge">
+              <FilterChip selected={!field.value} onClick={() => field.onChange(false)}>
+                No
+              </FilterChip>
+              <FilterChip selected={field.value} onClick={() => field.onChange(true)}>
+                Yes
+              </FilterChip>
+            </FilterGroup>
+            <p className="text-[11.5px] text-muted">
               Yes when we pay the GST instead of the supplier, as for truck freight from a transport agency.
             </p>
           </div>

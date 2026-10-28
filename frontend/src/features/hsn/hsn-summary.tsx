@@ -8,7 +8,7 @@ export function HsnSummary({ codes, code }: { codes: HsnCode[]; code?: string })
   const hsn = findHsn(codes, code);
   if (!hsn) {
     return (
-      <p className="rounded-[18px] bg-warning-tint/70 px-3.5 py-2 text-xs font-semibold text-warning-strong">
+      <p className="rounded-(--radius-tile) bg-warning-tint/70 px-3.5 py-2 text-xs font-semibold text-warning-strong">
         {code} is not in the HSN / SAC master, so its GST rate cannot be checked.{" "}
         <Link href="/masters/hsn" className="underline">
           Open the master
@@ -17,8 +17,8 @@ export function HsnSummary({ codes, code }: { codes: HsnCode[]; code?: string })
     );
   }
   return (
-    <p className="glass-inset rounded-[18px] px-3.5 py-2 text-xs font-semibold text-ink-soft">
-      <span className="font-extrabold text-ink">
+    <p className="glass-inset rounded-(--radius-tile) px-3.5 py-2 text-xs font-semibold text-ink-soft">
+      <span className="font-semibold text-ink">
         {hsn.kind} {hsn.code} · {latestRate(hsn)}%
       </span>{" "}
       {hsn.description}

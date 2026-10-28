@@ -24,14 +24,14 @@ interface VariantRowsTableProps {
 }
 
 const cellInput =
-  "glass-field h-10 w-full min-w-0 px-3 text-right text-[13px] font-bold tabular-nums aria-[invalid=true]:border-danger";
+  "glass-field h-10 w-full min-w-0 px-3 text-right text-[13px] font-semibold tabular-nums aria-[invalid=true]:border-danger";
 
 // The variants an item group generates, one row each, with the fields that
 // differ between variants. Each row becomes an item on save.
 export function VariantRowsTable({ lines, unit, onChange }: VariantRowsTableProps) {
   if (lines.length === 0) {
     return (
-      <p className="glass-inset rounded-[18px] px-4 py-6 text-center text-sm font-semibold text-muted">
+      <p className="glass-inset rounded-(--radius-tile) px-4 py-6 text-center text-[13px] text-muted">
         Add an attribute and its options above. A variant is made for every combination.
       </p>
     );
@@ -68,16 +68,16 @@ export function VariantRowsTable({ lines, unit, onChange }: VariantRowsTableProp
               <td className="text-left">
                 <div className="flex flex-wrap items-center gap-1.5 pt-2">
                   {line.existing ? (
-                    <Link href={`/items/${line.existing.id}`} className="font-bold hover:text-brand hover:underline">
+                    <Link href={`/items/${line.existing.id}`} className="font-semibold hover:text-brand hover:underline">
                       {Object.values(line.values).join(" · ")}
                     </Link>
                   ) : (
-                    <span className="font-bold">{Object.values(line.values).join(" · ")}</span>
+                    <span className="font-semibold">{Object.values(line.values).join(" · ")}</span>
                   )}
                   {!line.existing && <StatusChip tone="brand">New</StatusChip>}
                 </div>
                 <div className="text-xs text-muted">{line.name}</div>
-                {firstError && <div className="text-xs font-bold text-danger-strong">{firstError}</div>}
+                {firstError && <div className="text-xs font-semibold text-danger-strong">{firstError}</div>}
               </td>
               <td>{input(line, "sku", "SKU", "left")}</td>
               <td>{input(line, "costPrice", "Cost")}</td>

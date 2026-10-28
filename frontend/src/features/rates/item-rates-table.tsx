@@ -54,14 +54,14 @@ export function ItemRatesTable({ initialItems, units }: { initialItems: Item[]; 
             return (
               <tr key={item.id}>
                 <td className="text-left">
-                  <div className="font-bold">{item.name}</div>
+                  <div className="font-semibold">{item.name}</div>
                   <div className="text-xs text-muted">
                     {item.sku} · per {units[item.id]}
                   </div>
                 </td>
                 <td>{item.mrp ? formatRate(item.mrp) : "–"}</td>
                 <td>{formatRate(item.costPrice)}</td>
-                <td className="font-bold">{formatRate(item.sellingPrice)}</td>
+                <td className="font-semibold">{formatRate(item.sellingPrice)}</td>
                 <td>{item.minSellingPrice ? formatRate(item.minSellingPrice) : "–"}</td>
                 <td className={margin < 8 ? STATUS_TEXT.danger : margin < 12 ? STATUS_TEXT.warning : STATUS_TEXT.success}>{formatPercent(margin)}</td>
                 <td>

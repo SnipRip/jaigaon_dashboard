@@ -21,27 +21,27 @@ interface QuotationDocumentProps {
 // Margin and cost never print. Printed through `.print-area`.
 export function QuotationDocument({ quotation, party, issuer, tax, totals }: QuotationDocumentProps) {
   return (
-    <article className="print-area rounded-[18px] bg-white p-6 text-[12px] leading-snug text-ink shadow-[0_10px_40px_rgb(20_40_90/0.12)] sm:p-8">
-      <header className="flex flex-wrap items-start justify-between gap-4 border-b-2 border-ink pb-3">
+    <article className="print-area rounded-(--radius-tile) bg-white p-6 text-[12px] leading-snug text-ink shadow-[0_10px_40px_rgb(20_40_90/0.12)] sm:p-8">
+      <header className="flex flex-wrap items-start justify-between gap-3.5 border-b-2 border-ink pb-3">
         <div>
-          <p className="text-lg font-extrabold">{issuer.legalName}</p>
+          <p className="text-lg font-semibold">{issuer.legalName}</p>
           <p>{issuer.address}</p>
           <p>
             {issuer.phone} · {issuer.email}
           </p>
-          <p className="font-bold">GSTIN {issuer.gstin ?? "[to be added]"}</p>
+          <p className="font-semibold">GSTIN {issuer.gstin ?? "[to be added]"}</p>
         </div>
         <div className="text-right">
-          <p className="text-xl font-extrabold tracking-wide">QUOTATION</p>
-          <p className="font-bold">{quotationLabel(quotation)}</p>
+          <p className="text-xl font-semibold tracking-wide">QUOTATION</p>
+          <p className="font-semibold">{quotationLabel(quotation)}</p>
           <p>Date {formatDate(quotation.date)}</p>
-          <p className="font-bold">Valid till {formatDate(quotation.validUntil)}</p>
+          <p className="font-semibold">Valid till {formatDate(quotation.validUntil)}</p>
         </div>
       </header>
 
       <section className="mt-3">
-        <p className="text-[11px] font-bold text-muted">To</p>
-        <p className="font-extrabold">{party.legalName ?? party.displayName}</p>
+        <p className="text-[11px] font-semibold text-muted">To</p>
+        <p className="font-semibold">{party.legalName ?? party.displayName}</p>
         <p>
           {party.billing.line1}, {party.billing.city}
           {party.billing.stateCode ? `, ${stateName(party.billing.stateCode)}` : party.billing.country ? `, ${party.billing.country}` : ""}
@@ -66,7 +66,7 @@ export function QuotationDocument({ quotation, party, issuer, tax, totals }: Quo
           {quotation.lines.map((line, index) => (
             <tr key={line.itemId} className="border-b border-ink/15">
               <td className="py-1.5 pr-2">{index + 1}</td>
-              <td className="py-1.5 pr-2 font-bold">{line.description}</td>
+              <td className="py-1.5 pr-2 font-semibold">{line.description}</td>
               <td className="py-1.5 pr-2">{line.hsn}</td>
               <td className="py-1.5 pr-2 text-right">
                 {formatQuantity(line.quantity)} {line.unit}
@@ -80,43 +80,43 @@ export function QuotationDocument({ quotation, party, issuer, tax, totals }: Quo
         </tbody>
       </table>
 
-      <div className="mt-3 flex flex-wrap justify-between gap-4">
+      <div className="mt-3 flex flex-wrap justify-between gap-3.5">
         <div className="max-w-md whitespace-pre-line">
-          <p className="text-[11px] font-bold text-muted">Terms</p>
+          <p className="text-[11px] font-semibold text-muted">Terms</p>
           <p>{quotation.terms}</p>
-          {quotation.notes && <p className="mt-2 font-bold">{quotation.notes}</p>}
+          {quotation.notes && <p className="mt-2 font-semibold">{quotation.notes}</p>}
         </div>
         <dl className="min-w-[220px] tabular-nums">
-          <div className="flex justify-between gap-4">
+          <div className="flex justify-between gap-3.5">
             <dt>Value before GST</dt>
             <dd>{formatRate(totals.taxable)}</dd>
           </div>
           {Object.entries(totals.taxByName).map(([name, amount]) => (
-            <div key={name} className="flex justify-between gap-4">
+            <div key={name} className="flex justify-between gap-3.5">
               <dt>{name}</dt>
               <dd>{formatRate(amount ?? 0)}</dd>
             </div>
           ))}
           {Object.keys(totals.taxByName).length === 0 && (
-            <div className="flex justify-between gap-4">
+            <div className="flex justify-between gap-3.5">
               <dt>GST</dt>
               <dd>{tax.regime === "export-lut" ? "Nil, under LUT" : "Nil"}</dd>
             </div>
           )}
           {totals.roundOff !== 0 && (
-            <div className="flex justify-between gap-4">
+            <div className="flex justify-between gap-3.5">
               <dt>Round off</dt>
               <dd>{formatRate(totals.roundOff)}</dd>
             </div>
           )}
-          <div className="mt-1 flex justify-between gap-4 border-t border-ink pt-1 text-[14px] font-extrabold">
+          <div className="mt-1 flex justify-between gap-3.5 border-t border-ink pt-1 text-[14px] font-semibold">
             <dt>Total</dt>
             <dd>{formatRate(totals.grandTotal)}</dd>
           </div>
         </dl>
       </div>
-      <p className="mt-2 font-bold">{amountInWords(totals.grandTotal, party.currency)}</p>
-      <p className="mt-6 text-right font-bold">For {issuer.legalName}</p>
+      <p className="mt-2 font-semibold">{amountInWords(totals.grandTotal, party.currency)}</p>
+      <p className="mt-6 text-right font-semibold">For {issuer.legalName}</p>
     </article>
   );
 }

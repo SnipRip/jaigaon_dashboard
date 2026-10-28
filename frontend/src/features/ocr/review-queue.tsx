@@ -22,13 +22,13 @@ export function ReviewQueue({ documents, selectedId, onSelect }: ReviewQueueProp
             onClick={() => onSelect(document.id)}
             className={clsx(
               "glass-press flex flex-col gap-1 px-4 py-3.5 text-left",
-              isSelected ? "glass-selected rounded-[18px] text-ink" : "glass-inset hover:bg-white/60",
+              isSelected ? "glass-selected rounded-(--radius-tile) text-ink" : "glass-inset hover:bg-white/60",
             )}
           >
-            <span className={clsx("text-xs font-extrabold", isUnsure ? "text-warning-strong" : isSelected ? "text-brand" : "text-muted")}>
+            <span className={clsx("text-xs font-semibold", isUnsure ? "text-warning-strong" : isSelected ? "text-brand" : "text-muted")}>
               {document.detectedType} · {isUnsure ? "type unsure" : `${document.typeConfidence}% match`}
             </span>
-            <span className="truncate text-sm font-extrabold">{document.fileName}</span>
+            <span className="truncate text-sm font-semibold">{document.fileName}</span>
             <span className="text-xs font-semibold text-muted">Uploaded {document.uploaded.toLowerCase()}</span>
           </button>
         );

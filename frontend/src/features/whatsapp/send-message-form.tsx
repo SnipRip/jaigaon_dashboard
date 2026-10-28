@@ -42,7 +42,7 @@ export function SendMessageForm({ templates, optIns, documents }: SendMessageFor
   };
 
   return (
-    <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <GlassCard className="flex flex-col gap-3.5">
         <CardTitle>Send a message</CardTitle>
         <SelectField label="To (opted in only)" options={reachable.map((optIn) => ({ value: optIn.id, label: `${optIn.name} · ${optIn.phone}` }))} value={optInId || undefined} onValueChange={setOptInId} />
@@ -65,7 +65,7 @@ export function SendMessageForm({ templates, optIns, documents }: SendMessageFor
           />
         ))}
         {message && <FormMessage tone={message.tone}>{message.text}</FormMessage>}
-        <Button variant="success" onClick={send} className="h-[50px]">
+        <Button variant="success" onClick={send} size="lg">
           <Send aria-hidden="true" className="size-[18px]" />
           Send on WhatsApp
         </Button>

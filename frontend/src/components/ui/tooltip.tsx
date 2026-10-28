@@ -43,7 +43,7 @@ export function Tooltip({ label, side = "top", disabled, children }: TooltipProp
             side={side}
             sideOffset={10}
             collisionPadding={12}
-            className="glass-popover z-30 max-w-[260px] origin-(--radix-tooltip-content-transform-origin) animate-tooltip-in px-3.5 py-2 text-[12.5px] leading-snug font-bold text-ink [border-radius:999px] data-[side=bottom]:[--tooltip-y:-4px] data-[side=left]:[--tooltip-x:4px] data-[side=right]:[--tooltip-x:-4px] data-[side=top]:[--tooltip-y:4px]"
+            className="glass-popover z-30 max-w-[260px] origin-(--radix-tooltip-content-transform-origin) animate-tooltip-in [border-radius:6px] px-2.5 py-1.5 text-xs leading-snug font-medium text-ink data-[side=bottom]:[--tooltip-y:-4px] data-[side=left]:[--tooltip-x:4px] data-[side=right]:[--tooltip-x:-4px] data-[side=top]:[--tooltip-y:4px]"
           >
             {label}
           </RadixTooltip.Content>

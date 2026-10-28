@@ -150,9 +150,9 @@ export function ItemGroupForm({ catalog, group, brands, units, gstRates }: ItemG
   const unitOptions = units.map((option) => ({ value: option, label: option }));
 
   return (
-    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-      <div className="grid items-start gap-4 xl:grid-cols-[3fr_2fr]">
-        <GlassCard className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-3.5">
+      <div className="grid items-start gap-3.5 xl:grid-cols-[3fr_2fr]">
+        <GlassCard className="flex flex-col gap-3.5">
           <CardTitle>Group details</CardTitle>
           <div className="grid gap-3.5 md:grid-cols-2">
             <TextField label="Group name" placeholder="TMT Bar Fe 600" error={errors.name?.message} {...register("name")} />
@@ -213,7 +213,7 @@ export function ItemGroupForm({ catalog, group, brands, units, gstRates }: ItemG
           </div>
         </GlassCard>
 
-        <GlassCard className="flex flex-col gap-4">
+        <GlassCard className="flex flex-col gap-3.5">
           <CardTitle>Shared by every variant</CardTitle>
           <InheritedField
             label="Base unit"
@@ -266,7 +266,7 @@ export function ItemGroupForm({ catalog, group, brands, units, gstRates }: ItemG
         </GlassCard>
       </div>
 
-      <GlassCard className="flex flex-col gap-4">
+      <GlassCard className="flex flex-col gap-3.5">
         <div className="flex flex-col gap-1">
           <CardTitle>Attributes</CardTitle>
           <p className="text-sm font-medium text-muted">
@@ -312,7 +312,7 @@ export function ItemGroupForm({ catalog, group, brands, units, gstRates }: ItemG
         </Button>
       </GlassCard>
 
-      <GlassCard className="flex flex-col gap-4">
+      <GlassCard className="flex flex-col gap-3.5">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="flex flex-col gap-1">
             <CardTitle>Variants · {lines.length}</CardTitle>
@@ -352,10 +352,10 @@ export function ItemGroupForm({ catalog, group, brands, units, gstRates }: ItemG
       <GlassCard className="flex flex-col gap-3">
         {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
         <div className="flex flex-wrap gap-2.5">
-          <Button type="submit" className="h-[50px] px-6">
+          <Button type="submit" size="lg">
             {isNew ? `Create group and ${lines.length} items` : "Save changes"}
           </Button>
-          <Link href="/items" className={buttonClasses("neutral", "ml-auto h-[50px]")}>
+          <Link href="/items" className={buttonClasses("neutral", "ml-auto", "lg")}>
             Back to items
           </Link>
         </div>

@@ -14,7 +14,7 @@ interface ProductTableProps {
 /** Search results: stock, MRP, cost, discount, net rate and margin per product. */
 export function ProductTable({ products, addedSkus, onToggle }: ProductTableProps) {
   if (products.length === 0) {
-    return <p className="py-6 text-center text-sm font-semibold text-muted">No products match this search.</p>;
+    return <p className="py-6 text-center text-[13px] text-muted">No products match this search.</p>;
   }
 
   return (
@@ -40,7 +40,7 @@ export function ProductTable({ products, addedSkus, onToggle }: ProductTableProp
           return (
             <tr key={product.sku}>
               <td className="text-left">
-                <div className="font-bold">{product.name}</div>
+                <div className="font-semibold">{product.name}</div>
                 <div className="text-xs text-muted">
                   {product.sku} · {product.detail} · per {product.unit}
                 </div>
@@ -49,7 +49,7 @@ export function ProductTable({ products, addedSkus, onToggle }: ProductTableProp
               <td>{formatRate(product.mrp)}</td>
               <td>{formatRate(product.cost)}</td>
               <td>{product.discountPct}%</td>
-              <td className="font-bold text-brand">{formatRate(product.netRate)}</td>
+              <td className="font-semibold text-brand">{formatRate(product.netRate)}</td>
               <td className="text-success-strong">{formatPercent(product.marginPct)}</td>
               <td>
                 <Button

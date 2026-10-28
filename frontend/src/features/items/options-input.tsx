@@ -32,15 +32,15 @@ export function OptionsInput({ label, options, onChange, placeholder, error }: O
       <label htmlFor={id} className={fieldLabelClasses}>
         {label}
       </label>
-      <div className="glass-field flex min-h-11 flex-wrap items-center gap-1.5 rounded-[22px] px-2 py-1.5">
+      <div className="glass-field flex min-h-[34px] flex-wrap items-center gap-1 px-1.5 py-1">
         {options.map((option) => (
-          <span key={option} className="flex h-8 items-center gap-1 rounded-full bg-brand-tint pr-1 pl-3 text-[13px] font-bold text-brand-strong">
+          <span key={option} className="flex h-6 items-center gap-1 rounded-[5px] bg-brand-tint pr-0.5 pl-2 text-xs font-semibold text-brand-strong">
             {option}
             <button
               type="button"
               aria-label={`Remove ${option}`}
               onClick={() => onChange(options.filter((candidate) => candidate !== option))}
-              className="flex size-6 items-center justify-center rounded-full hover:bg-white/70"
+              className="flex size-5 items-center justify-center rounded hover:bg-white/70"
             >
               <X aria-hidden="true" className="size-3.5" />
             </button>
@@ -61,7 +61,7 @@ export function OptionsInput({ label, options, onChange, placeholder, error }: O
           onBlur={() => draft && add(draft)}
           placeholder={options.length === 0 ? placeholder : "Add another"}
           aria-invalid={error ? true : undefined}
-          className="h-8 min-w-[120px] flex-1 bg-transparent px-2 text-sm font-bold outline-none placeholder:font-medium placeholder:text-muted"
+          className="h-8 min-w-[120px] flex-1 bg-transparent px-2 text-sm font-semibold outline-none placeholder:font-medium placeholder:text-muted"
         />
       </div>
       {error && <p className="text-xs font-semibold text-danger-strong">{error}</p>}

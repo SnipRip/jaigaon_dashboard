@@ -4,11 +4,11 @@ import type { ReactNode } from "react";
 export type StatusTone = "brand" | "success" | "warning" | "danger" | "neutral";
 
 const TONES: Record<StatusTone, string> = {
-  brand: "bg-brand-tint/75 text-brand-strong ring-brand/15",
-  success: "bg-success-tint/75 text-success-strong ring-success/20",
-  warning: "bg-warning-tint/75 text-warning-strong ring-warning/20",
-  danger: "bg-danger-tint/75 text-danger-strong ring-danger/15",
-  neutral: "bg-neutral-tint/75 text-ink-soft ring-ink/10",
+  brand: "bg-brand-tint text-brand-strong",
+  success: "bg-success-tint text-success-strong",
+  warning: "bg-warning-tint text-warning-strong",
+  danger: "bg-danger-tint text-danger-strong",
+  neutral: "bg-neutral-tint text-ink-soft",
 };
 
 /** Text colour only, for a status written inline without a pill. */
@@ -22,7 +22,7 @@ export const STATUS_TEXT: Record<StatusTone, string> = {
 
 export function StatusChip({ tone, children }: { tone: StatusTone; children: ReactNode }) {
   return (
-    <span className={clsx("inline-block rounded-full px-2.5 py-1 text-xs font-bold whitespace-nowrap ring-1 ring-inset", TONES[tone])}>
+    <span className={clsx("inline-flex h-5 items-center gap-1.5 rounded-[5px] px-1.5 text-[11.5px] font-semibold whitespace-nowrap before:size-1.5 before:rounded-full before:bg-current", TONES[tone])}>
       {children}
     </span>
   );

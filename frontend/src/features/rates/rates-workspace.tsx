@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { FilterChip } from "@/components/ui/filter-chip";
 import { StatusChip } from "@/components/ui/status-chip";
+import { ViewTabs } from "@/components/ui/view-tabs";
 import type { Item } from "@/features/items/types";
 import { RecordMaster } from "@/features/masters/record-master";
 import type { Party } from "@/features/parties/types";
@@ -41,15 +41,9 @@ export function RatesWorkspace({ items, units, customers, book }: RatesWorkspace
   const customerOptions = customers.map((party) => ({ value: party.id, label: party.displayName }));
 
   return (
-    <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-      <div className="flex min-w-0 flex-col gap-4">
-        <div className="flex flex-wrap gap-2">
-          {TABS.map((option) => (
-            <FilterChip key={option.value} selected={tab === option.value} onClick={() => setTab(option.value)}>
-              {option.label}
-            </FilterChip>
-          ))}
-        </div>
+    <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="flex min-w-0 flex-col gap-3.5">
+        <ViewTabs label="Rate views" tabs={TABS} value={tab} onChange={setTab} />
 
         {tab === "items" && <ItemRatesTable initialItems={items} units={units} />}
 
@@ -148,7 +142,7 @@ export function RatesWorkspace({ items, units, customers, book }: RatesWorkspace
         )}
       </div>
 
-      <div className="xl:sticky xl:top-4">
+      <div className="xl:sticky xl:top-3.5">
         <RateCheckCard items={items} customers={customers} book={book} />
       </div>
     </div>

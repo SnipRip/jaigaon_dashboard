@@ -57,11 +57,11 @@ export function GstDecisionTable({ companyState }: { companyState: string }) {
             const purchase = side === "sale" ? undefined : purchaseTax(companyState, profile);
             return (
               <tr key={label} className="align-top">
-                <td className="text-left font-bold">{label}</td>
+                <td className="text-left font-semibold">{label}</td>
                 <td className="text-left">
                   {sale ? (
                     <>
-                      <div className="font-bold">{describeComponents(ratePct, sale.regime)}</div>
+                      <div className="font-semibold">{describeComponents(ratePct, sale.regime)}</div>
                       <div className="text-xs text-muted">{sale.title}</div>
                     </>
                   ) : (
@@ -71,7 +71,7 @@ export function GstDecisionTable({ companyState }: { companyState: string }) {
                 <td className="text-left">
                   {purchase ? (
                     <div className="flex flex-col items-start gap-1">
-                      <span className="font-bold">{describeComponents(ratePct, purchase.regime)}</span>
+                      <span className="font-semibold">{describeComponents(ratePct, purchase.regime)}</span>
                       <StatusChip tone={purchase.itc ? "success" : "warning"}>
                         {purchase.itc ? "Input credit claimable" : "No input credit"}
                       </StatusChip>

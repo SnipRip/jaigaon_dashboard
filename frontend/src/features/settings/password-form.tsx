@@ -43,7 +43,7 @@ export function PasswordForm() {
   });
 
   return (
-    <GlassCard aria-labelledby="settings-password" className="flex flex-col gap-4 p-6">
+    <GlassCard aria-labelledby="settings-password" className="flex flex-col gap-3.5">
       <div className="flex flex-col gap-1">
         <CardTitle id="settings-password">Change password</CardTitle>
         <span className="text-[13px] font-semibold text-muted">

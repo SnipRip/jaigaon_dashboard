@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { buttonClasses } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/filter-chip";
+import { FilterGroup } from "@/components/ui/filter-group";
 import { ImportDialog } from "@/components/ui/import-dialog";
+import { ListToolbar } from "@/components/ui/list-toolbar";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { SearchField } from "@/components/ui/search-field";
 import { formatQuantity } from "@/lib/format";
@@ -80,11 +82,11 @@ export function ItemsWorkspace({ catalog }: { catalog: ItemCatalog }) {
   const outCount = catalog.items.filter((item) => stockStatus(item) === "out").length;
 
   return (
-    <div className="grid items-start gap-4 xl:grid-cols-[264px_minmax(0,1fr)]">
+    <div className="grid items-start gap-3.5 xl:grid-cols-[264px_minmax(0,1fr)]">
       <GlassCard className="flex flex-col gap-3 p-4 sm:p-4">
         <div className="flex items-center justify-between gap-2 px-2 pt-1">
           <CardTitle>Categories</CardTitle>
-          <Link href="/items/categories" className="text-[13px] font-bold text-brand hover:underline">
+          <Link href="/items/categories" className="text-[13px] font-semibold text-brand hover:underline">
             Manage
           </Link>
         </div>
@@ -97,8 +99,8 @@ export function ItemsWorkspace({ catalog }: { catalog: ItemCatalog }) {
         />
       </GlassCard>
 
-      <div className="flex min-w-0 flex-col gap-4">
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="flex min-w-0 flex-col gap-3.5">
+        <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
           <Stat label="Items" value={catalog.items.length} />
           <Stat label="Item groups" value={catalog.groups.length} />
           <Stat label="Low stock" value={lowCount} tone="warning" onClick={() => setStockFilter("low")} />
@@ -106,41 +108,44 @@ export function ItemsWorkspace({ catalog }: { catalog: ItemCatalog }) {
         </div>
 
         <GlassCard className="flex flex-col gap-3.5">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <Link href="/items/new" className={buttonClasses("primary")}>
-              <Plus aria-hidden="true" className="size-[18px]" />
-              New item
-            </Link>
-            <Link href="/items/groups/new" className={buttonClasses("outline")}>
-              <Layers aria-hidden="true" className="size-[18px]" />
-              New item group
-            </Link>
-            <Link href="/items/categories" className={buttonClasses("neutral")}>
-              <FolderTree aria-hidden="true" className="size-[18px]" />
-              Categories
-            </Link>
-            <div className="ml-auto">
-              <ImportDialog what="items" columns={["Name", "SKU", "Category", "Sub-category", "Brand", "HSN", "Unit", "MRP", "Selling price", "Cost price", "Opening stock", "Reorder level"]} />
-            </div>
-          </div>
 
-          <SearchField
-            id="item-search"
-            label="Search items"
-            value={query}
-            onChange={setQuery}
-            placeholder="Search by name, SKU, brand, size, HSN or category"
-            trailing={`${visibleItems.length} of ${catalog.items.length}`}
-            prominent
-          />
+          <ListToolbar
+            actions={
+              <>
+                <Link href="/items/categories" className={buttonClasses("neutral")}>
+                  <FolderTree aria-hidden="true" />
+                  Categories
+                </Link>
+                <ImportDialog what="items" columns={["Name", "SKU", "Category", "Sub-category", "Brand", "HSN", "Unit", "MRP", "Selling price", "Cost price", "Opening stock", "Reorder level"]} />
+                <Link href="/items/groups/new" className={buttonClasses("neutral")}>
+                  <Layers aria-hidden="true" />
+                  New item group
+                </Link>
+                <Link href="/items/new" className={buttonClasses("primary", undefined, "lg")}>
+                  <Plus aria-hidden="true" />
+                  New item
+                </Link>
+              </>
+            }
+          >
+            <SearchField
+              className="max-w-[340px] flex-[1_1_240px]"
+              id="item-search"
+              label="Search items"
+              value={query}
+              onChange={setQuery}
+              placeholder="Search by name, SKU, brand, size, HSN or category"
+              trailing={`${visibleItems.length} of ${catalog.items.length}`}
+            />
 
-          <div className="flex flex-wrap gap-2">
-            {STOCK_FILTERS.map((filter) => (
-              <FilterChip key={filter.value} selected={stockFilter === filter.value} onClick={() => setStockFilter(filter.value)}>
-                {filter.label}
-              </FilterChip>
-            ))}
-          </div>
+            <FilterGroup label="Stock">
+              {STOCK_FILTERS.map((filter) => (
+                <FilterChip key={filter.value} selected={stockFilter === filter.value} onClick={() => setStockFilter(filter.value)}>
+                  {filter.label}
+                </FilterChip>
+              ))}
+            </FilterGroup>
+          </ListToolbar>
 
           <ItemsTable catalog={catalog} rows={rows} expandedGroups={expandedGroups} onToggleGroup={toggleGroup} />
           <p className="text-xs font-semibold text-muted">
@@ -163,14 +168,14 @@ interface StatProps {
 function Stat({ label, value, tone, onClick }: StatProps) {
   const figure = (
     <>
-      <span className="text-xs font-bold text-muted">{label}</span>
+      <span className="text-xs font-medium text-muted">{label}</span>
       <span
         className={
           tone === "danger" && value > 0
-            ? "text-2xl font-extrabold text-danger-strong tabular-nums"
+            ? "text-xl font-semibold text-danger-strong tabular-nums"
             : tone === "warning" && value > 0
-              ? "text-2xl font-extrabold text-warning-strong tabular-nums"
-              : "text-2xl font-extrabold tabular-nums"
+              ? "text-xl font-semibold text-warning-strong tabular-nums"
+              : "text-xl font-semibold tabular-nums"
         }
       >
         {formatQuantity(value)}
@@ -180,9 +185,9 @@ function Stat({ label, value, tone, onClick }: StatProps) {
   return (
     <GlassCard className="p-0 sm:p-0">
       {onClick ? (
-        <button type="button" onClick={onClick} className="glass-press flex w-full flex-col items-start gap-1 rounded-[26px] p-4 text-left">
+        <button type="button" onClick={onClick} className="glass-press flex w-full flex-col items-start gap-1 rounded-xl p-4 text-left">
           {figure}
-          <span className="text-[11px] font-bold text-brand">Show these</span>
+          <span className="text-[11px] font-semibold text-brand">Show these</span>
         </button>
       ) : (
         <div className="flex flex-col gap-1 p-4">{figure}</div>

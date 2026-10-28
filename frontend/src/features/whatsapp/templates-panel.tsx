@@ -7,6 +7,7 @@ import { Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/filter-chip";
+import { FilterGroup } from "@/components/ui/filter-group";
 import { FormMessage } from "@/components/ui/form-message";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { SelectField } from "@/components/ui/select-field";
@@ -55,7 +56,7 @@ export function TemplatesPanel({ initialTemplates }: { initialTemplates: Message
   const selected = templates.find((template) => template.id === selectedId);
 
   return (
-    <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+    <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
       <GlassCard className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <CardTitle>Templates</CardTitle>
@@ -71,9 +72,9 @@ export function TemplatesPanel({ initialTemplates }: { initialTemplates: Message
                 type="button"
                 aria-pressed={template.id === selectedId}
                 onClick={() => setSelectedId(template.id)}
-                className={`glass-press flex w-full flex-col items-start gap-1 rounded-[18px] px-4 py-3 text-left ${template.id === selectedId ? "glass-selected" : "glass-inset hover:bg-white/60"}`}
+                className={`glass-press flex w-full flex-col items-start gap-1 rounded-(--radius-tile) px-4 py-3 text-left ${template.id === selectedId ? "glass-selected" : "glass-inset hover:bg-white/60"}`}
               >
-                <span className="text-sm font-bold">{template.name}</span>
+                <span className="text-sm font-semibold">{template.name}</span>
                 <span className="flex flex-wrap gap-1.5">
                   <StatusChip tone={STATUS_TONE[template.status]}>{TEMPLATE_STATUS_TEXT[template.status]}</StatusChip>
                   <StatusChip tone="neutral">{PURPOSES.find((purpose) => purpose.value === template.purpose)?.label}</StatusChip>
@@ -167,14 +168,14 @@ function TemplateEditor({ template, onSave }: { template?: MessageTemplate; onSa
           control={control}
           name="withDocument"
           render={({ field }) => (
-            <div className="flex flex-wrap gap-2">
+            <FilterGroup label="Attachment">
               <FilterChip selected={field.value} onClick={() => field.onChange(true)}>
                 Sends a PDF
               </FilterChip>
               <FilterChip selected={!field.value} onClick={() => field.onChange(false)}>
                 Text only
               </FilterChip>
-            </div>
+            </FilterGroup>
           )}
         />
         <MessagePreview text={fillTemplate({ body }, placeholdersIn(body).map((number) => `[${labels[number - 1] || `blank ${number}`}]`))} document={withDocument ? "QT-2627-0047" : undefined} />

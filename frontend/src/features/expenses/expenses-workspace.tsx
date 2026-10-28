@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { buttonClasses } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/filter-chip";
+import { FilterGroup } from "@/components/ui/filter-group";
 import { GlassCard } from "@/components/ui/glass-card";
 import { GlassTable } from "@/components/ui/glass-table";
+import { ListToolbar } from "@/components/ui/list-toolbar";
 import { SearchField } from "@/components/ui/search-field";
 import { StatTile } from "@/components/ui/stat-tile";
 import { StatusChip } from "@/components/ui/status-chip";
@@ -42,8 +44,8 @@ export function ExpensesWorkspace({ expenses, heads, names, targets }: ExpensesW
   const byKind = (kind: ExpenseAllocation["kind"]) => sumAmount(expenses.filter((expense) => expense.allocation.kind === kind));
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+    <div className="flex flex-col gap-3.5">
+      <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
         <StatTile label="Spent, before GST" value={formatInr(sumAmount(expenses))} />
         <StatTile label="Landed on items" value={formatInr(byKind("item-cost"))} />
         <StatTile label="On invoices and shipments" value={formatInr(byKind("invoice") + byKind("shipment"))} />
@@ -51,35 +53,40 @@ export function ExpensesWorkspace({ expenses, heads, names, targets }: ExpensesW
       </div>
 
       <GlassCard className="flex flex-col gap-3.5">
-        <div className="flex flex-wrap gap-2.5">
-          <Link href="/expenses/new" className={buttonClasses("primary")}>
-            <Plus aria-hidden="true" className="size-[18px]" />
-            New expense
-          </Link>
-          <Link href="/masters/expense-heads" className={buttonClasses("neutral", "ml-auto")}>
-            <Settings2 aria-hidden="true" className="size-[18px]" />
-            Expense heads
-          </Link>
-        </div>
-        <SearchField
-          id="expense-search"
-          label="Search expenses"
-          value={query}
-          onChange={setQuery}
-          placeholder="Search by number, head, payee or slip number"
-          trailing={`${visible.length} of ${expenses.length}`}
-          prominent
-        />
-        <div className="flex flex-wrap gap-2">
-          <FilterChip selected={filter === "all"} onClick={() => setFilter("all")}>
-            All
-          </FilterChip>
-          {ALLOCATIONS.map((option) => (
-            <FilterChip key={option.value} selected={filter === option.value} onClick={() => setFilter(option.value)}>
-              {option.label}
+        <ListToolbar
+          actions={
+            <>
+              <Link href="/masters/expense-heads" className={buttonClasses("neutral")}>
+                <Settings2 aria-hidden="true" />
+                Expense heads
+              </Link>
+              <Link href="/expenses/new" className={buttonClasses("primary", undefined, "lg")}>
+                <Plus aria-hidden="true" />
+                New expense
+              </Link>
+            </>
+          }
+        >
+          <SearchField
+            className="max-w-[340px] flex-[1_1_240px]"
+            id="expense-search"
+            label="Search expenses"
+            value={query}
+            onChange={setQuery}
+            placeholder="Search by number, head, payee or slip number"
+            trailing={`${visible.length} of ${expenses.length}`}
+          />
+          <FilterGroup label="Where the cost lands">
+            <FilterChip selected={filter === "all"} onClick={() => setFilter("all")}>
+              All
             </FilterChip>
-          ))}
-        </div>
+            {ALLOCATIONS.map((option) => (
+              <FilterChip key={option.value} selected={filter === option.value} onClick={() => setFilter(option.value)}>
+                {option.label}
+              </FilterChip>
+            ))}
+          </FilterGroup>
+        </ListToolbar>
         <GlassTable className="min-w-[960px]">
           <thead>
             <tr className="text-right">
@@ -98,22 +105,22 @@ export function ExpensesWorkspace({ expenses, heads, names, targets }: ExpensesW
               return (
                 <tr key={expense.id} className="align-top">
                   <td className="text-left">
-                    <span className="font-bold">{expense.number}</span>
+                    <span className="font-semibold">{expense.number}</span>
                     <div className="text-xs text-muted">
                       {formatDayMonth(expense.date)}
                       {expense.reference && ` · ${expense.reference}`}
                     </div>
                   </td>
                   <td className="text-left">
-                    <div className="font-bold">{headName(expense.headId)}</div>
+                    <div className="font-semibold">{headName(expense.headId)}</div>
                     <div className="text-xs text-muted">{expense.description}</div>
                   </td>
                   <td className="text-left">{payeeOf(expense)}</td>
-                  <td className="font-bold">{formatInr(expense.amount)}</td>
+                  <td className="font-semibold">{formatInr(expense.amount)}</td>
                   <td className="text-muted">{expense.gstRatePct ? formatInr(expenseGst(expense)) : "–"}</td>
                   <td className="text-left">
                     {target ? (
-                      <Link href={`${TARGET_PATH[target.kind]}/${target.id}`} className="font-bold text-brand hover:underline">
+                      <Link href={`${TARGET_PATH[target.kind]}/${target.id}`} className="font-semibold text-brand hover:underline">
                         {target.label.split(" · ")[0]}
                       </Link>
                     ) : (
@@ -126,7 +133,7 @@ export function ExpensesWorkspace({ expenses, heads, names, targets }: ExpensesW
             })}
           </tbody>
         </GlassTable>
-        {visible.length === 0 && <p className="py-6 text-center text-sm font-semibold text-muted">No expenses match.</p>}
+        {visible.length === 0 && <p className="py-6 text-center text-[13px] text-muted">No expenses match.</p>}
       </GlassCard>
     </div>
   );

@@ -35,7 +35,7 @@ export function InheritedField({
     return (
       <div className="flex flex-col gap-1.5">
         {children}
-        <button type="button" onClick={onReset} className="self-start text-xs font-bold text-brand hover:underline">
+        <button type="button" onClick={onReset} className="self-start text-xs font-semibold text-brand hover:underline">
           Use inherited
           {inherited.value !== undefined && ` (${format(inherited.value)}, ${SOURCE_LABEL[inherited.source].toLowerCase()})`}
         </button>
@@ -46,13 +46,13 @@ export function InheritedField({
   return (
     <div className="flex flex-col gap-1.5">
       <span className={fieldLabelClasses}>{label}</span>
-      <div className="glass-inset flex h-11 items-center justify-between gap-2 rounded-full px-4">
-        <span className="truncate text-sm font-bold">
+      <div className="glass-inset flex h-[34px] items-center justify-between gap-2 px-2.5">
+        <span className="truncate text-sm font-semibold">
           {inherited.value === undefined ? <span className="text-muted">Not set</span> : format(inherited.value)}
         </span>
         <span className="shrink-0 text-xs font-semibold text-muted">{SOURCE_LABEL[inherited.source]}</span>
       </div>
-      <button type="button" onClick={onOverride} className="self-start text-xs font-bold text-brand hover:underline">
+      <button type="button" onClick={onOverride} className="self-start text-xs font-semibold text-brand hover:underline">
         {inherited.value === undefined ? "Set" : "Change"} for this {levelName}
       </button>
     </div>

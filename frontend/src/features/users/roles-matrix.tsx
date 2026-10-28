@@ -5,6 +5,7 @@ import { Check } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/filter-chip";
+import { FilterGroup } from "@/components/ui/filter-group";
 import { FormMessage } from "@/components/ui/form-message";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { GlassTable } from "@/components/ui/glass-table";
@@ -43,13 +44,13 @@ export function RolesMatrix({ initialRoles, modules }: RolesMatrixProps) {
   return (
     <GlassCard className="flex flex-col gap-3.5">
       <CardTitle>Roles and permissions</CardTitle>
-      <div className="flex flex-wrap gap-2">
+      <FilterGroup label="Role">
         {roles.map((candidate) => (
           <FilterChip key={candidate.id} selected={candidate.id === roleId} onClick={() => setRoleId(candidate.id)}>
             {candidate.name}
           </FilterChip>
         ))}
-      </div>
+      </FilterGroup>
       <p className="-mt-1 text-sm font-medium text-muted">
         {role.description}
         {role.locked && ". The Owner role cannot be changed."}
@@ -68,7 +69,7 @@ export function RolesMatrix({ initialRoles, modules }: RolesMatrixProps) {
         <tbody className="font-semibold">
           {modules.map((module) => (
             <tr key={module.href}>
-              <td className="font-bold">{module.label}</td>
+              <td className="font-semibold">{module.label}</td>
               {PERMISSIONS.map((permission) => {
                 const on = (role.access[module.href] ?? []).includes(permission);
                 return (
@@ -81,11 +82,11 @@ export function RolesMatrix({ initialRoles, modules }: RolesMatrixProps) {
                       disabled={role.locked}
                       onClick={() => toggle(module.href, permission)}
                       className={clsx(
-                        "glass-press inline-flex size-8 items-center justify-center rounded-full disabled:cursor-not-allowed",
-                        on ? "glass-tinted bg-success text-white" : "glass-control text-transparent hover:bg-white/80",
+                        "inline-flex size-[18px] items-center justify-center rounded border disabled:cursor-not-allowed",
+                        on ? "border-brand bg-brand text-white" : "border-ink/30 bg-white text-transparent hover:border-ink/50",
                       )}
                     >
-                      <Check aria-hidden="true" className="size-4" />
+                      <Check aria-hidden="true" strokeWidth={3} className="size-3" />
                     </button>
                   </td>
                 );

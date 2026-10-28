@@ -15,7 +15,7 @@ export function ShipmentsCard({ counts, shipments }: ShipmentsCardProps) {
     <GlassCard className="flex flex-col gap-3.5">
       <div className="flex items-center gap-2">
         <CardTitle>Bhutan shipments</CardTitle>
-        <Link href="/shipments" className="ml-auto text-xs font-bold text-brand hover:underline">
+        <Link href="/shipments" className="ml-auto text-xs font-semibold text-brand hover:underline">
           All shipments
         </Link>
       </div>
@@ -23,13 +23,13 @@ export function ShipmentsCard({ counts, shipments }: ShipmentsCardProps) {
         {counts.map(({ label, count }) => (
           <div key={label} className="flex flex-col-reverse glass-inset px-1 py-2.5">
             <dt className="text-xs font-semibold text-muted">{label}</dt>
-            <dd className="text-2xl leading-tight font-bold tracking-tight tabular-nums">{count}</dd>
+            <dd className="text-lg leading-tight font-semibold tabular-nums">{count}</dd>
           </div>
         ))}
       </dl>
       {shipments.map((shipment) => (
         <Link key={shipment.id} href={`/shipments/${shipment.id}`} className="group flex flex-col gap-1 border-t border-line pt-2.5">
-          <div className="flex justify-between gap-2 text-[13px] font-extrabold">
+          <div className="flex justify-between gap-2 text-[13px] font-semibold">
             <span className="group-hover:text-brand group-hover:underline">
               {shipment.number} · {shipment.vehicle}
             </span>

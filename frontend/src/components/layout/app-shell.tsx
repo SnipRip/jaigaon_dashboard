@@ -34,8 +34,8 @@ export function AppShell({ children, searchIndex }: { children: ReactNode; searc
       <div className="relative min-h-screen">
         <PageBackdrop />
         <PointerLight />
-        <div className="relative flex items-start gap-3 p-3 sm:gap-4 sm:p-4">
-          <div className="sticky top-4 flex max-h-[calc(100vh-2rem)] shrink-0 max-lg:hidden">
+        <div className="relative flex items-start gap-3 p-3 sm:gap-3.5 sm:p-3.5">
+          <div className="sticky top-3.5 flex max-h-[calc(100vh-1.75rem)] shrink-0 max-lg:hidden">
             <Sidebar collapsed={collapsed} animated={sidebarAnimated} onToggleCollapsed={toggleCollapsed} />
           </div>
 
@@ -49,9 +49,9 @@ export function AppShell({ children, searchIndex }: { children: ReactNode; searc
             </div>
           )}
 
-          <div className="flex min-w-0 flex-1 flex-col gap-3 sm:gap-4">
+          <div className="flex min-w-0 flex-1 flex-col gap-3 sm:gap-3.5">
             <Topbar onOpenMenu={() => setDrawerOpen(true)} searchIndex={searchIndex} />
-            <main className="flex min-w-0 flex-col gap-3 sm:gap-4">{children}</main>
+            <main className="flex min-w-0 flex-col gap-3 sm:gap-3.5">{children}</main>
           </div>
         </div>
       </div>

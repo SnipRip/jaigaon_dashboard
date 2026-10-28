@@ -31,8 +31,8 @@ export function InvoiceDetail({ initialInvoice, party, issuer }: InvoiceDetailPr
   const stage = invoiceStage(invoice);
 
   return (
-    <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
-      <div className="flex min-w-0 flex-col gap-4">
+    <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="flex min-w-0 flex-col gap-3.5">
         <div className="flex flex-wrap gap-2.5">
           <Button onClick={() => window.print()}>
             <Printer aria-hidden="true" className="size-[18px]" />
@@ -50,20 +50,20 @@ export function InvoiceDetail({ initialInvoice, party, issuer }: InvoiceDetailPr
         <InvoiceDocument invoice={invoice} party={party} issuer={issuer} tax={tax} />
       </div>
 
-      <div className="flex flex-col gap-4 xl:sticky xl:top-4">
+      <div className="flex flex-col gap-3.5 xl:sticky xl:top-3.5">
         <GlassCard className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>{invoice.number}</CardTitle>
             <InvoiceStageChip stage={stage} />
           </div>
           <dl className="grid grid-cols-2 gap-2 text-sm">
-            <div className="glass-inset rounded-[18px] p-3">
-              <dt className="text-xs font-bold text-muted">Total</dt>
-              <dd className="font-extrabold tabular-nums">{formatInr(totals.grandTotal)}</dd>
+            <div className="glass-inset rounded-(--radius-tile) p-3">
+              <dt className="text-xs font-medium text-muted">Total</dt>
+              <dd className="font-semibold tabular-nums">{formatInr(totals.grandTotal)}</dd>
             </div>
-            <div className="glass-inset rounded-[18px] p-3">
-              <dt className="text-xs font-bold text-muted">Tax</dt>
-              <dd className="font-extrabold">{tax.title}</dd>
+            <div className="glass-inset rounded-(--radius-tile) p-3">
+              <dt className="text-xs font-medium text-muted">Tax</dt>
+              <dd className="font-semibold">{tax.title}</dd>
             </div>
           </dl>
           <p className="text-xs font-semibold text-muted">
@@ -84,7 +84,7 @@ export function InvoiceDetail({ initialInvoice, party, issuer }: InvoiceDetailPr
               <Link href={`/payments/receipts/new?invoice=${invoice.id}`} className={buttonClasses("success")}>
                 Record receipt
               </Link>
-              <Link href={`/payments/ledger/${party.id}`} className="text-xs font-bold text-brand hover:underline">
+              <Link href={`/payments/ledger/${party.id}`} className="text-xs font-semibold text-brand hover:underline">
                 {party.displayName}&rsquo;s ledger
               </Link>
             </div>

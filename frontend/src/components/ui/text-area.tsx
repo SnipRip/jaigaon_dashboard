@@ -17,7 +17,7 @@ export function TextArea({ label, error, hint, className, id, rows = 4, ...props
   const message = error ?? hint;
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1">
       <label htmlFor={fieldId} className={fieldLabelClasses}>
         {label}
       </label>
@@ -26,11 +26,11 @@ export function TextArea({ label, error, hint, className, id, rows = 4, ...props
         rows={rows}
         aria-invalid={error ? true : undefined}
         aria-describedby={message ? messageId : undefined}
-        className={clsx(fieldClasses, "h-auto resize-y py-3 leading-relaxed !rounded-[18px]", error && "border-danger", className)}
+        className={clsx(fieldClasses, "h-auto resize-y py-2 leading-relaxed", error && "border-danger", className)}
         {...props}
       />
       {message && (
-        <p id={messageId} className={clsx("text-xs font-semibold", error ? "text-danger-strong" : "text-muted")}>
+        <p id={messageId} className={clsx("text-[11.5px] font-medium", error ? "text-danger-strong" : "text-muted")}>
           {message}
         </p>
       )}

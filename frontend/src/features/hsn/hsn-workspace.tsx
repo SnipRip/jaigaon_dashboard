@@ -5,10 +5,12 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/filter-chip";
+import { FilterGroup } from "@/components/ui/filter-group";
 import { FormMessage } from "@/components/ui/form-message";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { GlassModal } from "@/components/ui/glass-modal";
 import { GlassTable } from "@/components/ui/glass-table";
+import { ListToolbar } from "@/components/ui/list-toolbar";
 import { SearchField } from "@/components/ui/search-field";
 import { StatusChip } from "@/components/ui/status-chip";
 import { HsnForm } from "./hsn-form";
@@ -49,31 +51,34 @@ export function HsnWorkspace({ initialCodes, usage, gstRates }: HsnWorkspaceProp
   };
 
   return (
-    <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+    <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
       <GlassCard className="flex flex-col gap-3.5">
-        <div className="flex flex-wrap items-center gap-2">
+        <ListToolbar
+          actions={
+            <Button size="lg" onClick={() => setAdding(true)}>
+              <Plus aria-hidden="true" />
+              New code
+            </Button>
+          }
+        >
           <CardTitle>Codes · {codes.length}</CardTitle>
-          <Button className="ml-auto" onClick={() => setAdding(true)}>
-            <Plus aria-hidden="true" className="size-[18px]" />
-            New code
-          </Button>
-        </div>
-        <SearchField
-          id="hsn-search"
-          label="Search HSN and SAC codes"
-          value={query}
-          onChange={setQuery}
-          placeholder="Search by code or description"
-          trailing={`${visible.length} of ${codes.length}`}
-          prominent
-        />
-        <div className="flex flex-wrap gap-2">
-          {(["all", "HSN", "SAC"] as const).map((option) => (
-            <FilterChip key={option} selected={kind === option} onClick={() => setKind(option)}>
-              {option === "all" ? "All codes" : option === "HSN" ? "HSN · goods" : "SAC · services"}
-            </FilterChip>
-          ))}
-        </div>
+          <SearchField
+            className="max-w-[340px] flex-[1_1_200px]"
+            id="hsn-search"
+            label="Search HSN and SAC codes"
+            value={query}
+            onChange={setQuery}
+            placeholder="Search by code or description"
+            trailing={`${visible.length} of ${codes.length}`}
+          />
+          <FilterGroup label="Code type">
+            {(["all", "HSN", "SAC"] as const).map((option) => (
+              <FilterChip key={option} selected={kind === option} onClick={() => setKind(option)}>
+                {option === "all" ? "All codes" : option === "HSN" ? "HSN · goods" : "SAC · services"}
+              </FilterChip>
+            ))}
+          </FilterGroup>
+        </ListToolbar>
         <GlassTable className="min-w-[620px]">
           <thead>
             <tr className="text-right">
@@ -91,7 +96,7 @@ export function HsnWorkspace({ initialCodes, usage, gstRates }: HsnWorkspaceProp
                     type="button"
                     aria-pressed={hsn.code === selectedCode}
                     onClick={() => setSelectedCode(hsn.code)}
-                    className="font-extrabold text-brand hover:underline"
+                    className="font-semibold text-brand hover:underline"
                   >
                     {hsn.code}
                   </button>
@@ -105,28 +110,28 @@ export function HsnWorkspace({ initialCodes, usage, gstRates }: HsnWorkspaceProp
                     </span>
                   )}
                 </td>
-                <td className="font-bold">{latestRate(hsn)}%</td>
+                <td className="font-semibold">{latestRate(hsn)}%</td>
                 <td className="text-muted">{usage[hsn.code] ?? 0}</td>
               </tr>
             ))}
           </tbody>
         </GlassTable>
-        {visible.length === 0 && <p className="py-6 text-center text-sm font-semibold text-muted">No codes match.</p>}
+        {visible.length === 0 && <p className="py-6 text-center text-[13px] text-muted">No codes match.</p>}
         <p className="text-xs font-semibold text-muted">
           Items take their GST rate from their HSN code. Shipping bills need the full 8-digit code; add it here when the
           customs agent confirms it.
         </p>
       </GlassCard>
 
-      <div className="flex flex-col gap-4 xl:sticky xl:top-4">
+      <div className="flex flex-col gap-3.5 xl:sticky xl:top-3.5">
         {selected ? (
-          <GlassCard className="flex flex-col gap-4">
+          <GlassCard className="flex flex-col gap-3.5">
             <div className="flex flex-wrap items-center gap-2">
               <CardTitle>
                 {selected.kind} {selected.code}
               </CardTitle>
               <StatusChip tone="brand">{latestRate(selected)}% GST</StatusChip>
-              <span className="ml-auto text-xs font-bold text-muted">Used by {usage[selected.code] ?? 0} items</span>
+              <span className="ml-auto text-xs font-medium text-muted">Used by {usage[selected.code] ?? 0} items</span>
             </div>
             <HsnForm
               key={`${selected.code}-${selected.rates.length}`}
@@ -136,7 +141,7 @@ export function HsnWorkspace({ initialCodes, usage, gstRates }: HsnWorkspaceProp
               onSave={save}
             />
             <div className="flex flex-col gap-2 border-t border-line pt-3">
-              <span className="text-xs font-bold text-muted">Rate history</span>
+              <span className="text-xs font-medium text-muted">Rate history</span>
               <ol className="flex flex-col gap-1.5">
                 {[...selected.rates].reverse().map((change, index) => (
                   <li key={change.from} className="flex items-center justify-between text-sm font-semibold">

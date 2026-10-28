@@ -13,7 +13,7 @@ export default function TaxExportPage() {
   return (
     <>
       <SampleDataNotice />
-      <div className="grid items-start gap-4 xl:grid-cols-2">
+      <div className="grid items-start gap-3.5 xl:grid-cols-2">
         <ExportSettingsForm
           companyState={COMPANY_TAX_PROFILE.stateCode}
           companyGstin={COMPANY_TAX_PROFILE.gstin}

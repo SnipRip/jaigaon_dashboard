@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { buttonClasses } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/filter-chip";
+import { FilterGroup } from "@/components/ui/filter-group";
 import { GlassCard } from "@/components/ui/glass-card";
 import { GlassTable } from "@/components/ui/glass-table";
+import { ListToolbar } from "@/components/ui/list-toolbar";
 import { SearchField } from "@/components/ui/search-field";
 import { StatTile } from "@/components/ui/stat-tile";
 import { StatusChip } from "@/components/ui/status-chip";
@@ -47,8 +49,8 @@ export function InvoicesWorkspace({ invoices, parties, companyState }: InvoicesW
   const awaitingBrc = exportsOpen.filter((row) => row.invoice.documents.leo || row.invoice.documents["shipping-bill"]).length;
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+    <div className="flex flex-col gap-3.5">
+      <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
         <StatTile label="Invoices" value={formatQuantity(rows.length)} />
         <StatTile label="Billed" value={formatInr(rows.reduce((sum, row) => sum + row.totals.grandTotal, 0))} />
         <StatTile label="Exports still open" value={formatQuantity(exportsOpen.length)} />
@@ -56,33 +58,38 @@ export function InvoicesWorkspace({ invoices, parties, companyState }: InvoicesW
       </div>
 
       <GlassCard className="flex flex-col gap-3.5">
-        <div className="flex flex-wrap gap-2.5">
-          <Link href="/invoices/new/local" className={buttonClasses("primary")}>
-            <Plus aria-hidden="true" className="size-[18px]" />
-            New local invoice
-          </Link>
-          <Link href="/invoices/new/export" className={buttonClasses("success")}>
-            <Globe aria-hidden="true" className="size-[18px]" />
-            New export invoice
-          </Link>
-        </div>
 
-        <SearchField
-          id="invoice-search"
-          label="Search invoices"
-          value={query}
-          onChange={setQuery}
-          placeholder="Search by invoice number or customer"
-          trailing={`${visible.length} of ${rows.length}`}
-          prominent
-        />
-        <div className="flex flex-wrap gap-2">
-          {(["all", "local", "export"] as const).map((option) => (
-            <FilterChip key={option} selected={kind === option} onClick={() => setKind(option)}>
-              {option === "all" ? "All invoices" : option === "local" ? "Local (GST)" : "Export"}
-            </FilterChip>
-          ))}
-        </div>
+        <ListToolbar
+          actions={
+            <>
+              <Link href="/invoices/new/export" className={buttonClasses("success")}>
+                <Globe aria-hidden="true" />
+                New export invoice
+              </Link>
+              <Link href="/invoices/new/local" className={buttonClasses("primary", undefined, "lg")}>
+                <Plus aria-hidden="true" />
+                New local invoice
+              </Link>
+            </>
+          }
+        >
+          <SearchField
+            className="max-w-[340px] flex-[1_1_240px]"
+            id="invoice-search"
+            label="Search invoices"
+            value={query}
+            onChange={setQuery}
+            placeholder="Search by invoice number or customer"
+            trailing={`${visible.length} of ${rows.length}`}
+          />
+          <FilterGroup label="Invoice kind">
+            {(["all", "local", "export"] as const).map((option) => (
+              <FilterChip key={option} selected={kind === option} onClick={() => setKind(option)}>
+                {option === "all" ? "All invoices" : option === "local" ? "Local (GST)" : "Export"}
+              </FilterChip>
+            ))}
+          </FilterGroup>
+        </ListToolbar>
 
         <GlassTable className="min-w-[900px]">
           <thead>
@@ -102,7 +109,7 @@ export function InvoicesWorkspace({ invoices, parties, companyState }: InvoicesW
               return (
                 <tr key={invoice.id} className="align-top">
                   <td className="text-left">
-                    <Link href={`/invoices/${invoice.id}`} className="font-bold hover:text-brand hover:underline">
+                    <Link href={`/invoices/${invoice.id}`} className="font-semibold hover:text-brand hover:underline">
                       {invoice.number}
                     </Link>
                     <div className="text-xs text-muted">
@@ -110,7 +117,7 @@ export function InvoicesWorkspace({ invoices, parties, companyState }: InvoicesW
                     </div>
                   </td>
                   <td className="text-left">
-                    <div className="font-bold">{party.displayName}</div>
+                    <div className="font-semibold">{party.displayName}</div>
                     <div className="text-xs text-muted">
                       {invoice.kind === "export" ? invoice.destinationCountry : stateName(invoice.placeOfSupply)}
                     </div>
@@ -119,7 +126,7 @@ export function InvoicesWorkspace({ invoices, parties, companyState }: InvoicesW
                     <StatusChip tone={invoice.kind === "export" ? "success" : "brand"}>{tax.title}</StatusChip>
                   </td>
                   <td>{formatInr(totals.taxable)}</td>
-                  <td className="font-bold">{formatInr(totals.grandTotal)}</td>
+                  <td className="font-semibold">{formatInr(totals.grandTotal)}</td>
                   <td className="text-left">
                     <InvoiceStageChip stage={stage} />
                   </td>
@@ -139,7 +146,7 @@ export function InvoicesWorkspace({ invoices, parties, companyState }: InvoicesW
             })}
           </tbody>
         </GlassTable>
-        {visible.length === 0 && <p className="py-6 text-center text-sm font-semibold text-muted">No invoices match.</p>}
+        {visible.length === 0 && <p className="py-6 text-center text-[13px] text-muted">No invoices match.</p>}
       </GlassCard>
     </div>
   );

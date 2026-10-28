@@ -38,14 +38,14 @@ export function LoginForm() {
   });
 
   return (
-    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} noValidate className="flex flex-col gap-3.5">
       <TextField
         label="Email"
         type="email"
         autoComplete="username"
         placeholder="name@example.com"
         error={errors.email?.message}
-        className="h-12"
+        className="h-[38px]"
         {...register("email")}
       />
       <TextField
@@ -53,12 +53,12 @@ export function LoginForm() {
         type={showPassword ? "text" : "password"}
         autoComplete="current-password"
         error={errors.password?.message}
-        className="h-12"
+        className="h-[38px]"
         trailing={<PasswordVisibilityToggle visible={showPassword} onToggle={() => setShowPassword((v) => !v)} />}
         {...register("password")}
       />
       {errors.root?.message && <FormMessage tone="error">{errors.root.message}</FormMessage>}
-      <Button type="submit" disabled={isSubmitting} className="h-[50px] text-[15px]">
+      <Button type="submit" disabled={isSubmitting} size="lg">
         {isSubmitting ? "Signing in…" : "Sign in"}
       </Button>
     </form>

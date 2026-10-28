@@ -26,7 +26,7 @@ export function ExtractedDataPanel({ detectedType, fields, shipment, chain }: Ex
   const fieldsToCheck = fields.filter((field) => field.confidence < LOW_CONFIDENCE_BELOW).length;
 
   return (
-    <GlassCard aria-label="Extracted data" className="flex flex-col gap-4">
+    <GlassCard aria-label="Extracted data" className="flex flex-col gap-3.5">
       <div className="flex flex-wrap items-center justify-between gap-2.5">
         <CardTitle>Extracted data</CardTitle>
         {fieldsToCheck > 0 && (
@@ -57,7 +57,7 @@ export function ExtractedDataPanel({ detectedType, fields, shipment, chain }: Ex
       </form>
 
       <div className="flex flex-col gap-2.5 border-t border-line pt-4">
-        <h3 className="text-sm font-extrabold">Matched to shipment {shipment.reference}</h3>
+        <h3 className="text-sm font-semibold">Matched to shipment {shipment.reference}</h3>
         <p className="text-[13px] font-semibold text-muted">
           Matched on {shipment.matchedOn}. Approving adds this document to the shipment&apos;s chain.
         </p>
@@ -73,13 +73,13 @@ export function ExtractedDataPanel({ detectedType, fields, shipment, chain }: Ex
       </div>
 
       <div className="flex flex-wrap gap-2.5 border-t border-line pt-4">
-        <Button variant="success" disabled className="h-[50px] flex-[2_1_200px] text-[15px]">
+        <Button variant="success" disabled size="lg" className="flex-[2_1_200px]">
           Approve and link to {shipment.reference}
         </Button>
-        <Button variant="neutral" disabled className="h-[50px] flex-[1_1_120px]">
+        <Button variant="neutral" disabled size="lg" className="flex-[1_1_120px]">
           Re-process
         </Button>
-        <Button variant="danger" disabled className="h-[50px] flex-[1_1_120px]">
+        <Button variant="danger" disabled size="lg" className="flex-[1_1_120px]">
           Reject
         </Button>
       </div>

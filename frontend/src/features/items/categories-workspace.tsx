@@ -100,7 +100,7 @@ export function CategoriesWorkspace({ initialCategories, items, units, gstRates 
   const addingParent = adding?.level === "sub-category" ? categories.find((candidate) => candidate.id === adding.categoryId) : undefined;
 
   return (
-    <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <GlassCard className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle>Categories · {categories.length}</CardTitle>
@@ -119,19 +119,19 @@ export function CategoriesWorkspace({ initialCategories, items, units, gstRates 
           {categories.map((candidate) => {
             const categoryActive = selection.categoryId === candidate.id && !selection.subCategoryId;
             return (
-              <li key={candidate.id} className="glass-inset flex flex-col gap-1 rounded-[18px] p-2">
+              <li key={candidate.id} className="glass-inset flex flex-col gap-1 rounded-(--radius-tile) p-2">
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
                     aria-pressed={categoryActive}
                     onClick={() => setSelection({ categoryId: candidate.id })}
                     className={clsx(
-                      "glass-press flex min-h-11 flex-1 items-center gap-2 rounded-full px-3.5 text-left text-sm font-extrabold",
+                      "flex min-h-8 flex-1 items-center gap-2 rounded-md px-2.5 text-left text-[13px] font-semibold transition-colors",
                       categoryActive ? "glass-selected" : "hover:bg-white/60",
                     )}
                   >
                     <span className="flex-1">{candidate.name}</span>
-                    <span className="text-xs font-bold text-muted tabular-nums">
+                    <span className="text-xs font-medium text-muted tabular-nums">
                       {formatQuantity(counts.get(candidate.id) ?? 0)} items
                     </span>
                   </button>
@@ -139,7 +139,7 @@ export function CategoriesWorkspace({ initialCategories, items, units, gstRates 
                     type="button"
                     aria-label={`Add a sub-category to ${candidate.name}`}
                     onClick={() => setAdding({ level: "sub-category", categoryId: candidate.id })}
-                    className="glass-control glass-press flex size-11 shrink-0 items-center justify-center text-brand hover:bg-white/80"
+                    className="glass-control glass-press flex size-8 shrink-0 items-center justify-center text-brand hover:bg-brand-tint/60"
                   >
                     <FolderPlus aria-hidden="true" className="size-[18px]" />
                   </button>
@@ -155,7 +155,7 @@ export function CategoriesWorkspace({ initialCategories, items, units, gstRates 
                             aria-pressed={active}
                             onClick={() => setSelection({ categoryId: candidate.id, subCategoryId: subCategory.id })}
                             className={clsx(
-                              "glass-press flex min-h-11 w-full items-center gap-2 rounded-full px-3.5 text-left text-[13px] font-bold",
+                              "flex min-h-[30px] w-full items-center gap-2 rounded-md px-2.5 text-left text-[13px] transition-colors",
                               active ? "glass-selected" : "text-ink-soft hover:bg-white/60",
                             )}
                           >
@@ -173,13 +173,13 @@ export function CategoriesWorkspace({ initialCategories, items, units, gstRates 
         </ul>
       </GlassCard>
 
-      <div className="flex flex-col gap-4 xl:sticky xl:top-4">
+      <div className="flex flex-col gap-3.5 xl:sticky xl:top-3.5">
         {selected && category ? (
-          <GlassCard className="flex flex-col gap-4">
+          <GlassCard className="flex flex-col gap-3.5">
             <div className="flex flex-wrap items-center gap-2">
               <CardTitle>{selected.name}</CardTitle>
               <StatusChip tone={sub ? "neutral" : "brand"}>{sub ? `Sub-category of ${category.name}` : "Category"}</StatusChip>
-              <span className="ml-auto text-xs font-bold text-muted">{formatQuantity(itemCount)} items</span>
+              <span className="ml-auto text-xs font-medium text-muted">{formatQuantity(itemCount)} items</span>
             </div>
             <p className="text-sm font-medium text-muted">
               Defaults set here apply to every item below unless a sub-category, item group or item sets its own.

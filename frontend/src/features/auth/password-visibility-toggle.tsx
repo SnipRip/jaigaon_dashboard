@@ -14,9 +14,9 @@ export function PasswordVisibilityToggle({ visible, onToggle }: PasswordVisibili
       onClick={onToggle}
       aria-label={visible ? "Hide password" : "Show password"}
       aria-pressed={visible}
-      className="flex size-11 items-center justify-center rounded-full text-muted hover:text-ink"
+      className="flex h-full w-10 items-center justify-center rounded-(--radius-control) text-muted hover:text-ink"
     >
-      <Icon aria-hidden="true" className="size-5" />
+      <Icon aria-hidden="true" className="size-4" />
     </button>
   );
 }

@@ -148,9 +148,9 @@ export function QuotationForm({ customers, catalog, book, companyState, suggeste
     );
 
   return (
-    <form onSubmit={submit(false)} noValidate className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-      <div className="@container flex min-w-0 flex-col gap-4">
-        <GlassCard className="flex flex-col gap-4">
+    <form onSubmit={submit(false)} noValidate className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="@container flex min-w-0 flex-col gap-3.5">
+        <GlassCard className="flex flex-col gap-3.5">
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>New quotation</CardTitle>
             <StatusChip tone="neutral">{suggestedNumber}</StatusChip>
@@ -185,7 +185,7 @@ export function QuotationForm({ customers, catalog, book, companyState, suggeste
             const belowMinimum = item?.minSellingPrice && line && netRate < item.minSellingPrice;
             const lineErrors = errors.lines?.[index];
             return (
-              <div key={field.id} className="glass-inset flex flex-col gap-2.5 rounded-[18px] p-3">
+              <div key={field.id} className="glass-inset flex flex-col gap-2.5 rounded-(--radius-tile) p-3">
                 <div className="grid items-start gap-2.5 @2xl:grid-cols-[minmax(0,3fr)_1fr_1fr_1fr_auto]">
                   <div className="flex flex-col gap-1.5">
                     <Controller
@@ -230,8 +230,8 @@ export function QuotationForm({ customers, catalog, book, companyState, suggeste
                     <span>Stock {item.stock}</span>
                     <span>GST {line.gstRatePct}%{tax ? ` → ${describeComponents(line.gstRatePct, tax.regime)}` : ""}</span>
                     <span className={lineMargin !== undefined && lineMargin < 8 ? "text-danger-strong" : undefined}>Margin {formatPercent(lineMargin ?? 0)}</span>
-                    <span className="ml-auto font-extrabold text-ink tabular-nums">{formatRate(lineTotals(line, "no-gst").taxable)}</span>
-                    {belowMinimum && <span className="w-full font-bold text-danger-strong">Below the minimum selling price of {formatRate(item.minSellingPrice!)}: needs approval.</span>}
+                    <span className="ml-auto font-semibold text-ink tabular-nums">{formatRate(lineTotals(line, "no-gst").taxable)}</span>
+                    {belowMinimum && <span className="w-full font-semibold text-danger-strong">Below the minimum selling price of {formatRate(item.minSellingPrice!)}: needs approval.</span>}
                   </div>
                 )}
               </div>
@@ -248,21 +248,21 @@ export function QuotationForm({ customers, catalog, book, companyState, suggeste
           <TextField label="Notes for the customer" error={errors.notes?.message} {...register("notes")} />
           {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
           <div className="flex flex-wrap gap-2.5">
-            <Button type="submit" className="h-[50px] px-6">
+            <Button type="submit" size="lg">
               Save quotation
             </Button>
-            <Button variant="success" className="h-[50px] px-6" onClick={submit(true)}>
+            <Button variant="success" size="lg" onClick={submit(true)}>
               <Send aria-hidden="true" className="size-[18px]" />
               Save and send on WhatsApp
             </Button>
-            <Link href="/quotations" className={buttonClasses("neutral", "ml-auto h-[50px]")}>
+            <Link href="/quotations" className={buttonClasses("neutral", "ml-auto", "lg")}>
               Back to quotations
             </Link>
           </div>
         </GlassCard>
       </div>
 
-      <GlassCard className="flex flex-col gap-2 xl:sticky xl:top-4">
+      <GlassCard className="flex flex-col gap-2 xl:sticky xl:top-3.5">
         <div className="flex items-center justify-between gap-2">
           <CardTitle>Totals</CardTitle>
           {tax && <StatusChip tone="brand">{tax.title}</StatusChip>}
@@ -279,12 +279,12 @@ export function QuotationForm({ customers, catalog, book, companyState, suggeste
             </div>
           ))}
           <div className="my-1 border-t border-line" />
-          <div className="flex justify-between text-lg font-extrabold">
+          <div className="flex justify-between text-lg font-semibold">
             <dt>Quotation total</dt>
             <dd className="tabular-nums">{formatInr(totals.grandTotal)}</dd>
           </div>
         </dl>
-        <div className="glass-inset mt-1 flex justify-between rounded-[18px] px-4 py-3 text-sm font-bold">
+        <div className="glass-inset mt-1 flex justify-between rounded-(--radius-tile) px-4 py-3 text-sm font-semibold">
           <span>Profit {formatInr(profit.profit)}</span>
           <span className={profit.marginPct < 8 ? "text-danger-strong" : "text-success-strong"}>{formatPercent(profit.marginPct)}</span>
         </div>

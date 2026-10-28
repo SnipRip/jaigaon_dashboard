@@ -3,10 +3,10 @@
 import clsx from "clsx";
 import Link from "next/link";
 import { useState } from "react";
-import { FilterChip } from "@/components/ui/filter-chip";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { GlassTable } from "@/components/ui/glass-table";
 import { StatTile } from "@/components/ui/stat-tile";
+import { ViewTabs } from "@/components/ui/view-tabs";
 import { formatInr, formatPercent } from "@/lib/format";
 import type { ProfitRow } from "./profit-report";
 import type { Profit } from "./profit-rules";
@@ -38,8 +38,8 @@ export function ProfitWorkspace({ rows, total, overheads }: ProfitWorkspaceProps
   const net = total.profit - overheads;
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+    <div className="flex flex-col gap-3.5">
+      <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
         <StatTile label="Sales, before GST" value={formatInr(total.sales)} />
         <StatTile label="Profit on sales" value={formatInr(total.profit)} tone="success" />
         <StatTile label="Overheads" value={formatInr(overheads)} />
@@ -47,13 +47,7 @@ export function ProfitWorkspace({ rows, total, overheads }: ProfitWorkspaceProps
       </div>
 
       <GlassCard className="flex flex-col gap-3.5">
-        <div className="flex flex-wrap items-center gap-2">
-          {VIEWS.map((option) => (
-            <FilterChip key={option.value} selected={view === option.value} onClick={() => setView(option.value)}>
-              {option.label}
-            </FilterChip>
-          ))}
-        </div>
+        <ViewTabs label="Group profit by" tabs={VIEWS} value={view} onChange={setView} className="-mx-4 -mt-1 px-4 sm:-mx-[18px] sm:px-[18px]" />
         <GlassTable className="min-w-[880px]">
           <thead>
             <tr className="text-right">
@@ -73,18 +67,18 @@ export function ProfitWorkspace({ rows, total, overheads }: ProfitWorkspaceProps
               <tr key={row.key}>
                 <td className="text-left">
                   {row.href ? (
-                    <Link href={row.href} className="font-bold hover:text-brand hover:underline">
+                    <Link href={row.href} className="font-semibold hover:text-brand hover:underline">
                       {row.label}
                     </Link>
                   ) : (
-                    <span className="font-bold">{row.label}</span>
+                    <span className="font-semibold">{row.label}</span>
                   )}
                   {row.detail && <div className="text-xs text-muted">{row.detail}</div>}
                 </td>
                 <td>{formatInr(row.sales)}</td>
                 <td className="text-muted">{formatInr(row.cost)}</td>
                 <td className="text-muted">{formatInr(row.expenses)}</td>
-                <td className={clsx("font-bold", row.profit < 0 && "text-danger-strong")}>{formatInr(row.profit)}</td>
+                <td className={clsx("font-semibold", row.profit < 0 && "text-danger-strong")}>{formatInr(row.profit)}</td>
                 <td className={row.marginPct < 8 ? "text-danger-strong" : undefined}>{formatPercent(row.marginPct)}</td>
                 <td>
                   <span aria-hidden="true" className="block h-2.5 rounded-full bg-ink/5">
@@ -97,7 +91,7 @@ export function ProfitWorkspace({ rows, total, overheads }: ProfitWorkspaceProps
               </tr>
             ))}
           </tbody>
-          <tfoot className="text-right font-extrabold tabular-nums">
+          <tfoot className="text-right font-semibold tabular-nums">
             <tr className="border-t border-line">
               <td className="text-left">Total</td>
               <td>{formatInr(total.sales)}</td>
@@ -127,7 +121,7 @@ export function ProfitWorkspace({ rows, total, overheads }: ProfitWorkspaceProps
 function SortHeader({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <th scope="col" aria-sort={active ? "descending" : "none"}>
-      <button type="button" onClick={onClick} className={clsx("font-bold hover:text-brand", active && "text-brand-strong underline")}>
+      <button type="button" onClick={onClick} className={clsx("font-semibold hover:text-brand", active && "text-brand-strong underline")}>
         {label}
       </button>
     </th>

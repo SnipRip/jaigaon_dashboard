@@ -13,7 +13,7 @@ import { signOut } from "@/features/auth/sign-out";
 import { BrandLogo } from "./brand-logo";
 
 const ICON_BUTTON =
-  "glass-control glass-press flex size-11 shrink-0 items-center justify-center text-ink-soft hover:bg-white/80 hover:text-ink";
+  "glass-control glass-press flex size-8 shrink-0 items-center justify-center text-ink-soft hover:bg-neutral-tint/60 hover:text-ink";
 
 // Folding and unfolding: everything that moves or resizes shares this timing.
 // The curve starts and lands gently. One that front-loads the movement (as
@@ -38,12 +38,12 @@ interface SidebarProps {
 }
 
 // Main navigation. Expanded it shows the logo, group labels and item labels;
-// collapsed it is a 72px icon rail that leaves more room for the page.
+// collapsed it is a 60px icon rail that leaves more room for the page.
 // It fills the height its parent gives it and scrolls the links inside.
 //
 // Both states render the same elements in the same places: only the width
 // changes and the text fades. That is what lets the fold animate, so do not
-// add markup that exists in one state only. The icons sit 36px from the left
+// add markup that exists in one state only. The icons sit 30px from the left
 // edge in both, which is the middle of the rail.
 export function Sidebar({ collapsed, animated = false, onToggleCollapsed, onNavigate }: SidebarProps) {
   const activeHref = findNavItem(usePathname())?.href;
@@ -56,12 +56,12 @@ export function Sidebar({ collapsed, animated = false, onToggleCollapsed, onNavi
       as="nav"
       aria-label="Main"
       elevation="floating"
-      className={clsx("flex flex-col px-3 py-3.5", slide, collapsed ? "w-[72px]" : "w-[264px]")}
+      className={clsx("flex flex-col px-2 py-3", slide, collapsed ? "w-[60px]" : "w-[232px]")}
     >
-      <div className={clsx("flex shrink-0 items-center pb-3", slide, collapsed ? "pr-0.5 pl-0" : "pl-2")}>
+      <div className={clsx("flex shrink-0 items-center pb-3", slide, collapsed ? "pr-1.5 pl-0" : "pl-1.5")}>
         <div aria-hidden={collapsed} className={clsx("min-w-0 flex-1 overflow-hidden", fade)}>
           <div className="w-max">
-            <BrandLogo height={52} priority />
+            <BrandLogo height={40} priority />
           </div>
         </div>
         <button
@@ -71,18 +71,18 @@ export function Sidebar({ collapsed, animated = false, onToggleCollapsed, onNavi
           aria-expanded={!collapsed}
           className={ICON_BUTTON}
         >
-          {collapsed ? <PanelLeftOpen aria-hidden="true" className="size-5" /> : <PanelLeftClose aria-hidden="true" className="size-5" />}
+          {collapsed ? <PanelLeftOpen aria-hidden="true" className="size-4" /> : <PanelLeftClose aria-hidden="true" className="size-4" />}
         </button>
       </div>
 
       {/* Only the links scroll; the logo row above and the account row below stay put.
           The area runs into the right padding so its scrollbar sits clear of the links. */}
-      <div className="-mr-3 -ml-3 flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto py-1 pl-3 [scrollbar-gutter:stable]">
+      <div className="-mr-2 -ml-2 flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto py-1 pl-2 [scrollbar-gutter:stable]">
         {NAV_GROUPS.map((group, index) => (
-          <div key={group.label} className="mt-3 flex flex-col gap-1 first:mt-0">
+          <div key={group.label} className="mt-2.5 flex flex-col gap-0.5 first:mt-0">
             {/* The group name when expanded, a hairline in its place on the rail. */}
             <div className="relative flex h-6 items-center">
-              <span className={clsx("truncate px-3.5 text-[11px] font-bold tracking-[0.08em] text-muted uppercase", fade)}>
+              <span className={clsx("truncate px-2.5 text-[11.5px] font-semibold text-muted", fade)}>
                 {group.label}
               </span>
               {index > 0 && (
@@ -103,11 +103,11 @@ export function Sidebar({ collapsed, animated = false, onToggleCollapsed, onNavi
                     aria-current={isActive ? "page" : undefined}
                     aria-label={collapsed ? label : undefined}
                     className={clsx(
-                      "glass-press flex h-11 shrink-0 items-center gap-3 rounded-full px-3.5 text-sm",
-                      isActive ? "glass-selected font-bold" : "font-semibold text-ink-soft hover:bg-white/45 hover:text-ink",
+                      "flex h-8 shrink-0 items-center gap-2.5 rounded-(--radius-control) px-3.5 text-[13px] transition-colors",
+                      isActive ? "glass-selected font-semibold" : "font-medium text-ink-soft hover:bg-white/50 hover:text-ink",
                     )}
                   >
-                    <Icon aria-hidden="true" strokeWidth={isActive ? 2.25 : 2} className="size-5 shrink-0" />
+                    <Icon aria-hidden="true" strokeWidth={isActive ? 2.1 : 1.8} className="size-4 shrink-0" />
                     <span className={clsx("truncate", fade)}>{label}</span>
                   </Link>
                 </Tooltip>
@@ -120,20 +120,20 @@ export function Sidebar({ collapsed, animated = false, onToggleCollapsed, onNavi
       {/* Side by side when expanded, sign-out stacked above the avatar on the rail.
           Both are placed by hand so the move between the two can be animated. */}
       <div className="mt-2 shrink-0 border-t border-line pt-3">
-        <div className={clsx("relative", slide, collapsed ? "h-24" : "h-11")}>
+        <div className={clsx("relative", slide, collapsed ? "h-[76px]" : "h-9")}>
           <Link
             href="/settings"
             onClick={onNavigate}
             aria-label={collapsed ? `${user.displayName}, account settings` : undefined}
             className={clsx(
-              "glass-inset glass-press absolute bottom-0 flex h-11 items-center gap-2.5 overflow-hidden rounded-full p-1 hover:bg-white/60",
+              "glass-inset glass-press absolute bottom-0 flex h-9 items-center gap-2 overflow-hidden p-0.5 hover:bg-white/60",
               slide,
-              collapsed ? "left-0.5 w-11" : "left-0 w-[calc(100%-52px)] pr-4",
+              collapsed ? "left-1 w-9" : "left-0 w-[calc(100%-40px)] pr-3",
             )}
           >
             <UserAvatar name={user.displayName} />
             <span className={clsx("flex min-w-0 flex-col", fade)}>
-              <span className="truncate text-[13px] leading-tight font-bold">{user.displayName}</span>
+              <span className="truncate text-[13px] leading-tight font-semibold">{user.displayName}</span>
               <span className="truncate text-xs leading-tight text-muted capitalize">{user.role.toLowerCase()}</span>
             </span>
           </Link>
@@ -142,9 +142,9 @@ export function Sidebar({ collapsed, animated = false, onToggleCollapsed, onNavi
               type="button"
               onClick={signOut}
               aria-label="Sign out"
-              className={clsx(ICON_BUTTON, "absolute", slide, collapsed ? "right-0.5 bottom-[52px]" : "right-0 bottom-0")}
+              className={clsx(ICON_BUTTON, "absolute", slide, collapsed ? "right-1.5 bottom-[44px]" : "right-0 bottom-0.5")}
             >
-              <LogOut aria-hidden="true" className="size-5" />
+              <LogOut aria-hidden="true" className="size-4" />
             </button>
           </Tooltip>
         </div>

@@ -18,7 +18,7 @@ export function PendingQuotationsTable({ quotations }: { quotations: PendingQuot
     <GlassCard className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
         <CardTitle>Pending quotations and orders</CardTitle>
-        <Link href="/quotations" className="ml-auto text-xs font-bold text-brand hover:underline">
+        <Link href="/quotations" className="ml-auto text-xs font-semibold text-brand hover:underline">
           All quotations
         </Link>
       </div>
@@ -38,7 +38,7 @@ export function PendingQuotationsTable({ quotations }: { quotations: PendingQuot
             return (
               <tr key={quotation.id}>
                 <td>
-                  <Link href={`/quotations/${quotation.id}`} className="font-bold hover:text-brand hover:underline">
+                  <Link href={`/quotations/${quotation.id}`} className="font-semibold hover:text-brand hover:underline">
                     {quotation.label}
                   </Link>
                 </td>

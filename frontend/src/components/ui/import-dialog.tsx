@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "./button";
 import { FilePicker } from "./file-picker";
 import { FilterChip } from "./filter-chip";
+import { FilterGroup } from "./filter-group";
 import { FormMessage } from "./form-message";
 import { GlassModal } from "./glass-modal";
 
@@ -57,13 +58,13 @@ export function ImportDialog({ what, columns }: ImportDialogProps) {
           </>
         }
       >
-        <div className="flex flex-wrap gap-2">
+        <FilterGroup label="Import from">
           {(["sheet", "tally"] as const).map((option) => (
             <FilterChip key={option} selected={source === option} onClick={() => setSource(option)}>
               {option === "sheet" ? "Excel or CSV sheet" : "Tally masters export (XML)"}
             </FilterChip>
           ))}
-        </div>
+        </FilterGroup>
         <FilePicker
           label="File"
           accept={source === "sheet" ? ".xlsx,.xls,.csv" : ".xml"}
@@ -73,10 +74,10 @@ export function ImportDialog({ what, columns }: ImportDialogProps) {
         />
         {source === "sheet" && (
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-bold text-muted">Columns, in this order</span>
+            <span className="text-xs font-medium text-muted">Columns, in this order</span>
             <div className="flex flex-wrap gap-1.5">
               {columns.map((column) => (
-                <span key={column} className="glass-inset rounded-full px-3 py-1 text-xs font-bold">
+                <span key={column} className="rounded-[5px] bg-neutral-tint px-2 py-0.5 text-xs font-medium">
                   {column}
                 </span>
               ))}

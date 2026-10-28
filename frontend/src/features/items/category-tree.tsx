@@ -21,8 +21,8 @@ interface CategoryTreeProps {
 
 const rowClasses = (active: boolean) =>
   clsx(
-    "glass-press flex min-h-11 w-full items-center gap-2 rounded-full px-3.5 text-left text-[13px] font-bold",
-    active ? "glass-selected" : "text-ink-soft hover:bg-white/60",
+    "flex min-h-[30px] w-full items-center gap-2 rounded-md px-2 text-left text-[13px] transition-colors",
+    active ? "glass-selected font-semibold" : "text-ink-soft hover:bg-white/60",
   );
 
 // The category → sub-category filter beside the item list. A category opens
@@ -68,7 +68,7 @@ export function CategoryTree({ categories, counts, total, selected, onSelect }: 
                 aria-expanded={isOpen}
                 disabled={category.subCategories.length === 0}
                 onClick={() => toggle(category.id)}
-                className="flex size-11 shrink-0 items-center justify-center rounded-full text-muted hover:bg-white/60 hover:text-ink disabled:invisible"
+                className="flex size-[30px] shrink-0 items-center justify-center rounded-md text-muted hover:bg-white/60 hover:text-ink disabled:invisible"
               >
                 <ChevronRight aria-hidden="true" className={clsx("size-4 transition-transform", isOpen && "rotate-90")} />
               </button>

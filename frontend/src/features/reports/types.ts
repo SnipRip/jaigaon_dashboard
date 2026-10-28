@@ -11,10 +11,13 @@ export interface ReportColumn {
 
 export type ReportRow = Record<string, string | number> & { href?: string };
 
+/** Report groups, in the order the catalogue and the report list show them. */
+export const REPORT_GROUPS = ["Sales", "Purchases", "GST", "Stock", "Money", "Export"] as const;
+
 export interface Report {
   id: string;
   title: string;
-  group: "Sales" | "Purchases" | "GST" | "Stock" | "Money" | "Export";
+  group: (typeof REPORT_GROUPS)[number];
   description: string;
   columns: ReportColumn[];
   rows: ReportRow[];

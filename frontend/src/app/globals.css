@@ -86,7 +86,12 @@
   --glass-fill: 0.06;
   --glass-blur: 5px;
   --glass-saturation: 170%;
-  --glass-radius: 26px;
+  /* Corners are kept tight (28 Oct 2026): panel 12px, tile 9px, popover
+     10px, controls and fields 7px. */
+  --glass-radius: 12px;
+  --radius-tile: 9px;
+  --radius-popover: 10px;
+  --radius-control: 7px;
 
   --glass-rim: linear-gradient(
     135deg,
@@ -190,7 +195,7 @@
     inset 0 1px 0 rgb(255 255 255 / 0.85),
     0 1px 2px rgb(20 40 90 / 0.06),
     0 6px 14px -8px rgb(20 40 90 / 0.2);
-  border-radius: 18px;
+  border-radius: var(--radius-tile);
 }
 
 /* A floating list, menu or dialog. Denser than a panel so text over it stays
@@ -203,19 +208,30 @@
     inset 0 0 0 1px rgb(255 255 255 / 0.7),
     inset 0 1px 0 rgb(255 255 255 / 0.95),
     var(--glass-shadow-floating);
-  border-radius: 22px;
+  border-radius: var(--radius-popover);
 }
 
-/* A clear capsule control: icon buttons, chips, the search box. */
+/* A button that is not filled with a colour: white with a hairline border,
+   so it reads as a button and never as a filter (filters sit in a
+   segment-track instead). Icon buttons, outline and neutral buttons. */
 @utility glass-control {
-  background-color: rgb(255 255 255 / 0.24);
-  border: 1px solid rgb(255 255 255 / 0.6);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.95),
-    inset 0 -1px 0 rgb(15 27 58 / 0.05),
-    0 1px 2px rgb(20 40 90 / 0.07),
-    0 6px 14px -6px rgb(20 40 90 / 0.14);
-  border-radius: 999px;
+  background-color: #fff;
+  border: 1px solid rgb(15 27 58 / 0.16);
+  box-shadow: 0 1px 2px rgb(20 40 90 / 0.08);
+  border-radius: var(--radius-control);
+}
+
+/* A row of one-of-many filters: a recessed grey track. The chosen option
+   (FilterChip) is a raised white segment; the others are plain text, so a
+   filter never looks like a button. */
+@utility segment-track {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background-color: rgb(15 27 58 / 0.07);
+  box-shadow: inset 0 1px 1px rgb(15 27 58 / 0.06);
 }
 
 /* Tinted glass: the gloss laid over a control filled with a colour. */
@@ -229,46 +245,36 @@
     0 8px 18px -8px rgb(20 40 90 / 0.34);
 }
 
-/* The chosen one of a set (current page, pressed filter, picked document):
-   a raised capsule of brighter glass with a little of the brand blue in it. */
+/* The chosen one of a set (current page, picked document, chosen segment):
+   a raised white piece with brand text. */
 @utility glass-selected {
-  background: linear-gradient(
-    180deg,
-    rgb(255 255 255 / 0.78),
-    color-mix(in srgb, var(--color-brand) 10%, rgb(255 255 255 / 0.5))
-  );
+  background: #fff;
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--color-brand) 16%, transparent),
-    inset 0 1px 0 #fff,
-    0 1px 2px rgb(20 40 90 / 0.1),
-    0 8px 18px -10px color-mix(in srgb, var(--color-brand) 55%, transparent);
+    0 1px 2px rgb(20 40 90 / 0.14),
+    0 0 0 0.5px rgb(15 27 58 / 0.08);
   color: var(--color-brand-strong);
 }
 
 /* A text field: a shallow well in the glass, so it reads as somewhere to type. */
 @utility glass-field {
-  background-color: rgb(255 255 255 / 0.4);
+  background-color: rgb(255 255 255 / 0.78);
   border: 1px solid var(--color-field-border);
-  box-shadow:
-    inset 0 1.5px 2px rgb(20 40 90 / 0.07),
-    0 1px 0 rgb(255 255 255 / 0.8);
-  border-radius: 999px;
+  box-shadow: inset 0 1px 1px rgb(15 27 58 / 0.04);
+  border-radius: var(--radius-control);
   transition:
     background-color 200ms var(--glass-ease),
     border-color 200ms var(--glass-ease),
     box-shadow 200ms var(--glass-ease);
 
   &:hover:not(:disabled) {
-    background-color: rgb(255 255 255 / 0.58);
+    background-color: rgb(255 255 255 / 0.92);
   }
 
   &:focus-visible,
   &:focus-within {
-    background-color: rgb(255 255 255 / 0.85);
+    background-color: #fff;
     border-color: var(--color-brand);
-    box-shadow:
-      inset 0 1.5px 2px rgb(20 40 90 / 0.05),
-      0 0 0 4px color-mix(in srgb, var(--color-brand) 16%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand) 16%, transparent);
   }
 }
 
@@ -299,33 +305,32 @@
   border-spacing: 0;
 
   & th {
-    padding: 8px 12px;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    padding: 8px 10px;
+    font-size: 12px;
+    font-weight: 500;
     color: var(--color-muted);
+    white-space: nowrap;
   }
 
   /* The separator is a 1px background strip, not a border: it stays a
      straight line under the rounded row highlight, and stops level with the
      text at both ends. */
   & td {
-    padding: 12px;
+    padding: 8px 10px;
     background: linear-gradient(var(--color-line), var(--color-line)) top / 100% 1px no-repeat;
     transition: background-color 180ms var(--glass-ease);
   }
 
   & td:first-child {
-    border-radius: 14px 0 0 14px;
+    border-radius: 6px 0 0 6px;
     background-position: right top;
-    background-size: calc(100% - 12px) 1px;
+    background-size: calc(100% - 10px) 1px;
   }
 
   & td:last-child {
-    border-radius: 0 14px 14px 0;
+    border-radius: 0 6px 6px 0;
     background-position: left top;
-    background-size: calc(100% - 12px) 1px;
+    background-size: calc(100% - 10px) 1px;
   }
 
   & tbody tr:hover td {

@@ -28,15 +28,15 @@ const KINDS: { href: string; icon: LucideIcon; title: string; lines: string[] }[
 // The first question when billing: is this a local sale or an export?
 export function InvoiceKindPicker() {
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid gap-3.5 md:grid-cols-2">
       {KINDS.map(({ href, icon: Icon, title, lines }) => (
-        <Link key={href} href={href} className="group rounded-[26px]">
-          <GlassCard interactive className="flex h-full flex-col gap-4 p-7">
+        <Link key={href} href={href} className="group rounded-xl">
+          <GlassCard interactive className="flex h-full flex-col gap-3 p-5">
             <div className="flex items-center gap-3">
-              <span className="flex size-14 items-center justify-center rounded-2xl bg-brand-tint text-brand-strong">
+              <span className="flex size-14 items-center justify-center rounded-(--radius-tile) bg-brand-tint text-brand-strong">
                 <Icon aria-hidden="true" className="size-7" />
               </span>
-              <span className="text-xl font-bold tracking-tight">{title}</span>
+              <span className="text-xl font-semibold tracking-tight">{title}</span>
               <ArrowRight aria-hidden="true" className="ml-auto size-6 text-muted transition-transform group-hover:translate-x-1" />
             </div>
             <ul className="flex flex-col gap-1.5 text-sm font-semibold text-ink-soft">

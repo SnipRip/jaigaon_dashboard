@@ -40,7 +40,7 @@ export function NumberSeriesMaster({ series }: { series: NumberSeries[] }) {
       columns={[
         { label: "Document", render: (row) => SERIES_DOCUMENTS.find((document) => document.value === row.document)?.label },
         { label: "Year", render: (row) => row.financialYear },
-        { label: "Next number", render: (row) => <span className="font-extrabold">{preview(row)}</span> },
+        { label: "Next number", render: (row) => <span className="font-semibold">{preview(row)}</span> },
         {
           label: "Length",
           render: (row) => (

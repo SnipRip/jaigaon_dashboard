@@ -22,7 +22,7 @@ export function OcrReviewWorkspace({ queue, fields, shipment, chain }: OcrReview
   return (
     <>
       <ReviewQueue documents={queue} selectedId={selected.id} onSelect={setSelectedId} />
-      <div className="grid items-start gap-4 xl:grid-cols-2">
+      <div className="grid items-start gap-3.5 xl:grid-cols-2">
         <DocumentPreview fileName={selected.fileName} />
         <ExtractedDataPanel key={selected.id} detectedType={selected.detectedType} fields={fields} shipment={shipment} chain={chain} />
       </div>

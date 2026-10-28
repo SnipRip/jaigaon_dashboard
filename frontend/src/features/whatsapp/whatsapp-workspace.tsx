@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { FilterChip } from "@/components/ui/filter-chip";
 import { GlassCard } from "@/components/ui/glass-card";
 import { GlassTable } from "@/components/ui/glass-table";
 import type { SelectOption } from "@/components/ui/select-field";
 import { StatTile } from "@/components/ui/stat-tile";
 import { StatusChip, type StatusTone } from "@/components/ui/status-chip";
+import { ViewTabs } from "@/components/ui/view-tabs";
 import { formatDateTime, formatQuantity } from "@/lib/format";
 import { SendMessageForm } from "./send-message-form";
 import { TemplatesPanel } from "./templates-panel";
@@ -37,20 +37,14 @@ interface WhatsappWorkspaceProps {
 export function WhatsappWorkspace({ templates, optIns, messages, documents, names }: WhatsappWorkspaceProps) {
   const [tab, setTab] = useState<Tab>("send");
   return (
-    <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+    <div className="flex flex-col gap-3.5">
+      <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
         <StatTile label="Opted in" value={formatQuantity(optIns.filter((optIn) => optIn.status === "opted-in").length)} tone="success" />
         <StatTile label="Approved templates" value={formatQuantity(templates.filter((template) => template.status === "approved").length)} />
         <StatTile label="Messages this month" value={formatQuantity(messages.length)} />
         <StatTile label="Failed" value={formatQuantity(messages.filter((message) => message.status === "failed").length)} tone={messages.some((message) => message.status === "failed") ? "danger" : undefined} />
       </div>
-      <div className="flex flex-wrap gap-2">
-        {TABS.map((option) => (
-          <FilterChip key={option.value} selected={tab === option.value} onClick={() => setTab(option.value)}>
-            {option.label}
-          </FilterChip>
-        ))}
-      </div>
+      <ViewTabs label="WhatsApp views" tabs={TABS} value={tab} onChange={setTab} />
 
       {tab === "send" && <SendMessageForm templates={templates} optIns={optIns} documents={documents} />}
       {tab === "templates" && <TemplatesPanel initialTemplates={templates} />}
@@ -69,7 +63,7 @@ export function WhatsappWorkspace({ templates, optIns, messages, documents, name
             <tbody className="font-semibold">
               {optIns.map((optIn) => (
                 <tr key={optIn.id}>
-                  <td className="font-bold">{optIn.name}</td>
+                  <td className="font-semibold">{optIn.name}</td>
                   <td className="tabular-nums">{optIn.phone}</td>
                   <td>{optIn.source === "website" ? "Website form" : "At the counter"}</td>
                   <td>
@@ -103,7 +97,7 @@ export function WhatsappWorkspace({ templates, optIns, messages, documents, name
                 <tr key={message.id}>
                   <td>{formatDateTime(message.at)}</td>
                   <td>
-                    <div className="font-bold">{names[message.partyId]}</div>
+                    <div className="font-semibold">{names[message.partyId]}</div>
                     <div className="text-xs text-muted tabular-nums">{message.phone}</div>
                   </td>
                   <td>{message.templateId}</td>

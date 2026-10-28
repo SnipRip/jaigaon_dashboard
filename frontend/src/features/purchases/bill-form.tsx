@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/filter-chip";
+import { FilterGroup } from "@/components/ui/filter-group";
 import { FormMessage } from "@/components/ui/form-message";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { SelectField } from "@/components/ui/select-field";
@@ -173,22 +174,22 @@ export function BillForm({ vendors, catalog, purchases, companyState, suggestedR
   const errorText = (message?: string) => message && <p className="text-xs font-semibold text-danger-strong">{message}</p>;
 
   return (
-    <form onSubmit={onSubmit} noValidate className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-      <div className="@container flex min-w-0 flex-col gap-4">
-        <GlassCard className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} noValidate className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="@container flex min-w-0 flex-col gap-3.5">
+        <GlassCard className="flex flex-col gap-3.5">
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>New bill</CardTitle>
             <StatusChip tone="neutral">{suggestedReference}</StatusChip>
           </div>
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-bold text-muted">What is this bill for?</span>
-            <div className="flex flex-wrap gap-2">
+            <span className="text-xs font-medium text-muted">What is this bill for?</span>
+            <FilterGroup label="What is this bill for?">
               {(["goods", "charges"] as const).map((option) => (
                 <FilterChip key={option} selected={kind === option} onClick={() => pickKind(option)}>
                   {KIND_TEXT[option].label}
                 </FilterChip>
               ))}
-            </div>
+            </FilterGroup>
             <p className="text-sm font-medium text-muted">{KIND_TEXT[kind].hint}</p>
           </div>
 
@@ -245,8 +246,8 @@ export function BillForm({ vendors, catalog, purchases, companyState, suggestedR
             />
           </div>
           {tax && (
-            <div className={tax.itc ? "glass-inset rounded-[18px] px-4 py-3" : "rounded-[18px] bg-warning-tint px-4 py-3"}>
-              <p className="flex flex-wrap items-center gap-2 text-sm font-extrabold">
+            <div className={tax.itc ? "glass-inset rounded-(--radius-tile) px-4 py-3" : "rounded-(--radius-tile) bg-warning-tint px-4 py-3"}>
+              <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
                 {tax.title}
                 <StatusChip tone={tax.itc ? "success" : "warning"}>{tax.itc ? "Input credit claimable" : "No input credit"}</StatusChip>
               </p>
@@ -264,7 +265,7 @@ export function BillForm({ vendors, catalog, purchases, companyState, suggestedR
               const lineTotal = line ? lineTotals(line, split) : undefined;
               const lineErrors = errors.lines?.[index];
               return (
-                <div key={field.id} className="glass-inset flex flex-col gap-2.5 rounded-[18px] p-3">
+                <div key={field.id} className="glass-inset flex flex-col gap-2.5 rounded-(--radius-tile) p-3">
                   <div className="grid items-start gap-2.5 @2xl:grid-cols-[minmax(0,3fr)_1fr_1fr_1fr_auto]">
                     <div className="flex flex-col gap-1.5">
                       <Controller
@@ -303,18 +304,18 @@ export function BillForm({ vendors, catalog, purchases, companyState, suggestedR
                           control={control}
                           name={`lines.${index}.itc`}
                           render={({ field: itcField }) => (
-                            <span className="flex gap-1.5">
-                              <FilterChip selected={itcField.value === "eligible"} onClick={() => itcField.onChange("eligible")} className="h-9 px-3 text-xs">
+                            <FilterGroup label="Input credit">
+                              <FilterChip selected={itcField.value === "eligible"} onClick={() => itcField.onChange("eligible")}>
                                 Claim input credit
                               </FilterChip>
-                              <FilterChip selected={itcField.value === "ineligible"} onClick={() => itcField.onChange("ineligible")} className="h-9 px-3 text-xs">
+                              <FilterChip selected={itcField.value === "ineligible"} onClick={() => itcField.onChange("ineligible")}>
                                 Not eligible, 17(5)
                               </FilterChip>
-                            </span>
+                            </FilterGroup>
                           )}
                         />
                       )}
-                      <span className="ml-auto font-extrabold text-ink tabular-nums">{formatRate(lineTotal.taxable)} before GST</span>
+                      <span className="ml-auto font-semibold text-ink tabular-nums">{formatRate(lineTotal.taxable)} before GST</span>
                     </div>
                   )}
                 </div>
@@ -340,7 +341,7 @@ export function BillForm({ vendors, catalog, purchases, companyState, suggestedR
           </p>
           {errorText(errors.charges?.root?.message ?? errors.charges?.message)}
           {chargeFields.fields.map((field, index) => (
-            <div key={field.id} className="glass-inset grid items-start gap-2.5 rounded-[18px] p-3 @2xl:grid-cols-[1.2fr_2fr_1fr_1fr_auto]">
+            <div key={field.id} className="glass-inset grid items-start gap-2.5 rounded-(--radius-tile) p-3 @2xl:grid-cols-[1.2fr_2fr_1fr_1fr_auto]">
               <Controller
                 control={control}
                 name={`charges.${index}.head`}
@@ -352,13 +353,13 @@ export function BillForm({ vendors, catalog, purchases, companyState, suggestedR
               <TextField label="Amount (₹)" inputMode="decimal" error={errors.charges?.[index]?.amount?.message} {...register(`charges.${index}.amount`)} />
               {isGoods ? (
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold text-muted">GST</span>
-                  <span className="flex h-11 items-center text-sm font-bold">{tax?.itc === false ? "None" : `${goodsRate}%, as the bill`}</span>
+                  <span className="text-xs font-medium text-muted">GST</span>
+                  <span className="flex h-[34px] items-center text-[13px] font-semibold">{tax?.itc === false ? "None" : `${goodsRate}%, as the bill`}</span>
                 </div>
               ) : rateRule?.fixed !== undefined ? (
                 <div className="flex flex-col gap-1.5">
-                  <span className="text-xs font-bold text-muted">GST</span>
-                  <span className="flex h-11 items-center text-sm font-bold">{rateRule.fixed}%</span>
+                  <span className="text-xs font-medium text-muted">GST</span>
+                  <span className="flex h-[34px] items-center text-[13px] font-semibold">{rateRule.fixed}%</span>
                 </div>
               ) : (
                 <Controller
@@ -426,17 +427,17 @@ export function BillForm({ vendors, catalog, purchases, companyState, suggestedR
           </div>
           {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
           <div className="flex flex-wrap gap-2.5">
-            <Button type="submit" className="h-[50px] px-6">
+            <Button type="submit" size="lg">
               Save bill
             </Button>
-            <Link href="/purchases" className={buttonClasses("neutral", "ml-auto h-[50px]")}>
+            <Link href="/purchases" className={buttonClasses("neutral", "ml-auto", "lg")}>
               Back to bills
             </Link>
           </div>
         </GlassCard>
       </div>
 
-      <div className="flex flex-col gap-4 xl:sticky xl:top-4">
+      <div className="flex flex-col gap-3.5 xl:sticky xl:top-3.5">
         {tax && totals ? (
           <BillTotalsCard totals={totals} tax={tax} />
         ) : (

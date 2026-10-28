@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 import { buttonClasses } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/filter-chip";
+import { FilterGroup } from "@/components/ui/filter-group";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { GlassTable } from "@/components/ui/glass-table";
 import type { Item } from "@/features/items/types";
@@ -35,29 +36,29 @@ export function LandedCostCard({ goods, tagged, items, method, onMethodChange }:
     <GlassCard className="flex flex-col gap-3.5">
       <div className="flex flex-wrap items-center gap-2">
         <CardTitle>Landed cost</CardTitle>
-        <span className="ml-auto text-sm font-extrabold tabular-nums">{formatInr(charges)} to spread</span>
+        <span className="ml-auto text-sm font-semibold tabular-nums">{formatInr(charges)} to spread</span>
       </div>
 
       <ul className="flex flex-col gap-1.5 text-sm">
         {onBill > 0 && (
-          <li className="glass-inset flex flex-wrap justify-between gap-2 rounded-[18px] px-4 py-2.5">
-            <span className="font-bold">
+          <li className="glass-inset flex flex-wrap justify-between gap-2 rounded-(--radius-tile) px-4 py-2.5">
+            <span className="font-semibold">
               On this bill: {goods.bill.charges.map((charge) => chargeHeadLabel(charge.head).toLowerCase()).join(", ")}
             </span>
-            <span className="font-extrabold tabular-nums">{formatInr(onBill)}</span>
+            <span className="font-semibold tabular-nums">{formatInr(onBill)}</span>
           </li>
         )}
         {tagged.map((view) => (
-          <li key={view.bill.id} className="glass-inset flex flex-wrap justify-between gap-2 rounded-[18px] px-4 py-2.5">
+          <li key={view.bill.id} className="glass-inset flex flex-wrap justify-between gap-2 rounded-(--radius-tile) px-4 py-2.5">
             <span>
-              <Link href={`/purchases/${view.bill.id}`} className="font-bold text-brand hover:underline">
+              <Link href={`/purchases/${view.bill.id}`} className="font-semibold text-brand hover:underline">
                 {view.bill.reference}
               </Link>{" "}
               <span className="font-semibold text-ink-soft">
                 · {view.vendor.displayName} · {view.bill.charges.map((charge) => chargeHeadLabel(charge.head).toLowerCase()).join(", ")}
               </span>
             </span>
-            <span className="font-extrabold tabular-nums">{formatInr(view.totals.cost)}</span>
+            <span className="font-semibold tabular-nums">{formatInr(view.totals.cost)}</span>
           </li>
         ))}
         {charges === 0 && (
@@ -68,13 +69,13 @@ export function LandedCostCard({ goods, tagged, items, method, onMethodChange }:
         <p className="-mt-1 text-xs font-semibold text-muted">GST on these bills is claimed back as input credit, so only the value before GST lands on the items.</p>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <FilterGroup label="Spread by">
         {LANDED_COST_METHODS.map((option) => (
           <FilterChip key={option.value} selected={method === option.value} onClick={() => onMethodChange(option.value)}>
             {option.label}
           </FilterChip>
         ))}
-      </div>
+      </FilterGroup>
       <p className="-mt-1 text-xs font-semibold text-muted">{LANDED_COST_METHODS.find((option) => option.value === method)?.hint}.</p>
 
       {rows ? (
@@ -93,16 +94,16 @@ export function LandedCostCard({ goods, tagged, items, method, onMethodChange }:
           <tbody className="text-right font-semibold tabular-nums">
             {rows.map((row) => (
               <tr key={row.line.itemId}>
-                <td className="text-left font-bold">{row.line.description}</td>
+                <td className="text-left font-semibold">{row.line.description}</td>
                 <td>
                   {formatQuantity(row.line.quantity)} {row.line.unit}
                 </td>
                 <td>{method === "value" ? formatInr(row.basis) : formatQuantity(Math.round(row.basis * 100) / 100)}</td>
                 <td>{formatInr(row.ownCost)}</td>
                 <td>{formatInr(row.share)}</td>
-                <td className="font-bold">{formatInr(row.landedCost)}</td>
+                <td className="font-semibold">{formatInr(row.landedCost)}</td>
                 <td>
-                  {formatRate(row.line.rate)} → <span className="font-extrabold text-ink">{formatRate(row.landedRate)}</span>
+                  {formatRate(row.line.rate)} → <span className="font-semibold text-ink">{formatRate(row.landedRate)}</span>
                   <div className="text-xs text-muted">per {row.line.unit}</div>
                 </td>
               </tr>
@@ -110,7 +111,7 @@ export function LandedCostCard({ goods, tagged, items, method, onMethodChange }:
           </tbody>
         </GlassTable>
       ) : (
-        <p className="rounded-[18px] bg-warning-tint px-4 py-3 text-sm font-semibold text-warning-strong">
+        <p className="rounded-(--radius-tile) bg-warning-tint px-4 py-3 text-sm font-semibold text-warning-strong">
           Some items have no weight per unit. Add it on the item, or spread by value or quantity.
         </p>
       )}

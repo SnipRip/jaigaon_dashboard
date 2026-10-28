@@ -31,7 +31,7 @@ export function CustomerBar({ customers, selected, onSelect }: CustomerBarProps)
       {facts.map((fact) => (
         <div key={fact.label} className="flex flex-col gap-0.5">
           <span className={fieldLabelClasses}>{fact.label}</span>
-          <span className="text-[15px] font-extrabold">{fact.value}</span>
+          <span className="text-[15px] font-semibold">{fact.value}</span>
         </div>
       ))}
     </GlassCard>

@@ -43,17 +43,17 @@ export function ProfileForm() {
   });
 
   return (
-    <GlassCard aria-labelledby="settings-profile" className="flex flex-col gap-4 p-6">
+    <GlassCard aria-labelledby="settings-profile" className="flex flex-col gap-3.5">
       <CardTitle id="settings-profile">Profile</CardTitle>
-      <div className="flex items-center gap-4">
-        <UserAvatar name={user.displayName} className="size-[72px] text-2xl" />
+      <div className="flex items-center gap-3.5">
+        <UserAvatar name={user.displayName} className="size-14 text-lg" />
         <div className="flex min-w-0 flex-col">
-          <span className="truncate text-lg font-extrabold">{user.displayName}</span>
+          <span className="truncate text-lg font-semibold">{user.displayName}</span>
           <span className="truncate text-sm font-semibold text-muted">{user.email}</span>
         </div>
       </div>
 
-      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-3.5">
         <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3.5">
           <TextField label="Full name" autoComplete="name" error={errors.fullName?.message} {...register("fullName")} />
           <TextField label="Name shown on quotations" error={errors.displayName?.message} {...register("displayName")} />

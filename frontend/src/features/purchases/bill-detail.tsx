@@ -44,8 +44,8 @@ export function BillDetail({ bill, bills, parties, items, companyState }: BillDe
   const chargeRate = bill.kind === "goods" ? billChargeRate(bill.lines) : undefined;
 
   return (
-    <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
-      <div className="flex min-w-0 flex-col gap-4">
+    <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="flex min-w-0 flex-col gap-3.5">
         <GlassCard className="flex flex-col gap-3.5">
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>{bill.reference}</CardTitle>
@@ -56,7 +56,7 @@ export function BillDetail({ bill, bills, parties, items, companyState }: BillDe
           </div>
           <dl className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
             <FactTile label="Vendor">
-              <Link href={`/vendors/${vendor.id}`} className="font-extrabold hover:text-brand hover:underline">
+              <Link href={`/vendors/${vendor.id}`} className="font-semibold hover:text-brand hover:underline">
                 {vendor.displayName}
               </Link>
               <span className="block text-xs font-semibold text-muted">{vendor.gstin ? `GSTIN ${vendor.gstin}` : treatmentLabel(vendor.treatment)}</span>
@@ -92,7 +92,7 @@ export function BillDetail({ bill, bills, parties, items, companyState }: BillDe
                 {bill.lines.map((line) => (
                   <tr key={line.itemId}>
                     <td className="text-left">
-                      <Link href={`/items/${line.itemId}`} className="font-bold hover:text-brand hover:underline">
+                      <Link href={`/items/${line.itemId}`} className="font-semibold hover:text-brand hover:underline">
                         {line.description}
                       </Link>
                     </td>
@@ -127,15 +127,15 @@ export function BillDetail({ bill, bills, parties, items, companyState }: BillDe
             )}
             <ul className="flex flex-col gap-1.5 text-sm">
               {bill.charges.map((charge, index) => (
-                <li key={index} className="glass-inset flex flex-wrap justify-between gap-2 rounded-[18px] px-4 py-2.5">
+                <li key={index} className="glass-inset flex flex-wrap justify-between gap-2 rounded-(--radius-tile) px-4 py-2.5">
                   <span>
-                    <span className="font-bold">{chargeHeadLabel(charge.head)}</span>
+                    <span className="font-semibold">{chargeHeadLabel(charge.head)}</span>
                     {charge.description && <span className="font-semibold text-ink-soft"> · {charge.description}</span>}
                     <span className="block text-xs font-semibold text-muted">
                       GST {describeComponents(chargeRate ?? charge.gstRatePct ?? 0, tax.regime)}
                     </span>
                   </span>
-                  <span className="font-extrabold tabular-nums">{formatInr(charge.amount)}</span>
+                  <span className="font-semibold tabular-nums">{formatInr(charge.amount)}</span>
                 </li>
               ))}
             </ul>
@@ -152,7 +152,7 @@ export function BillDetail({ bill, bills, parties, items, companyState }: BillDe
             {target ? (
               <p className="text-sm font-semibold text-ink-soft">
                 {formatInr(totals.cost)} is spread over the items of{" "}
-                <Link href={`/purchases/${target.id}`} className="font-bold text-brand hover:underline">
+                <Link href={`/purchases/${target.id}`} className="font-semibold text-brand hover:underline">
                   {target.reference}
                 </Link>{" "}
                 ({parties.find((party) => party.id === target.vendorId)?.displayName}).
@@ -166,7 +166,7 @@ export function BillDetail({ bill, bills, parties, items, companyState }: BillDe
         )}
       </div>
 
-      <div className="flex flex-col gap-4 xl:sticky xl:top-4">
+      <div className="flex flex-col gap-3.5 xl:sticky xl:top-3.5">
         <GlassCard className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>Payment</CardTitle>
@@ -184,7 +184,7 @@ export function BillDetail({ bill, bills, parties, items, companyState }: BillDe
           ) : (
             <p className="text-xs font-semibold text-muted">{bill.status === "draft" ? "Save the bill as open before paying it." : "Nothing left to pay."}</p>
           )}
-          <Link href={`/payments/ledger/${vendor.id}`} className="text-xs font-bold text-brand hover:underline">
+          <Link href={`/payments/ledger/${vendor.id}`} className="text-xs font-semibold text-brand hover:underline">
             {vendor.displayName}&rsquo;s ledger
           </Link>
         </GlassCard>

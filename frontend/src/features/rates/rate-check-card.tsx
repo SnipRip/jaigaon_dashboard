@@ -29,8 +29,8 @@ export function RateCheckCard({ items, customers, book }: { items: Item[]; custo
       <SelectField label="Item" options={items.map((candidate) => ({ value: candidate.id, label: candidate.name }))} value={itemId} onValueChange={setItemId} />
       <TextField label="Quantity" inputMode="decimal" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
       {result && item && (
-        <div className="glass-inset flex flex-col gap-1.5 rounded-[18px] px-4 py-3">
-          <span className="text-2xl font-extrabold tabular-nums">{formatRate(result.rate)}</span>
+        <div className="glass-inset flex flex-col gap-1.5 rounded-(--radius-tile) px-4 py-3">
+          <span className="text-xl font-semibold tabular-nums">{formatRate(result.rate)}</span>
           <div className="flex flex-wrap gap-1.5">
             <StatusChip tone={result.source === "minimum" ? "warning" : result.source === "standard" ? "neutral" : "brand"}>{RATE_SOURCE_TEXT[result.source]}</StatusChip>
             {result.slab && <StatusChip tone="success">Slab −{result.slab.discountPct}% from {result.slab.minQuantity}</StatusChip>}

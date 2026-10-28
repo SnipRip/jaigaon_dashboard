@@ -49,8 +49,8 @@ export function ShipmentDetail({ initialShipment, invoices, customerName, transp
   };
 
   return (
-    <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
-      <div className="flex min-w-0 flex-col gap-4">
+    <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="flex min-w-0 flex-col gap-3.5">
         <GlassCard className="flex flex-col gap-3.5">
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>{shipment.number}</CardTitle>
@@ -101,7 +101,7 @@ export function ShipmentDetail({ initialShipment, invoices, customerName, transp
             <tbody className="font-semibold">
               {documentsFor("export").map((type) => (
                 <tr key={type.kind}>
-                  <td className="font-bold">
+                  <td className="font-semibold">
                     {type.name}
                     <span className="block text-xs font-semibold text-muted">{type.stage}</span>
                   </td>
@@ -140,15 +140,15 @@ export function ShipmentDetail({ initialShipment, invoices, customerName, transp
           ) : (
             <ul className="flex flex-col gap-1.5 text-sm">
               {expenses.map((expense) => (
-                <li key={expense.id} className="glass-inset flex flex-wrap justify-between gap-2 rounded-[18px] px-4 py-2.5">
+                <li key={expense.id} className="glass-inset flex flex-wrap justify-between gap-2 rounded-(--radius-tile) px-4 py-2.5">
                   <span>
-                    <span className="font-bold">{expenseHeadNames[expense.headId]}</span>
+                    <span className="font-semibold">{expenseHeadNames[expense.headId]}</span>
                     <span className="font-semibold text-ink-soft"> · {expense.description}</span>
                     <span className="block text-xs font-semibold text-muted">
                       {expense.number} · {formatDate(expense.date)}
                     </span>
                   </span>
-                  <span className="font-extrabold tabular-nums">{formatInr(expense.amount)}</span>
+                  <span className="font-semibold tabular-nums">{formatInr(expense.amount)}</span>
                 </li>
               ))}
             </ul>
@@ -156,26 +156,36 @@ export function ShipmentDetail({ initialShipment, invoices, customerName, transp
         </GlassCard>
       </div>
 
-      <div className="flex flex-col gap-4 xl:sticky xl:top-4">
+      <div className="flex flex-col gap-3.5 xl:sticky xl:top-3.5">
         <GlassCard className="flex flex-col gap-3">
           <CardTitle>Where it is</CardTitle>
-          <ol className="flex flex-col gap-1">
+          <ol className="flex flex-col">
             {SHIPMENT_STAGES.map((stage, index) => {
               const event = [...shipment.events].reverse().find((candidate) => candidate.status === stage.status);
-              const done = index <= current;
+              // The last stage, once reached, is finished rather than in progress.
+              const finished = current === SHIPMENT_STAGES.length - 1;
+              const done = index < current || (finished && index === current);
+              const isCurrent = index === current && !finished;
               return (
-                <li key={stage.status} className="flex gap-3">
+                <li key={stage.status} className="relative flex gap-2.5 pb-3.5 last:pb-0">
+                  {/* The line down to the next stage: green once this stage is passed. */}
+                  {index < SHIPMENT_STAGES.length - 1 && (
+                    <span aria-hidden="true" className={clsx("absolute top-5 bottom-0 left-[9px] w-0.5", done ? "bg-success" : "bg-ink/12")} />
+                  )}
                   <span
                     aria-hidden="true"
                     className={clsx(
-                      "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-extrabold",
-                      done ? "bg-success text-white" : "glass-inset text-muted",
+                      "relative flex size-5 shrink-0 items-center justify-center rounded-full border-2",
+                      done && "border-success bg-success text-white",
+                      isCurrent && "border-brand bg-white shadow-[0_0_0_3px_rgb(11_77_187/0.18)]",
+                      !done && !isCurrent && "border-ink/20 bg-white",
                     )}
                   >
-                    {done ? <Check className="size-4" /> : index + 1}
+                    {done && <Check strokeWidth={3} className="size-3" />}
+                    {isCurrent && <span className="size-2 rounded-full bg-brand" />}
                   </span>
-                  <span className="flex min-w-0 flex-col pb-2">
-                    <span className={clsx("text-sm font-bold", !done && "text-muted")}>
+                  <span className="flex min-w-0 flex-col">
+                    <span className={clsx("text-[13px] leading-5", done || isCurrent ? "font-semibold" : "font-medium text-muted")}>
                       {stage.label}
                       {index === current && <span className="sr-only"> (current)</span>}
                     </span>
@@ -190,12 +200,12 @@ export function ShipmentDetail({ initialShipment, invoices, customerName, transp
           {next && (
             <div className="flex flex-col gap-2.5 border-t border-line pt-3">
               {blockers.length > 0 ? (
-                <p className="rounded-[18px] bg-warning-tint px-4 py-3 text-sm font-semibold text-warning-strong">
+                <p className="rounded-(--radius-tile) bg-warning-tint px-4 py-3 text-sm font-semibold text-warning-strong">
                   Before {stageLabel(next).toLowerCase()}: attach{" "}
                   {blockers.map(({ invoice, kind }, index) => (
                     <span key={`${invoice.id}-${kind}`}>
                       {index > 0 && ", "}
-                      <Link href={`/invoices/${invoice.id}`} className="font-bold underline">
+                      <Link href={`/invoices/${invoice.id}`} className="font-semibold underline">
                         {documentType(kind).name}
                       </Link>
                     </span>
@@ -220,7 +230,7 @@ export function ShipmentDetail({ initialShipment, invoices, customerName, transp
             <Row label="Purchase cost" value={`− ${formatInr(profit.cost)}`} />
             <Row label="Freight, agent and other expenses" value={`− ${formatInr(profit.expenses)}`} />
             <div className="my-1 border-t border-line" />
-            <div className={clsx("flex justify-between text-lg font-extrabold", profit.profit < 0 && "text-danger-strong")}>
+            <div className={clsx("flex justify-between text-lg font-semibold", profit.profit < 0 && "text-danger-strong")}>
               <dt>Profit</dt>
               <dd className="tabular-nums">{formatInr(profit.profit)}</dd>
             </div>

@@ -36,86 +36,86 @@ export function InvoiceDocument({ invoice, party, issuer, tax }: InvoiceDocument
   const einvoice = invoice.documents["e-invoice"];
 
   return (
-    <article className="print-area rounded-[18px] bg-white p-6 text-[12px] leading-snug text-ink shadow-[0_10px_40px_rgb(20_40_90/0.12)] sm:p-8">
-      <header className="flex flex-wrap items-start justify-between gap-4 border-b-2 border-ink pb-3">
+    <article className="print-area rounded-(--radius-tile) bg-white p-6 text-[12px] leading-snug text-ink shadow-[0_10px_40px_rgb(20_40_90/0.12)] sm:p-8">
+      <header className="flex flex-wrap items-start justify-between gap-3.5 border-b-2 border-ink pb-3">
         <div>
-          <p className="text-lg font-extrabold">{issuer.legalName}</p>
+          <p className="text-lg font-semibold">{issuer.legalName}</p>
           <p>{issuer.address}</p>
           <p>{issuer.phone} · {issuer.email}</p>
-          <p className="font-bold">
+          <p className="font-semibold">
             GSTIN {issuer.gstin ?? "[to be added]"} · State {stateName(issuer.stateCode)} ({issuer.stateCode})
             {isExport && ` · IEC ${issuer.iec || "[to be added]"}`}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-xl font-extrabold tracking-wide">{isExport ? "EXPORT INVOICE" : "TAX INVOICE"}</p>
-          <p className="text-[11px] font-bold text-muted">Original for recipient</p>
+          <p className="text-xl font-semibold tracking-wide">{isExport ? "EXPORT INVOICE" : "TAX INVOICE"}</p>
+          <p className="text-[11px] font-semibold text-muted">Original for recipient</p>
         </div>
       </header>
 
       {isExport && (
-        <p className="mt-3 border border-ink px-3 py-2 text-center text-[11px] font-extrabold">{exportDeclaration(invoice)}</p>
+        <p className="mt-3 border border-ink px-3 py-2 text-center text-[11px] font-semibold">{exportDeclaration(invoice)}</p>
       )}
 
       {needsEinvoice(invoice, party) && (
         <section className="mt-3 flex items-start gap-3 border border-line p-2.5 text-[11px]">
-          <div className="flex size-[84px] shrink-0 items-center justify-center border border-dashed border-ink/40 p-1 text-center text-[9px] font-bold text-muted">
+          <div className="flex size-[84px] shrink-0 items-center justify-center border border-dashed border-ink/40 p-1 text-center text-[9px] font-semibold text-muted">
             {einvoice ? "Signed QR from the e-invoice portal" : "QR after e-invoice registration"}
           </div>
           {einvoice ? (
             <dl className="grid min-w-0 grid-cols-[auto_1fr] gap-x-2">
-              <dt className="font-bold text-muted">IRN</dt>
+              <dt className="font-semibold text-muted">IRN</dt>
               <dd className="break-all">{einvoice.number}</dd>
-              <dt className="font-bold text-muted">Ack. no.</dt>
+              <dt className="font-semibold text-muted">Ack. no.</dt>
               <dd>{einvoice.details.ackNo}</dd>
-              <dt className="font-bold text-muted">Ack. date</dt>
+              <dt className="font-semibold text-muted">Ack. date</dt>
               <dd>{formatDate(einvoice.date)}</dd>
             </dl>
           ) : (
-            <p className="font-bold text-muted">E-invoice not registered yet: the IRN and QR code print here once it is.</p>
+            <p className="font-semibold text-muted">E-invoice not registered yet: the IRN and QR code print here once it is.</p>
           )}
         </section>
       )}
 
       <section className="mt-3 grid gap-3 sm:grid-cols-3">
         <div>
-          <p className="font-bold text-muted">Bill to</p>
-          <p className="font-extrabold">{party.legalName ?? party.displayName}</p>
+          <p className="font-semibold text-muted">Bill to</p>
+          <p className="font-semibold">{party.legalName ?? party.displayName}</p>
           <p>{[party.billing.line1, party.billing.city, party.billing.pin].filter(Boolean).join(", ")}</p>
           <p>{party.billing.country ?? stateName(party.billing.stateCode)}</p>
-          {party.gstin && <p className="font-bold">GSTIN {party.gstin}</p>}
-          {party.foreignTaxId && <p className="font-bold">Tax ID {party.foreignTaxId}</p>}
+          {party.gstin && <p className="font-semibold">GSTIN {party.gstin}</p>}
+          {party.foreignTaxId && <p className="font-semibold">Tax ID {party.foreignTaxId}</p>}
         </div>
         <div>
-          <p className="font-bold text-muted">{isExport ? "Consignee / deliver to" : "Ship to"}</p>
+          <p className="font-semibold text-muted">{isExport ? "Consignee / deliver to" : "Ship to"}</p>
           <p>{[shipTo.line1, shipTo.city].filter(Boolean).join(", ")}</p>
           <p>{shipTo.country ?? stateName(shipTo.stateCode)}</p>
         </div>
         <dl className="grid grid-cols-[auto_1fr] gap-x-3">
-          <dt className="font-bold text-muted">Invoice no.</dt>
-          <dd className="font-extrabold">{invoice.number}</dd>
-          <dt className="font-bold text-muted">Date</dt>
+          <dt className="font-semibold text-muted">Invoice no.</dt>
+          <dd className="font-semibold">{invoice.number}</dd>
+          <dt className="font-semibold text-muted">Date</dt>
           <dd>{formatDate(invoice.date)}</dd>
           {isExport ? (
             <>
-              <dt className="font-bold text-muted">Destination</dt>
+              <dt className="font-semibold text-muted">Destination</dt>
               <dd>{invoice.destinationCountry}</dd>
-              <dt className="font-bold text-muted">Currency</dt>
+              <dt className="font-semibold text-muted">Currency</dt>
               <dd>{invoice.currency}</dd>
             </>
           ) : (
             <>
-              <dt className="font-bold text-muted">Place of supply</dt>
+              <dt className="font-semibold text-muted">Place of supply</dt>
               <dd>
                 {stateName(invoice.placeOfSupply)} ({invoice.placeOfSupply})
               </dd>
-              <dt className="font-bold text-muted">Reverse charge</dt>
+              <dt className="font-semibold text-muted">Reverse charge</dt>
               <dd>No</dd>
             </>
           )}
           {invoice.vehicleNumber && (
             <>
-              <dt className="font-bold text-muted">Vehicle</dt>
+              <dt className="font-semibold text-muted">Vehicle</dt>
               <dd>{invoice.vehicleNumber}</dd>
             </>
           )}
@@ -160,7 +160,7 @@ export function InvoiceDocument({ invoice, party, issuer, tax }: InvoiceDocument
         </table>
       </div>
 
-      <section className="mt-3 grid gap-4 sm:grid-cols-[1fr_260px]">
+      <section className="mt-3 grid gap-3.5 sm:grid-cols-[1fr_260px]">
         <div className="flex flex-col gap-2">
           {summary.length > 0 && (
             <table className="w-full max-w-[420px] border-collapse text-right text-[11px] tabular-nums">
@@ -185,7 +185,7 @@ export function InvoiceDocument({ invoice, party, issuer, tax }: InvoiceDocument
             </table>
           )}
           <p>
-            <span className="font-bold">Amount in words: </span>
+            <span className="font-semibold">Amount in words: </span>
             {amountInWords(totals.grandTotal, invoice.currency)}
           </p>
           {invoice.notes && <p>{invoice.notes}</p>}
@@ -207,7 +207,7 @@ export function InvoiceDocument({ invoice, party, issuer, tax }: InvoiceDocument
               <dd>{formatRate(totals.roundOff)}</dd>
             </div>
           )}
-          <div className="mt-1 flex justify-between border-t-2 border-ink pt-1 text-[14px] font-extrabold">
+          <div className="mt-1 flex justify-between border-t-2 border-ink pt-1 text-[14px] font-semibold">
             <dt>Total ({invoice.currency})</dt>
             <dd>{formatRate(totals.grandTotal)}</dd>
           </div>
@@ -216,7 +216,7 @@ export function InvoiceDocument({ invoice, party, issuer, tax }: InvoiceDocument
 
       {references.some((kind) => invoice.documents[kind]) && (
         <section className="mt-3 border-t border-line pt-2 text-[11px]">
-          <span className="font-bold">References: </span>
+          <span className="font-semibold">References: </span>
           {references
             .filter((kind) => invoice.documents[kind])
             .map((kind) => `${documentType(kind).name} ${invoice.documents[kind]!.number}`)
@@ -225,13 +225,13 @@ export function InvoiceDocument({ invoice, party, issuer, tax }: InvoiceDocument
       )}
 
       {isExport && (
-        <p className="mt-3 text-[11px] font-bold">Payment: please quote invoice number {invoice.number} in the payment remarks.</p>
+        <p className="mt-3 text-[11px] font-semibold">Payment: please quote invoice number {invoice.number} in the payment remarks.</p>
       )}
 
-      <footer className="mt-8 flex items-end justify-between gap-4 text-[11px]">
+      <footer className="mt-8 flex items-end justify-between gap-3.5 text-[11px]">
         <p className="max-w-[60%] text-muted">Certified that the particulars given above are true and correct. Subject to Jaigaon jurisdiction.</p>
         <div className="text-right">
-          <p className="font-bold">For {issuer.legalName}</p>
+          <p className="font-semibold">For {issuer.legalName}</p>
           <p className="mt-8 border-t border-ink pt-1">Authorised signatory</p>
         </div>
       </footer>

@@ -26,7 +26,7 @@ export function SessionsList() {
   const hasOtherSessions = sessions?.some((session) => !session.isCurrent) ?? false;
 
   return (
-    <GlassCard aria-labelledby="settings-sessions" className="flex flex-col gap-1 p-6">
+    <GlassCard aria-labelledby="settings-sessions" className="flex flex-col gap-1">
       <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2">
         <CardTitle id="settings-sessions">Signed-in devices</CardTitle>
         <Button
@@ -45,7 +45,7 @@ export function SessionsList() {
         {sessions?.map((session) => (
           <li key={session.id} className="flex min-h-[60px] items-center justify-between gap-3 border-t border-line py-2">
             <span className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-sm font-extrabold">{describeDevice(session.userAgent)}</span>
+              <span className="text-sm font-semibold">{describeDevice(session.userAgent)}</span>
               <span className="text-xs font-semibold text-muted">
                 {session.ipAddress ?? "Unknown address"} · last active {formatDateTime(session.lastSeenAt)}
               </span>

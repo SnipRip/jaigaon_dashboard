@@ -14,7 +14,7 @@ export function ItemActivity({ catalog, item, movements }: { catalog: ItemCatalo
   const lastPurchase = movements.findLast((movement) => movement.kind === "Purchase");
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3.5">
       <GlassCard className="flex flex-col gap-3">
         <CardTitle>Stock</CardTitle>
         <dl className="grid grid-cols-2 gap-3 text-sm">
@@ -42,7 +42,7 @@ export function ItemActivity({ catalog, item, movements }: { catalog: ItemCatalo
               <tr key={movement.reference}>
                 <td className="text-left whitespace-nowrap">{formatDayMonth(movement.date)}</td>
                 <td className="text-left">
-                  <div className="font-bold">
+                  <div className="font-semibold">
                     {movement.kind} · {movement.reference}
                   </div>
                   {movement.party && <div className="text-xs text-muted">{movement.party}</div>}
@@ -62,9 +62,9 @@ export function ItemActivity({ catalog, item, movements }: { catalog: ItemCatalo
 
 function Figure({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="glass-inset flex flex-col gap-1 rounded-[18px] p-3.5">
-      <dt className="text-xs font-bold text-muted">{label}</dt>
-      <dd className="font-extrabold tabular-nums">{children}</dd>
+    <div className="glass-inset flex flex-col gap-1 rounded-(--radius-tile) p-3.5">
+      <dt className="text-xs font-medium text-muted">{label}</dt>
+      <dd className="font-semibold tabular-nums">{children}</dd>
     </div>
   );
 }

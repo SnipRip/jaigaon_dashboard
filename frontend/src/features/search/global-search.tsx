@@ -38,9 +38,9 @@ export function GlobalSearch({ index }: { index: SearchEntry[] }) {
   };
 
   return (
-    <div className="relative max-w-[460px] min-w-[190px] flex-[1_20_280px] max-md:hidden">
-      <div className="glass-field flex h-11 items-center gap-2.5 border-white/70 px-4">
-        <Search aria-hidden="true" className="size-[18px] shrink-0 text-muted" />
+    <div className="relative max-w-[380px] min-w-[190px] flex-[1_20_280px] max-md:hidden">
+      <div className="glass-field flex h-8 items-center gap-2 px-2.5">
+        <Search aria-hidden="true" className="size-4 shrink-0 text-muted" />
         <label htmlFor="global-search" className="sr-only">
           Global search
         </label>
@@ -76,14 +76,14 @@ export function GlobalSearch({ index }: { index: SearchEntry[] }) {
             }
           }}
           placeholder="Search products, invoices, Shipping Bill / LEO no., vehicles"
-          className="h-10 min-w-0 flex-1 bg-transparent text-sm font-medium outline-none placeholder:text-muted"
+          className="h-full min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted"
         />
-        <kbd className="hidden rounded-md border border-line px-1.5 text-[11px] font-bold text-muted lg:inline">Ctrl K</kbd>
+        <kbd className="hidden rounded bg-ink/7 px-1.5 py-px text-[11px] font-medium text-muted lg:inline">Ctrl K</kbd>
       </div>
       {open && query.trim() && (
-        <div className="glass-popover absolute inset-x-0 top-[calc(100%+6px)] z-30 animate-pop-in p-1.5">
+        <div className="glass-popover absolute inset-x-0 top-[calc(100%+6px)] z-30 animate-pop-in p-1">
           {results.length === 0 ? (
-            <p className="px-3.5 py-3 text-sm font-semibold text-muted">Nothing matches &ldquo;{query.trim()}&rdquo;.</p>
+            <p className="px-2.5 py-2 text-[13px] text-muted">Nothing matches &ldquo;{query.trim()}&rdquo;.</p>
           ) : (
             <ul id={listId} role="listbox" aria-label="Search results">
               {results.map((result, index) => (
@@ -97,12 +97,12 @@ export function GlobalSearch({ index }: { index: SearchEntry[] }) {
                     go(result);
                   }}
                   onMouseEnter={() => setActive(index)}
-                  className={clsx("flex cursor-pointer items-center gap-3 rounded-2xl px-3.5 py-2.5", index === active && "bg-brand-tint")}
+                  className={clsx("flex cursor-pointer items-center gap-3 rounded-md px-2.5 py-1.5", index === active && "bg-brand-tint")}
                 >
-                  <span className="w-24 shrink-0 truncate text-[11px] font-bold tracking-wide text-muted uppercase">{result.kind}</span>
+                  <span className="w-24 shrink-0 truncate text-xs text-muted">{result.kind}</span>
                   <span className="flex min-w-0 flex-col">
-                    <span className={clsx("truncate text-sm font-bold", index === active && "text-brand-strong")}>{result.title}</span>
-                    <span className="truncate text-xs font-semibold text-muted">{result.detail}</span>
+                    <span className={clsx("truncate text-[13px] font-semibold", index === active && "text-brand-strong")}>{result.title}</span>
+                    <span className="truncate text-xs text-muted">{result.detail}</span>
                   </span>
                 </li>
               ))}

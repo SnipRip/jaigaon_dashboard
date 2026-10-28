@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/filter-chip";
+import { FilterGroup } from "@/components/ui/filter-group";
 import { FormMessage } from "@/components/ui/form-message";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { SelectField } from "@/components/ui/select-field";
@@ -95,7 +96,7 @@ export function ShipmentForm({ invoices, customers, vehicles, transporters, defa
   );
 
   return (
-    <form onSubmit={onSubmit} noValidate className="@container flex flex-col gap-4">
+    <form onSubmit={onSubmit} noValidate className="@container flex flex-col gap-3.5">
       <GlassCard className="flex flex-col gap-3.5">
         <div className="flex flex-wrap items-center gap-2">
           <CardTitle>Invoices on this truck</CardTitle>
@@ -105,12 +106,12 @@ export function ShipmentForm({ invoices, customers, vehicles, transporters, defa
         {invoices.length === 0 ? (
           <p className="text-sm font-semibold text-muted">
             Every export invoice is already on a shipment.{" "}
-            <Link href="/invoices/new/export" className="font-bold text-brand hover:underline">
+            <Link href="/invoices/new/export" className="font-semibold text-brand hover:underline">
               Make an export invoice
             </Link>
           </p>
         ) : (
-          <div className="flex flex-wrap gap-2">
+          <FilterGroup label="Invoices on this shipment">
             {invoices.map((invoice) => (
               <FilterChip
                 key={invoice.id}
@@ -126,7 +127,7 @@ export function ShipmentForm({ invoices, customers, vehicles, transporters, defa
                 </span>
               </FilterChip>
             ))}
-          </div>
+          </FilterGroup>
         )}
         {errors.invoiceIds && <p className="text-xs font-semibold text-danger-strong">{errors.invoiceIds.message}</p>}
       </GlassCard>
@@ -184,10 +185,10 @@ export function ShipmentForm({ invoices, customers, vehicles, transporters, defa
       <GlassCard className="flex flex-col gap-3">
         {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
         <div className="flex flex-wrap gap-2.5">
-          <Button type="submit" variant="success" className="h-[50px] px-6">
+          <Button type="submit" variant="success" size="lg">
             Plan shipment
           </Button>
-          <Link href="/shipments" className={buttonClasses("neutral", "ml-auto h-[50px]")}>
+          <Link href="/shipments" className={buttonClasses("neutral", "ml-auto", "lg")}>
             Back to shipments
           </Link>
         </div>

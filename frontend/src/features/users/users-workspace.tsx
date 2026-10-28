@@ -1,17 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { FilterChip } from "@/components/ui/filter-chip";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { GlassTable } from "@/components/ui/glass-table";
 import { StatusChip } from "@/components/ui/status-chip";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { ViewTabs } from "@/components/ui/view-tabs";
 import { RecordMaster } from "@/features/masters/record-master";
 import { formatDateTime, formatQuantity } from "@/lib/format";
 import { RolesMatrix } from "./roles-matrix";
 import type { ActivityEntry, Role, StaffUser } from "./types";
 
 type Tab = "users" | "roles" | "activity";
+
+const TABS: { value: Tab; label: string }[] = [
+  { value: "users", label: "Staff" },
+  { value: "roles", label: "Roles and permissions" },
+  { value: "activity", label: "Activity" },
+];
 
 const STATUS = {
   active: { tone: "success", text: "Active" },
@@ -34,20 +40,8 @@ export function UsersWorkspace({ users, roles, activity, modules }: UsersWorkspa
   const userName = (id: string) => users.find((user) => user.id === id)?.displayName ?? id;
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-2">
-        {(
-          [
-            ["users", "Staff"],
-            ["roles", "Roles and permissions"],
-            ["activity", "Activity"],
-          ] as const
-        ).map(([value, label]) => (
-          <FilterChip key={value} selected={tab === value} onClick={() => setTab(value)}>
-            {label}
-          </FilterChip>
-        ))}
-      </div>
+    <div className="flex flex-col gap-3.5">
+      <ViewTabs label="Users views" tabs={TABS} value={tab} onChange={setTab} />
 
       {tab === "users" && (
         <RecordMaster<StaffUser>
@@ -118,7 +112,7 @@ export function UsersWorkspace({ users, roles, activity, modules }: UsersWorkspa
               {activity.map((entry, index) => (
                 <tr key={index}>
                   <td>{formatDateTime(entry.at)}</td>
-                  <td className="font-bold">{userName(entry.userId)}</td>
+                  <td className="font-semibold">{userName(entry.userId)}</td>
                   <td>{entry.action}</td>
                   <td>{entry.record ?? "–"}</td>
                 </tr>

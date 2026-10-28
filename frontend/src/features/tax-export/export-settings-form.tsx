@@ -57,7 +57,7 @@ export function ExportSettingsForm({ companyState, companyGstin, initial }: Expo
   const onSubmit = handleSubmit(() => setResult("All fields check out. Saving switches on when settings are connected to the database."));
 
   return (
-    <GlassCard className="flex flex-col gap-4">
+    <GlassCard className="flex flex-col gap-3.5">
       <div className="flex flex-col gap-1">
         <CardTitle>Our registration</CardTitle>
         <p className="text-sm font-medium text-muted">
@@ -65,7 +65,7 @@ export function ExportSettingsForm({ companyState, companyGstin, initial }: Expo
           CGST + SGST; everywhere else in India, IGST.
         </p>
       </div>
-      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-3.5">
         <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3.5">
           <TextField label="Our GSTIN" placeholder="Still to come from the client" error={errors.gstin?.message} {...register("gstin")} />
           <TextField label="IEC (Importer-Exporter Code)" placeholder="10 characters, from DGFT" error={errors.iec?.message} {...register("iec")} />

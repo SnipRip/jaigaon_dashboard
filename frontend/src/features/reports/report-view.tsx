@@ -3,7 +3,7 @@
 import { Download, Printer } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { Button, buttonClasses } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { GlassTable } from "@/components/ui/glass-table";
 import { SearchField } from "@/components/ui/search-field";
@@ -68,35 +68,37 @@ export function ReportView({ report }: { report: Report }) {
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-2.5">
-        <Button onClick={download}>
-          <Download aria-hidden="true" className="size-[18px]" />
-          Download CSV
-        </Button>
-        <Button variant="neutral" onClick={() => window.print()}>
-          <Printer aria-hidden="true" className="size-[18px]" />
-          Print
-        </Button>
-        <Link href="/reports" className={buttonClasses("neutral", "ml-auto")}>
-          All reports
-        </Link>
-      </div>
-
-      <GlassCard className="flex flex-col gap-3.5">
-        <div className="grid gap-3.5 md:grid-cols-4">
-          {report.dateKey && (
-            <>
+    <div className="flex flex-col gap-3.5">
+      <GlassCard className="flex flex-wrap items-end gap-3">
+        {report.dateKey && (
+          <>
+            <div className="w-[150px]">
               <TextField label="From" type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
+            </div>
+            <div className="w-[150px]">
               <TextField label="To" type="date" value={to} onChange={(event) => setTo(event.target.value)} />
-            </>
-          )}
-          {report.partyKey && (
-            <SelectField label="Party" options={[{ value: ALL, label: "Everyone" }, ...parties.map((name) => ({ value: name, label: name }))]} value={party} onValueChange={setParty} />
-          )}
-          <div className="flex flex-col justify-end">
-            <SearchField id="report-search" label="Search this report" value={query} onChange={setQuery} placeholder="Search rows" trailing={`${visible.length} rows`} />
-          </div>
+            </div>
+          </>
+        )}
+        {report.partyKey && (
+          <SelectField
+            className="w-[220px]"
+            label="Party"
+            options={[{ value: ALL, label: "Everyone" }, ...parties.map((name) => ({ value: name, label: name }))]}
+            value={party}
+            onValueChange={setParty}
+          />
+        )}
+        <SearchField className="h-[34px] max-w-[300px] flex-[1_1_200px]" id="report-search" label="Search this report" value={query} onChange={setQuery} placeholder="Search rows" trailing={`${visible.length} rows`} />
+        <div className="ml-auto flex flex-wrap gap-2">
+          <Button variant="neutral" onClick={() => window.print()}>
+            <Printer aria-hidden="true" />
+            Print
+          </Button>
+          <Button variant="neutral" onClick={download}>
+            <Download aria-hidden="true" />
+            Download CSV
+          </Button>
         </div>
       </GlassCard>
 
@@ -124,7 +126,7 @@ export function ReportView({ report }: { report: Report }) {
                 {report.columns.map((column, columnIndex) => (
                   <td key={column.key} className={column.kind === "text" || column.kind === "date" ? "text-left" : "text-right"}>
                     {columnIndex === 1 && row.href ? (
-                      <Link href={row.href} className="font-bold hover:text-brand hover:underline">
+                      <Link href={row.href} className="font-semibold hover:text-brand hover:underline">
                         {show(column, row[column.key])}
                       </Link>
                     ) : (
@@ -136,7 +138,7 @@ export function ReportView({ report }: { report: Report }) {
             ))}
           </tbody>
           {totalled.length > 0 && (
-            <tfoot className="font-extrabold tabular-nums">
+            <tfoot className="font-semibold tabular-nums">
               <tr className="border-t border-line">
                 {report.columns.map((column, index) => (
                   <td key={column.key} className={column.kind === "text" || column.kind === "date" ? "text-left" : "text-right"}>
@@ -147,7 +149,7 @@ export function ReportView({ report }: { report: Report }) {
             </tfoot>
           )}
         </GlassTable>
-        {visible.length === 0 && <p className="py-6 text-center text-sm font-semibold text-muted">No rows in this period.</p>}
+        {visible.length === 0 && <p className="py-6 text-center text-[13px] text-muted">No rows in this period.</p>}
       </GlassCard>
     </div>
   );

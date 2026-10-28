@@ -99,9 +99,9 @@ export function SettlementForm({ direction, parties, documents, accounts, sugges
   );
 
   return (
-    <form onSubmit={onSubmit} noValidate className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-      <div className="@container flex min-w-0 flex-col gap-4">
-        <GlassCard className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} noValidate className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="@container flex min-w-0 flex-col gap-3.5">
+        <GlassCard className="flex flex-col gap-3.5">
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>{text.title}</CardTitle>
             <StatusChip tone="neutral">{suggestedNumber}</StatusChip>
@@ -133,7 +133,7 @@ export function SettlementForm({ direction, parties, documents, accounts, sugges
             <TextField label={text.tds} inputMode="decimal" hint="Counts towards settling the documents" error={errors.tds?.message} {...register("tds")} />
           </div>
           {direction === "in" && mode === "cash" && Number(amount) >= CASH_RECEIPT_LIMIT && (
-            <p className="rounded-[18px] bg-danger-tint px-4 py-3 text-sm font-semibold text-danger-strong">
+            <p className="rounded-(--radius-tile) bg-danger-tint px-4 py-3 text-sm font-semibold text-danger-strong">
               Cash of ₹2 lakh or more from one person in a day is not allowed (Income-tax Act s.269ST). Take it by bank transfer or cheque.
             </p>
           )}
@@ -166,7 +166,7 @@ export function SettlementForm({ direction, parties, documents, accounts, sugges
                   return (
                     <tr key={field.id} className="align-top">
                       <td className="text-left">
-                        <Link href={document.href} className="font-bold hover:text-brand hover:underline">
+                        <Link href={document.href} className="font-semibold hover:text-brand hover:underline">
                           {document.number}
                         </Link>
                         <div className="text-xs text-muted">
@@ -210,24 +210,24 @@ export function SettlementForm({ direction, parties, documents, accounts, sugges
           <TextField label="Notes" error={errors.notes?.message} {...register("notes")} />
           {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
           <div className="flex flex-wrap gap-2.5">
-            <Button type="submit" variant={direction === "in" ? "success" : "primary"} className="h-[50px] px-6">
+            <Button type="submit" variant={direction === "in" ? "success" : "primary"} size="lg">
               {text.submit}
             </Button>
-            <Link href="/payments" className={buttonClasses("neutral", "ml-auto h-[50px]")}>
+            <Link href="/payments" className={buttonClasses("neutral", "ml-auto", "lg")}>
               {text.back}
             </Link>
           </div>
         </GlassCard>
       </div>
 
-      <GlassCard className="flex flex-col gap-2 xl:sticky xl:top-4">
+      <GlassCard className="flex flex-col gap-2 xl:sticky xl:top-3.5">
         <CardTitle>Summary</CardTitle>
         <dl className="flex flex-col gap-1.5 text-sm font-semibold">
           <Row label="Amount" value={formatRate(Number(amount) || 0)} />
           {Number(tds) > 0 && <Row label="TDS" value={formatRate(Number(tds))} />}
           <Row label="Applied" value={formatRate(applied)} />
           <div className="my-1 border-t border-line" />
-          <div className={available - applied < 0 ? "flex justify-between font-extrabold text-danger-strong" : "flex justify-between font-extrabold"}>
+          <div className={available - applied < 0 ? "flex justify-between font-semibold text-danger-strong" : "flex justify-between font-semibold"}>
             <dt>{available - applied < 0 ? "Applied more than received" : "Kept as advance"}</dt>
             <dd className="tabular-nums">{formatRate(Math.abs(available - applied))}</dd>
           </div>

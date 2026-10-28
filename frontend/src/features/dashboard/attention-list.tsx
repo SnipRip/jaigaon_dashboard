@@ -48,7 +48,7 @@ export function AttentionList({ items, dated }: { items: AttentionItem[]; dated:
       {[...timed, ...items].map((item) => {
         const content = (
           <>
-            <span className={clsx("text-xs font-bold", STATUS_TEXT[item.tone])}>{item.heading}</span>
+            <span className={clsx("text-xs font-semibold", STATUS_TEXT[item.tone])}>{item.heading}</span>
             <span className="text-[13px] font-semibold">{item.detail}</span>
           </>
         );

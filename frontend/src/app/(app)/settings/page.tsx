@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { PasswordForm } from "@/features/settings/password-form";
 import { ProfileForm } from "@/features/settings/profile-form";
 import { SessionsList } from "@/features/settings/sessions-list";
+import { SettingsSectionNav } from "@/features/settings/settings-section-nav";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -9,9 +10,12 @@ export const metadata: Metadata = { title: "Settings" };
 // data through /api/users/me and /api/auth/sessions.
 export default function SettingsPage() {
   return (
-    <div className="grid items-start gap-4 xl:grid-cols-2">
-      <ProfileForm />
-      <div className="flex min-w-0 flex-col gap-4">
+    <div className="flex flex-wrap items-start gap-3.5">
+      <div className="flex-[1_1_180px] lg:sticky lg:top-3.5 lg:max-w-[210px]">
+        <SettingsSectionNav />
+      </div>
+      <div className="flex max-w-[760px] min-w-0 flex-[999_1_560px] flex-col gap-3.5">
+        <ProfileForm />
         <PasswordForm />
         <SessionsList />
       </div>

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { FilterChip } from "@/components/ui/filter-chip";
+import { FilterGroup } from "@/components/ui/filter-group";
 import { GlassCard } from "@/components/ui/glass-card";
 import { SearchField } from "@/components/ui/search-field";
 import { CustomerBar } from "./customer-bar";
@@ -45,8 +46,8 @@ export function RateEnquiryWorkspace({ products, categories, customers }: RateEn
   const changeQuantity = (sku: string, quantity: number) => setQuantities((current) => ({ ...current, [sku]: quantity }));
 
   return (
-    <div className="grid items-start gap-4 xl:grid-cols-[2fr_1fr]">
-      <div className="flex min-w-0 flex-col gap-4">
+    <div className="grid items-start gap-3.5 xl:grid-cols-[2fr_1fr]">
+      <div className="flex min-w-0 flex-col gap-3.5">
         <CustomerBar customers={customers} selected={customer} onSelect={setCustomerId} />
 
         <GlassCard className="flex flex-col gap-3.5">
@@ -60,13 +61,13 @@ export function RateEnquiryWorkspace({ products, categories, customers }: RateEn
             prominent
           />
 
-          <div className="flex flex-wrap gap-2">
+          <FilterGroup label="Category">
             {[ALL_CATEGORIES, ...categories].map((name) => (
               <FilterChip key={name} selected={category === name} onClick={() => setCategory(name)}>
                 {name}
               </FilterChip>
             ))}
-          </div>
+          </FilterGroup>
 
           <ProductTable products={visibleProducts} addedSkus={new Set(Object.keys(quantities))} onToggle={toggleProduct} />
           <p className="text-xs font-semibold text-muted">

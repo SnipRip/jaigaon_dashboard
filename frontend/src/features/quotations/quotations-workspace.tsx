@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { buttonClasses } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/filter-chip";
+import { FilterGroup } from "@/components/ui/filter-group";
 import { GlassCard } from "@/components/ui/glass-card";
 import { GlassTable } from "@/components/ui/glass-table";
+import { ListToolbar } from "@/components/ui/list-toolbar";
 import { SearchField } from "@/components/ui/search-field";
 import { StatTile } from "@/components/ui/stat-tile";
 import { StatusChip, type StatusTone } from "@/components/ui/status-chip";
@@ -52,32 +54,37 @@ export function QuotationsWorkspace({ quotations, parties, items, companyState }
   const won = decided.filter((row) => row.stage !== "Rejected");
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+    <div className="flex flex-col gap-3.5">
+      <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
         <StatTile label="Quotations" value={formatQuantity(rows.length)} />
         <StatTile label="Waiting on the customer" value={formatInr(open.reduce((sum, row) => sum + row.totals.grandTotal, 0))} />
         <StatTile label="Expired, follow up" value={formatQuantity(rows.filter((row) => row.stage === "Expired").length)} tone="warning" />
         <StatTile label="Won of decided" value={decided.length ? formatPercent((won.length / decided.length) * 100) : "–"} tone="success" />
       </div>
       <GlassCard className="flex flex-col gap-3.5">
-        <div className="flex flex-wrap gap-2.5">
-          <Link href="/quotations/new" className={buttonClasses("primary")}>
-            <Plus aria-hidden="true" className="size-[18px]" />
-            New quotation
-          </Link>
-          <Link href="/rate-enquiry" className={buttonClasses("neutral")}>
-            <Search aria-hidden="true" className="size-[18px]" />
-            From rate enquiry
-          </Link>
-        </div>
-        <SearchField id="quotation-search" label="Search quotations" value={query} onChange={setQuery} placeholder="Search by number or customer" trailing={`${visible.length} of ${rows.length}`} prominent />
-        <div className="flex flex-wrap gap-2">
-          {FILTERS.map((option) => (
-            <FilterChip key={option} selected={filter === option} onClick={() => setFilter(option)}>
-              {option}
-            </FilterChip>
-          ))}
-        </div>
+        <ListToolbar
+          actions={
+            <>
+              <Link href="/rate-enquiry" className={buttonClasses("neutral")}>
+                <Search aria-hidden="true" />
+                From rate enquiry
+              </Link>
+              <Link href="/quotations/new" className={buttonClasses("primary", undefined, "lg")}>
+                <Plus aria-hidden="true" />
+                New quotation
+              </Link>
+            </>
+          }
+        >
+          <SearchField className="max-w-[340px] flex-[1_1_240px]" id="quotation-search" label="Search quotations" value={query} onChange={setQuery} placeholder="Search by number or customer" trailing={`${visible.length} of ${rows.length}`} />
+          <FilterGroup label="Stage">
+            {FILTERS.map((option) => (
+              <FilterChip key={option} selected={filter === option} onClick={() => setFilter(option)}>
+                {option}
+              </FilterChip>
+            ))}
+          </FilterGroup>
+        </ListToolbar>
         <GlassTable className="min-w-[880px]">
           <thead>
             <tr className="text-right">
@@ -93,7 +100,7 @@ export function QuotationsWorkspace({ quotations, parties, items, companyState }
             {visible.map(({ quotation, party, stage, totals, profit }) => (
               <tr key={quotation.id} className="align-top">
                 <td className="text-left">
-                  <Link href={`/quotations/${quotation.id}`} className="font-bold hover:text-brand hover:underline">
+                  <Link href={`/quotations/${quotation.id}`} className="font-semibold hover:text-brand hover:underline">
                     {quotationLabel(quotation)}
                   </Link>
                   <div className="text-xs text-muted">
@@ -101,10 +108,10 @@ export function QuotationsWorkspace({ quotations, parties, items, companyState }
                   </div>
                 </td>
                 <td className="text-left">
-                  <div className="font-bold">{party.displayName}</div>
+                  <div className="font-semibold">{party.displayName}</div>
                   {party.priceLevel && <div className="text-xs text-muted">{party.priceLevel}</div>}
                 </td>
-                <td className="font-bold">{formatInr(totals.grandTotal)}</td>
+                <td className="font-semibold">{formatInr(totals.grandTotal)}</td>
                 <td className={profit.marginPct < 8 ? "text-danger-strong" : undefined}>{formatPercent(profit.marginPct)}</td>
                 <td className="text-left">{formatDayMonth(quotation.validUntil)}</td>
                 <td className="text-left">
@@ -114,7 +121,7 @@ export function QuotationsWorkspace({ quotations, parties, items, companyState }
             ))}
           </tbody>
         </GlassTable>
-        {visible.length === 0 && <p className="py-6 text-center text-sm font-semibold text-muted">No quotations match.</p>}
+        {visible.length === 0 && <p className="py-6 text-center text-[13px] text-muted">No quotations match.</p>}
       </GlassCard>
     </div>
   );

@@ -147,13 +147,13 @@ export function InvoiceForm({ kind, customers, catalog, luts, companyState, sugg
   const itemOptions = catalog.items.map((item) => ({ value: item.id, label: `${item.name} · ${item.sku}` }));
 
   return (
-    <form onSubmit={onSubmit} noValidate className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-      <div className="@container flex min-w-0 flex-col gap-4">
-        <GlassCard className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} noValidate className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="@container flex min-w-0 flex-col gap-3.5">
+        <GlassCard className="flex flex-col gap-3.5">
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>{KIND_TEXT[kind].title}</CardTitle>
             <StatusChip tone={isExport ? "success" : "brand"}>{isExport ? "Export" : "Local"}</StatusChip>
-            <Link href={`/invoices/new/${isExport ? "local" : "export"}`} className="ml-auto text-xs font-bold text-brand hover:underline">
+            <Link href={`/invoices/new/${isExport ? "local" : "export"}`} className="ml-auto text-xs font-semibold text-brand hover:underline">
               Switch to {isExport ? "a local" : "an export"} invoice
             </Link>
           </div>
@@ -242,11 +242,11 @@ export function InvoiceForm({ kind, customers, catalog, luts, companyState, sugg
             <TextField label="Town / city" placeholder={party?.billing.city} error={errors.shipToCity?.message} {...register("shipToCity")} />
           </div>
           {isExport && (
-            <div className={lut || exportRoute === "igst" ? "glass-inset rounded-[18px] px-4 py-3" : "rounded-[18px] bg-danger-tint px-4 py-3"}>
-              <p className="text-xs font-bold text-muted">Printed on the invoice</p>
-              <p className="text-sm font-extrabold">{exportDeclaration({ exportRoute, lutArn: lut?.arn })}</p>
+            <div className={lut || exportRoute === "igst" ? "glass-inset rounded-(--radius-tile) px-4 py-3" : "rounded-(--radius-tile) bg-danger-tint px-4 py-3"}>
+              <p className="text-xs font-medium text-muted">Printed on the invoice</p>
+              <p className="text-sm font-semibold">{exportDeclaration({ exportRoute, lutArn: lut?.arn })}</p>
               {exportRoute === "lut" && !lut && date && (
-                <p className="text-xs font-bold text-danger-strong">No LUT covers {date}. Add it in GST & export setup.</p>
+                <p className="text-xs font-semibold text-danger-strong">No LUT covers {date}. Add it in GST & export setup.</p>
               )}
             </div>
           )}
@@ -258,7 +258,7 @@ export function InvoiceForm({ kind, customers, catalog, luts, companyState, sugg
             const line = toInvoiceLine(lines?.[index]);
             const lineTotal = line ? lineTotals(line, tax.regime) : undefined;
             return (
-              <div key={field.id} className="glass-inset flex flex-col gap-2.5 rounded-[18px] p-3">
+              <div key={field.id} className="glass-inset flex flex-col gap-2.5 rounded-(--radius-tile) p-3">
                 <div className="grid items-end gap-2.5 @2xl:grid-cols-[minmax(0,3fr)_1fr_1fr_1fr_auto]">
                   <Controller
                     control={control}
@@ -290,7 +290,7 @@ export function InvoiceForm({ kind, customers, catalog, luts, companyState, sugg
                   <p className="flex flex-wrap gap-x-3 text-xs font-semibold text-muted">
                     <span>HSN {line.hsn}</span>
                     <span>GST {line.gstRatePct}% → {describeComponents(line.gstRatePct, tax.regime)}</span>
-                    <span className="ml-auto font-extrabold text-ink tabular-nums">
+                    <span className="ml-auto font-semibold text-ink tabular-nums">
                       {formatRate(lineTotal.taxable)} + tax = {formatRate(lineTotal.total)}
                     </span>
                   </p>
@@ -308,10 +308,10 @@ export function InvoiceForm({ kind, customers, catalog, luts, companyState, sugg
           <TextField label="Notes on the invoice" placeholder="Delivery terms, site name" error={errors.notes?.message} {...register("notes")} />
           {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
           <div className="flex flex-wrap gap-2.5">
-            <Button type="submit" className="h-[50px] px-6">
+            <Button type="submit" size="lg">
               Issue invoice
             </Button>
-            <Link href="/invoices" className={buttonClasses("neutral", "ml-auto h-[50px]")}>
+            <Link href="/invoices" className={buttonClasses("neutral", "ml-auto", "lg")}>
               Back to invoices
             </Link>
           </div>
@@ -324,7 +324,7 @@ export function InvoiceForm({ kind, customers, catalog, luts, companyState, sugg
         </GlassCard>
       </div>
 
-      <div className="flex flex-col gap-4 xl:sticky xl:top-4">
+      <div className="flex flex-col gap-3.5 xl:sticky xl:top-3.5">
         <InvoiceTotalsCard totals={totals} tax={tax} currency={currency} />
         {!isExport && placeOfSupply && (
           <p className="px-2 text-xs font-semibold text-muted">

@@ -23,7 +23,7 @@ interface LedgerSection {
 // customer and vendor gets one section for each.
 export function PartyLedger({ partyName, sections }: { partyName: string; sections: LedgerSection[] }) {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3.5">
       <div className="flex flex-wrap gap-2.5">
         <Button onClick={() => window.print()}>
           <Printer aria-hidden="true" className="size-[18px]" />
@@ -41,7 +41,7 @@ export function PartyLedger({ partyName, sections }: { partyName: string; sectio
               <CardTitle>
                 {partyName} · {section.title}
               </CardTitle>
-              <span className="ml-auto text-sm font-extrabold tabular-nums">
+              <span className="ml-auto text-sm font-semibold tabular-nums">
                 {section.balanceLabel}: {formatInr(closing)}
               </span>
             </div>
@@ -58,7 +58,7 @@ export function PartyLedger({ partyName, sections }: { partyName: string; sectio
               <tbody className="text-right font-semibold tabular-nums">
                 <tr>
                   <td className="text-left text-muted">1 Apr</td>
-                  <td className="text-left font-bold">Opening balance</td>
+                  <td className="text-left font-semibold">Opening balance</td>
                   <td />
                   <td />
                   <td>{formatInr(section.opening)}</td>
@@ -68,7 +68,7 @@ export function PartyLedger({ partyName, sections }: { partyName: string; sectio
                     <td className="text-left whitespace-nowrap">{formatDate(row.date)}</td>
                     <td className="text-left">
                       {row.href ? (
-                        <Link href={row.href} className="font-bold hover:text-brand hover:underline">
+                        <Link href={row.href} className="font-semibold hover:text-brand hover:underline">
                           {row.description}
                         </Link>
                       ) : (
@@ -77,7 +77,7 @@ export function PartyLedger({ partyName, sections }: { partyName: string; sectio
                     </td>
                     <td>{row.charge ? formatInr(row.charge) : ""}</td>
                     <td>{row.settle ? formatInr(row.settle) : ""}</td>
-                    <td className="font-bold">{formatInr(row.balance)}</td>
+                    <td className="font-semibold">{formatInr(row.balance)}</td>
                   </tr>
                 ))}
               </tbody>

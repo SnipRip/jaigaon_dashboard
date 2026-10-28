@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { buttonClasses } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/filter-chip";
+import { FilterGroup } from "@/components/ui/filter-group";
 import { GlassCard } from "@/components/ui/glass-card";
 import { GlassTable } from "@/components/ui/glass-table";
+import { ListToolbar } from "@/components/ui/list-toolbar";
 import { SearchField } from "@/components/ui/search-field";
 import { StatTile } from "@/components/ui/stat-tile";
 import { documentType } from "@/features/invoices/dispatch-documents";
@@ -52,8 +54,8 @@ export function ShipmentsWorkspace({ shipments, invoices, customers }: Shipments
   const count = (...wanted: ShipmentStatus[]) => shipments.filter((shipment) => wanted.includes(shipment.status)).length;
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+    <div className="flex flex-col gap-3.5">
+      <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
         <StatTile label="Shipments" value={formatQuantity(shipments.length)} />
         <StatTile label="Planned or loading" value={formatQuantity(count("planned", "loading"))} />
         <StatTile label="At the border" value={formatQuantity(count("at-border"))} tone={count("at-border") ? "warning" : undefined} />
@@ -61,28 +63,33 @@ export function ShipmentsWorkspace({ shipments, invoices, customers }: Shipments
       </div>
 
       <GlassCard className="flex flex-col gap-3.5">
-        <div className="flex flex-wrap gap-2.5">
-          <Link href="/shipments/new" className={buttonClasses("success")}>
-            <Plus aria-hidden="true" className="size-[18px]" />
-            New shipment
-          </Link>
-        </div>
-        <SearchField
-          id="shipment-search"
-          label="Search shipments"
-          value={query}
-          onChange={setQuery}
-          placeholder="Search by shipment, vehicle number, invoice or customer"
-          trailing={`${visible.length} of ${shipments.length}`}
-          prominent
-        />
-        <div className="flex flex-wrap gap-2">
-          {FILTERS.map((option) => (
-            <FilterChip key={option.value} selected={filter === option.value} onClick={() => setFilter(option.value)}>
-              {option.label}
-            </FilterChip>
-          ))}
-        </div>
+        <ListToolbar
+          actions={
+            <>
+              <Link href="/shipments/new" className={buttonClasses("success", undefined, "lg")}>
+                <Plus aria-hidden="true" />
+                New shipment
+              </Link>
+            </>
+          }
+        >
+          <SearchField
+            className="max-w-[340px] flex-[1_1_240px]"
+            id="shipment-search"
+            label="Search shipments"
+            value={query}
+            onChange={setQuery}
+            placeholder="Search by shipment, vehicle number, invoice or customer"
+            trailing={`${visible.length} of ${shipments.length}`}
+          />
+          <FilterGroup label="Stage">
+            {FILTERS.map((option) => (
+              <FilterChip key={option.value} selected={filter === option.value} onClick={() => setFilter(option.value)}>
+                {option.label}
+              </FilterChip>
+            ))}
+          </FilterGroup>
+        </ListToolbar>
         <GlassTable className="min-w-[920px]">
           <thead>
             <tr>
@@ -102,22 +109,22 @@ export function ShipmentsWorkspace({ shipments, invoices, customers }: Shipments
               return (
                 <tr key={shipment.id} className="align-top">
                   <td>
-                    <Link href={`/shipments/${shipment.id}`} className="font-bold hover:text-brand hover:underline">
+                    <Link href={`/shipments/${shipment.id}`} className="font-semibold hover:text-brand hover:underline">
                       {shipment.number}
                     </Link>
                     <div className="text-xs text-muted">{formatDayMonth(shipment.date)}</div>
                   </td>
                   <td>
-                    <div className="font-bold">{customers[shipment.customerId]}</div>
+                    <div className="font-semibold">{customers[shipment.customerId]}</div>
                     <div className="text-xs text-muted">to {shipment.destination}</div>
                   </td>
                   <td>
-                    <div className="font-bold">{shipment.vehicleNumber}</div>
+                    <div className="font-semibold">{shipment.vehicleNumber}</div>
                     <div className="text-xs text-muted">{shipment.driverName ?? "Driver not set"}</div>
                   </td>
                   <td className="text-xs">
                     {carried.map((invoice) => (
-                      <Link key={invoice.id} href={`/invoices/${invoice.id}`} className="block font-bold text-brand hover:underline">
+                      <Link key={invoice.id} href={`/invoices/${invoice.id}`} className="block font-semibold text-brand hover:underline">
                         {invoice.number}
                       </Link>
                     ))}
@@ -141,7 +148,7 @@ export function ShipmentsWorkspace({ shipments, invoices, customers }: Shipments
             })}
           </tbody>
         </GlassTable>
-        {visible.length === 0 && <p className="py-6 text-center text-sm font-semibold text-muted">No shipments match.</p>}
+        {visible.length === 0 && <p className="py-6 text-center text-[13px] text-muted">No shipments match.</p>}
       </GlassCard>
     </div>
   );

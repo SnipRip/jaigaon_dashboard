@@ -4,10 +4,12 @@ import { Archive, ArchiveRestore, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/filter-chip";
+import { FilterGroup } from "@/components/ui/filter-group";
 import { FormMessage } from "@/components/ui/form-message";
 import { GlassCard } from "@/components/ui/glass-card";
 import { GlassModal } from "@/components/ui/glass-modal";
 import { GlassTable } from "@/components/ui/glass-table";
+import { ListToolbar } from "@/components/ui/list-toolbar";
 import { ImportDialog } from "@/components/ui/import-dialog";
 import { SearchField } from "@/components/ui/search-field";
 import { StatTile } from "@/components/ui/stat-tile";
@@ -107,9 +109,9 @@ export function RecordMaster<T extends MasterRecord>({
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3.5">
       {stats && (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
           {stats(records.filter((record) => !record.archived)).map((stat) => (
             <StatTile key={stat.label} {...stat} />
           ))}
@@ -117,37 +119,40 @@ export function RecordMaster<T extends MasterRecord>({
       )}
 
       <GlassCard className="flex flex-col gap-3.5">
-        <div className="flex flex-wrap gap-2.5">
-          <Button onClick={() => setEditing("new")}>
-            <Plus aria-hidden="true" className="size-[18px]" />
-            New {one}
-          </Button>
-          <div className="ml-auto">
-            <ImportDialog what={many} columns={importColumns} />
-          </div>
-        </div>
-        <SearchField
-          id={`${many.replace(/\s+/g, "-")}-search`}
-          label={`Search ${many}`}
-          value={query}
-          onChange={setQuery}
-          placeholder={`Search ${many}`}
-          trailing={`${visible.length} of ${records.filter((record) => Boolean(record.archived) === showArchived).length}`}
-          prominent
-        />
-        <div className="flex flex-wrap gap-2">
-          <FilterChip selected={filter < 0 && !showArchived} onClick={() => (setFilter(-1), setShowArchived(false))}>
-            All
-          </FilterChip>
-          {filters.map((option, index) => (
-            <FilterChip key={option.label} selected={filter === index && !showArchived} onClick={() => (setFilter(index), setShowArchived(false))}>
-              {option.label}
+        <ListToolbar
+          actions={
+            <>
+              <ImportDialog what={many} columns={importColumns} />
+              <Button size="lg" onClick={() => setEditing("new")}>
+                <Plus aria-hidden="true" />
+                New {one}
+              </Button>
+            </>
+          }
+        >
+          <SearchField
+            className="max-w-[340px] flex-[1_1_240px]"
+            id={`${many.replace(/\s+/g, "-")}-search`}
+            label={`Search ${many}`}
+            value={query}
+            onChange={setQuery}
+            placeholder={`Search ${many}`}
+            trailing={`${visible.length} of ${records.filter((record) => Boolean(record.archived) === showArchived).length}`}
+          />
+          <FilterGroup label="Show">
+            <FilterChip selected={filter < 0 && !showArchived} onClick={() => (setFilter(-1), setShowArchived(false))}>
+              All
             </FilterChip>
-          ))}
-          <FilterChip selected={showArchived} onClick={() => (setFilter(-1), setShowArchived(true))}>
-            Archived
-          </FilterChip>
-        </div>
+            {filters.map((option, index) => (
+              <FilterChip key={option.label} selected={filter === index && !showArchived} onClick={() => (setFilter(index), setShowArchived(false))}>
+                {option.label}
+              </FilterChip>
+            ))}
+            <FilterChip selected={showArchived} onClick={() => (setFilter(-1), setShowArchived(true))}>
+              Archived
+            </FilterChip>
+          </FilterGroup>
+        </ListToolbar>
 
         <GlassTable className="min-w-[720px]">
           <thead>
@@ -175,7 +180,7 @@ export function RecordMaster<T extends MasterRecord>({
                   {columns.map((column, index) => (
                     <td key={column.label} className={column.align === "right" ? "text-right" : "text-left"}>
                       {index === 0 ? (
-                        <button type="button" onClick={() => setEditing(record)} className="text-left font-bold hover:text-brand hover:underline">
+                        <button type="button" onClick={() => setEditing(record)} className="text-left font-semibold hover:text-brand hover:underline">
                           {column.render(record)}
                         </button>
                       ) : (
@@ -204,7 +209,7 @@ export function RecordMaster<T extends MasterRecord>({
             })}
           </tbody>
         </GlassTable>
-        {visible.length === 0 && <p className="py-6 text-center text-sm font-semibold text-muted">No {many} match.</p>}
+        {visible.length === 0 && <p className="py-6 text-center text-[13px] text-muted">No {many} match.</p>}
         {notice && <FormMessage tone="success">{notice}</FormMessage>}
         {footnote && <p className="text-xs font-semibold text-muted">{footnote}</p>}
       </GlassCard>

@@ -20,14 +20,14 @@ export function FilePicker({ label, accept, file, onChange, hint }: FilePickerPr
   const input = useRef<HTMLInputElement>(null);
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-xs font-bold text-muted">{label}</span>
+    <div className="flex flex-col gap-1">
+      <span className="text-xs font-medium text-muted">{label}</span>
       <div className="flex flex-wrap items-center gap-2.5">
         <label
           htmlFor={id}
-          className="glass-control glass-press inline-flex h-11 cursor-pointer items-center gap-2 rounded-full px-5 text-sm font-bold text-brand focus-within:outline-2 focus-within:outline-brand hover:bg-white/80"
+          className="glass-control glass-press inline-flex h-8 cursor-pointer items-center gap-1.5 px-3 text-[13px] font-semibold text-brand focus-within:outline-2 focus-within:outline-brand hover:bg-brand-tint/60"
         >
-          <Paperclip aria-hidden="true" className="size-[18px]" />
+          <Paperclip aria-hidden="true" className="size-[15px]" />
           {file ? "Choose another file" : "Choose a file"}
           <input
             ref={input}
@@ -39,7 +39,7 @@ export function FilePicker({ label, accept, file, onChange, hint }: FilePickerPr
           />
         </label>
         {file && (
-          <span className="glass-inset inline-flex h-11 max-w-full items-center gap-2 rounded-full pr-1.5 pl-4 text-sm font-semibold">
+          <span className="glass-inset inline-flex h-8 max-w-full items-center gap-1.5 pr-1 pl-3 text-[13px]">
             <span className="truncate">{file.name}</span>
             <button
               type="button"
@@ -48,14 +48,14 @@ export function FilePicker({ label, accept, file, onChange, hint }: FilePickerPr
                 onChange(null);
                 if (input.current) input.current.value = "";
               }}
-              className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted hover:bg-ink/5 hover:text-ink"
+              className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted hover:bg-ink/5 hover:text-ink"
             >
               <X aria-hidden="true" className="size-4" />
             </button>
           </span>
         )}
       </div>
-      {hint && <p className="text-xs font-semibold text-muted">{hint}</p>}
+      {hint && <p className="text-[11.5px] text-muted">{hint}</p>}
     </div>
   );
 }

@@ -60,8 +60,8 @@ export function QuotationDetail({ initialQuotation, party, issuer, items }: Quot
   };
 
   return (
-    <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
-      <div className="flex min-w-0 flex-col gap-4">
+    <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="flex min-w-0 flex-col gap-3.5">
         <div className="flex flex-wrap gap-2.5">
           <Button onClick={() => window.print()}>
             <Printer aria-hidden="true" className="size-[18px]" />
@@ -79,7 +79,7 @@ export function QuotationDetail({ initialQuotation, party, issuer, items }: Quot
         <QuotationDocument quotation={quotation} party={party} issuer={issuer} tax={tax} totals={totals} />
       </div>
 
-      <div className="flex flex-col gap-4 xl:sticky xl:top-4">
+      <div className="flex flex-col gap-3.5 xl:sticky xl:top-3.5">
         <GlassCard className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>{quotationLabel(quotation)}</CardTitle>
@@ -133,13 +133,13 @@ export function QuotationDetail({ initialQuotation, party, issuer, items }: Quot
             <CardTitle>Earlier revisions</CardTitle>
             <ul className="flex flex-col gap-1.5 text-sm">
               {quotation.history.map((entry) => (
-                <li key={entry.revision} className="glass-inset flex flex-wrap justify-between gap-2 rounded-[18px] px-4 py-2.5">
+                <li key={entry.revision} className="glass-inset flex flex-wrap justify-between gap-2 rounded-(--radius-tile) px-4 py-2.5">
                   <span>
-                    <span className="font-bold">{entry.revision ? `R${entry.revision}` : "Original"}</span>
+                    <span className="font-semibold">{entry.revision ? `R${entry.revision}` : "Original"}</span>
                     <span className="font-semibold text-ink-soft"> · {entry.note}</span>
                     <span className="block text-xs font-semibold text-muted">{formatDate(entry.date)}</span>
                   </span>
-                  <span className="font-extrabold tabular-nums">{formatInr(entry.total)}</span>
+                  <span className="font-semibold tabular-nums">{formatInr(entry.total)}</span>
                 </li>
               ))}
             </ul>

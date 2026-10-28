@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/filter-chip";
+import { FilterGroup } from "@/components/ui/filter-group";
 import { FormMessage } from "@/components/ui/form-message";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { SelectField } from "@/components/ui/select-field";
@@ -107,21 +108,23 @@ export function PartyForm({ role, party, priceLevels, companyState }: PartyFormP
   const stateOptions = INDIAN_STATES.map((state) => ({ value: state.code, label: `${state.name} (${state.code})` }));
 
   return (
-    <form onSubmit={onSubmit} noValidate className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-      <div className="@container flex min-w-0 flex-col gap-4">
-        <GlassCard className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} noValidate className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="@container flex min-w-0 flex-col gap-3.5">
+        <GlassCard className="flex flex-col gap-3.5">
           <CardTitle>Who they are</CardTitle>
-          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="This party is a">
-            <span className="text-xs font-bold text-muted">This party is a</span>
-            <FilterChip selected={isCustomer} onClick={() => toggleRole("customer")}>
-              Customer
-            </FilterChip>
-            <FilterChip selected={isVendor} onClick={() => toggleRole("vendor")}>
-              Vendor
-            </FilterChip>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-muted">This party is a</span>
+            <FilterGroup label="This party is a">
+              <FilterChip selected={isCustomer} onClick={() => toggleRole("customer")}>
+                Customer
+              </FilterChip>
+              <FilterChip selected={isVendor} onClick={() => toggleRole("vendor")}>
+                Vendor
+              </FilterChip>
+            </FilterGroup>
             {errors.roles && <span className="text-xs font-semibold text-danger-strong">{errors.roles.message}</span>}
           </div>
-          <div className="grid gap-3.5 @xl:grid-cols-2">
+          <div className="grid gap-x-3.5 gap-y-3 @xl:grid-cols-2 @4xl:grid-cols-3">
             <TextField label="Display name" placeholder="Shown on quotations and invoices" error={errors.displayName?.message} {...register("displayName")} />
             <TextField label="Legal name" placeholder="As registered, if different" error={errors.legalName?.message} {...register("legalName")} />
             <TextField label="Contact person" error={errors.contactPerson?.message} {...register("contactPerson")} />
@@ -145,7 +148,7 @@ export function PartyForm({ role, party, priceLevels, companyState }: PartyFormP
           </div>
         </GlassCard>
 
-        <GlassCard className="flex flex-col gap-4">
+        <GlassCard className="flex flex-col gap-3.5">
           <CardTitle>GST and tax</CardTitle>
           <Controller
             control={control}
@@ -164,7 +167,7 @@ export function PartyForm({ role, party, priceLevels, companyState }: PartyFormP
           />
 
           {needsGstin(treatment) && (
-            <div className="grid gap-3.5 @xl:grid-cols-2">
+            <div className="grid gap-x-3.5 gap-y-3 @xl:grid-cols-2 @4xl:grid-cols-3">
               <TextField
                 label="GSTIN"
                 placeholder="15 characters"
@@ -179,7 +182,7 @@ export function PartyForm({ role, party, priceLevels, companyState }: PartyFormP
           )}
 
           {overseas ? (
-            <div className="grid gap-3.5 @xl:grid-cols-2">
+            <div className="grid gap-x-3.5 gap-y-3 @xl:grid-cols-2 @4xl:grid-cols-3">
               <TextField label="Country" placeholder="Bhutan" error={errors.country?.message} {...register("country")} />
               <TextField
                 label="Their tax ID"
@@ -244,18 +247,24 @@ export function PartyForm({ role, party, priceLevels, companyState }: PartyFormP
               control={control}
               name="isGta"
               render={({ field }) => (
-                <div className="flex flex-col gap-1.5">
-                  <FilterChip selected={field.value} onClick={() => field.onChange(!field.value)} className="self-start">
-                    {field.value ? "Goods transport agency: yes" : "Goods transport agency: no"}
-                  </FilterChip>
-                  <p className="text-xs font-semibold text-muted">Yes for truck transporters whose freight bills fall under reverse charge.</p>
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs font-medium text-muted">Goods transport agency</span>
+                  <FilterGroup label="Goods transport agency">
+                    <FilterChip selected={!field.value} onClick={() => field.onChange(false)}>
+                      No
+                    </FilterChip>
+                    <FilterChip selected={field.value} onClick={() => field.onChange(true)}>
+                      Yes
+                    </FilterChip>
+                  </FilterGroup>
+                  <p className="text-[11.5px] text-muted">Yes for truck transporters whose freight bills fall under reverse charge.</p>
                 </div>
               )}
             />
           )}
         </GlassCard>
 
-        <GlassCard className="flex flex-col gap-4">
+        <GlassCard className="flex flex-col gap-3.5">
           <CardTitle>Address</CardTitle>
           <div className="grid gap-3.5 @xl:grid-cols-[2fr_1fr_1fr]">
             <TextField label="Street / area" error={errors.addressLine?.message} {...register("addressLine")} />
@@ -267,7 +276,7 @@ export function PartyForm({ role, party, priceLevels, companyState }: PartyFormP
           )}
         </GlassCard>
 
-        <GlassCard className="flex flex-col gap-4">
+        <GlassCard className="flex flex-col gap-3.5">
           <CardTitle>Terms and balances</CardTitle>
           <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3.5">
             <TextField label="Credit days" inputMode="numeric" hint="0 for cash" error={errors.creditDays?.message} {...register("creditDays")} />
@@ -310,17 +319,17 @@ export function PartyForm({ role, party, priceLevels, companyState }: PartyFormP
         <GlassCard className="flex flex-col gap-3">
           {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
           <div className="flex flex-wrap gap-2.5">
-            <Button type="submit" className="h-[50px] px-6">
+            <Button type="submit" size="lg">
               {party ? "Save changes" : `Save ${ROLE_TEXT[role].one}`}
             </Button>
-            <Link href={ROLE_TEXT[role].path} className={buttonClasses("neutral", "ml-auto h-[50px]")}>
+            <Link href={ROLE_TEXT[role].path} className={buttonClasses("neutral", "ml-auto", "lg")}>
               Back to {ROLE_TEXT[role].many}
             </Link>
           </div>
         </GlassCard>
       </div>
 
-      <div className="xl:sticky xl:top-4">
+      <div className="xl:sticky xl:top-3.5">
         <PartyTaxPreview
           companyState={companyState}
           roles={roles}

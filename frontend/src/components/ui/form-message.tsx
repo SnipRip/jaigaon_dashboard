@@ -11,7 +11,7 @@ export function FormMessage({ tone, children }: FormMessageProps) {
     <p
       role={tone === "error" ? "alert" : "status"}
       className={clsx(
-        "rounded-[18px] px-4 py-2 text-sm font-bold",
+        "rounded-(--radius-tile) px-3 py-2 text-[13px] font-medium",
         tone === "error" ? "bg-danger-tint text-danger-strong" : "bg-success-tint text-success-strong",
       )}
     >

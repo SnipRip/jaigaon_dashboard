@@ -40,7 +40,7 @@ export function ItemsTable({ catalog, rows, expandedGroups, onToggleGroup }: Ite
       <tr key={item.id} className={clsx(isVariant && "bg-white/25")}>
         <td className="text-left">
           <div className={clsx(isVariant && "pl-11")}>
-            <Link href={`/items/${item.id}`} className="font-bold hover:text-brand hover:underline">
+            <Link href={`/items/${item.id}`} className="font-semibold hover:text-brand hover:underline">
               {isVariant ? Object.values(item.attributeValues ?? {}).join(" · ") : item.name}
             </Link>
             <div className="text-xs text-muted">
@@ -58,7 +58,7 @@ export function ItemsTable({ catalog, rows, expandedGroups, onToggleGroup }: Ite
           <StockCell item={item} unit={resolved.unit.value} />
         </td>
         <td>{formatRate(item.costPrice)}</td>
-        <td className="font-bold text-brand">
+        <td className="font-semibold text-brand">
           {formatRate(item.sellingPrice)}
           <span className="text-xs font-semibold text-muted"> / {resolved.unit.value}</span>
         </td>
@@ -97,12 +97,12 @@ export function ItemsTable({ catalog, rows, expandedGroups, onToggleGroup }: Ite
                       aria-expanded={isOpen}
                       aria-label={`${isOpen ? "Hide" : "Show"} variants of ${group.name}`}
                       onClick={() => onToggleGroup(group.id)}
-                      className="-ml-2 flex size-10 shrink-0 items-center justify-center rounded-full text-muted hover:bg-white/60 hover:text-ink"
+                      className="-ml-1.5 flex size-7 shrink-0 items-center justify-center rounded-md text-muted hover:bg-white/60 hover:text-ink"
                     >
                       <ChevronRight aria-hidden="true" className={clsx("size-4 transition-transform", isOpen && "rotate-90")} />
                     </button>
                     <div className="min-w-0">
-                      <Link href={`/items/groups/${group.id}`} className="font-bold hover:text-brand hover:underline">
+                      <Link href={`/items/groups/${group.id}`} className="font-semibold hover:text-brand hover:underline">
                         {group.name}
                       </Link>
                       <div className="text-xs text-muted">
@@ -129,7 +129,7 @@ export function ItemsTable({ catalog, rows, expandedGroups, onToggleGroup }: Ite
                   )}
                 </td>
                 <td>{range(variants.map((variant) => variant.costPrice))}</td>
-                <td className="font-bold text-brand">{range(variants.map((variant) => variant.sellingPrice))}</td>
+                <td className="font-semibold text-brand">{range(variants.map((variant) => variant.sellingPrice))}</td>
               </tr>
               {isOpen && variants.map((variant) => itemRow(variant, true))}
             </Fragment>

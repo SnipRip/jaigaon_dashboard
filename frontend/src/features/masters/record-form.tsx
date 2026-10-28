@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/filter-chip";
+import { FilterGroup } from "@/components/ui/filter-group";
 import { SelectField } from "@/components/ui/select-field";
 import { TextArea } from "@/components/ui/text-area";
 import { TextField } from "@/components/ui/text-field";
@@ -28,7 +29,7 @@ export function RecordForm({ fields, initial, submitLabel, onSubmit, onCancel }:
   const errorOf = (key: string) => errors[key]?.message as string | undefined;
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-3.5">
       <div className="grid gap-3.5 sm:grid-cols-2">
         {fields.map((field) => {
           const span = field.wide || field.kind === "textarea" ? "sm:col-span-2" : undefined;
@@ -58,15 +59,15 @@ export function RecordForm({ fields, initial, submitLabel, onSubmit, onCancel }:
                   name={field.key}
                   render={({ field: control }) => (
                     <div className={span ?? "flex flex-col gap-1.5"}>
-                      <span className="text-xs font-bold text-muted">{field.label}</span>
-                      <div className="flex flex-wrap gap-2">
+                      <span className="text-xs font-medium text-muted">{field.label}</span>
+                      <FilterGroup label={field.label}>
                         <FilterChip selected={control.value === true} onClick={() => control.onChange(true)}>
                           {field.onLabel}
                         </FilterChip>
                         <FilterChip selected={control.value === false} onClick={() => control.onChange(false)}>
                           {field.offLabel}
                         </FilterChip>
-                      </div>
+                      </FilterGroup>
                       {field.hint && <p className="text-xs font-semibold text-muted">{field.hint}</p>}
                     </div>
                   )}

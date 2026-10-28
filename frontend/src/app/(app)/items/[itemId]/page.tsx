@@ -36,7 +36,7 @@ async function ItemDetail({ params }: { params: ItemParams }) {
   return (
     <>
       <SampleDataNotice />
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <ItemForm catalog={catalog} item={item} brands={brands} units={units} godowns={godowns} gstRates={gstRates} />
         <ItemActivity catalog={catalog} item={item} movements={sampleMovements(item)} />
       </div>

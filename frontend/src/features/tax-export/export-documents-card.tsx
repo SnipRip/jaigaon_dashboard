@@ -28,7 +28,7 @@ export function ExportDocumentsCard({ documents }: { documents: ExportDocumentTy
         <tbody className="font-semibold">
           {documents.map((document) => (
             <tr key={document.id} className="align-top">
-              <td className="text-left font-bold">{document.name}</td>
+              <td className="text-left font-semibold">{document.name}</td>
               <td className="text-left">{document.issuedBy}</td>
               <td className="text-left text-ink-soft">{document.holds}</td>
               <td className="text-left text-ink-soft">{document.whenNeeded}</td>

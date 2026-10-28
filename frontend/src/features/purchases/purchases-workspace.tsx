@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { buttonClasses } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/filter-chip";
+import { FilterGroup } from "@/components/ui/filter-group";
 import { GlassCard } from "@/components/ui/glass-card";
 import { GlassTable } from "@/components/ui/glass-table";
+import { ListToolbar } from "@/components/ui/list-toolbar";
 import { SearchField } from "@/components/ui/search-field";
 import { StatTile } from "@/components/ui/stat-tile";
 import { StatusChip } from "@/components/ui/status-chip";
@@ -58,8 +60,8 @@ export function PurchasesWorkspace({ bills, parties, companyState }: PurchasesWo
   const overdue = rows.filter((row) => row.status === "Overdue").length;
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+    <div className="flex flex-col gap-3.5">
+      <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
         <StatTile label="Bills" value={formatQuantity(rows.length)} />
         <StatTile label="To pay vendors" value={formatInr(toPay)} />
         <StatTile label="Input credit to claim" value={formatInr(itc)} tone="success" />
@@ -67,33 +69,37 @@ export function PurchasesWorkspace({ bills, parties, companyState }: PurchasesWo
       </div>
 
       <GlassCard className="flex flex-col gap-3.5">
-        <div className="flex flex-wrap gap-2.5">
-          <Link href="/purchases/new" className={buttonClasses("primary")}>
-            <Plus aria-hidden="true" className="size-[18px]" />
-            New bill
-          </Link>
-          <Link href="/purchases/new?kind=charges" className={buttonClasses("outline")}>
-            <Plus aria-hidden="true" className="size-[18px]" />
-            Freight, loading or labour bill
-          </Link>
-        </div>
 
-        <SearchField
-          id="bill-search"
-          label="Search bills"
-          value={query}
-          onChange={setQuery}
-          placeholder="Search by our reference, vendor's bill number or vendor"
-          trailing={`${visible.length} of ${rows.length}`}
-          prominent
-        />
-        <div className="flex flex-wrap gap-2">
-          {FILTERS.map((option) => (
-            <FilterChip key={option.value} selected={filter === option.value} onClick={() => setFilter(option.value)}>
-              {option.label}
-            </FilterChip>
-          ))}
-        </div>
+        <ListToolbar
+          actions={
+            <>
+              <Link href="/purchases/new?kind=charges" className={buttonClasses("neutral")}>
+                Freight, loading or labour bill
+              </Link>
+              <Link href="/purchases/new" className={buttonClasses("primary", undefined, "lg")}>
+                <Plus aria-hidden="true" />
+                New bill
+              </Link>
+            </>
+          }
+        >
+          <SearchField
+            className="max-w-[340px] flex-[1_1_240px]"
+            id="bill-search"
+            label="Search bills"
+            value={query}
+            onChange={setQuery}
+            placeholder="Search by our reference, vendor's bill number or vendor"
+            trailing={`${visible.length} of ${rows.length}`}
+          />
+          <FilterGroup label="Bill kind">
+            {FILTERS.map((option) => (
+              <FilterChip key={option.value} selected={filter === option.value} onClick={() => setFilter(option.value)}>
+                {option.label}
+              </FilterChip>
+            ))}
+          </FilterGroup>
+        </ListToolbar>
 
         <GlassTable className="min-w-[980px]">
           <thead>
@@ -115,7 +121,7 @@ export function PurchasesWorkspace({ bills, parties, companyState }: PurchasesWo
               return (
                 <tr key={bill.id} className="align-top">
                   <td className="text-left">
-                    <Link href={`/purchases/${bill.id}`} className="font-bold hover:text-brand hover:underline">
+                    <Link href={`/purchases/${bill.id}`} className="font-semibold hover:text-brand hover:underline">
                       {bill.reference}
                     </Link>
                     <div className="text-xs text-muted">
@@ -123,7 +129,7 @@ export function PurchasesWorkspace({ bills, parties, companyState }: PurchasesWo
                     </div>
                   </td>
                   <td className="text-left">
-                    <div className="font-bold">{vendor.displayName}</div>
+                    <div className="font-semibold">{vendor.displayName}</div>
                     <div className="text-xs text-muted">
                       {bill.kind === "goods" ? "Goods" : "Freight, loading & labour"}
                       {isMsme(vendor) && " · MSME"}
@@ -132,7 +138,7 @@ export function PurchasesWorkspace({ bills, parties, companyState }: PurchasesWo
                   <td className="text-left">
                     <StatusChip tone={tax.itc ? "brand" : "warning"}>{tax.title}</StatusChip>
                   </td>
-                  <td className="font-bold">{formatInr(totals.payable)}</td>
+                  <td className="font-semibold">{formatInr(totals.payable)}</td>
                   <td className={totals.itcClaimable ? "text-success-strong" : "text-muted"}>
                     {totals.itcClaimable ? formatInr(totals.itcClaimable) : "None"}
                   </td>
@@ -151,7 +157,7 @@ export function PurchasesWorkspace({ bills, parties, companyState }: PurchasesWo
             })}
           </tbody>
         </GlassTable>
-        {visible.length === 0 && <p className="py-6 text-center text-sm font-semibold text-muted">No bills match.</p>}
+        {visible.length === 0 && <p className="py-6 text-center text-[13px] text-muted">No bills match.</p>}
       </GlassCard>
     </div>
   );
@@ -164,7 +170,7 @@ function LandedCostNote({ row, bills, byId }: { row: BillView; bills: Bill[]; by
     return target ? (
       <span className="text-ink-soft">
         Added to{" "}
-        <Link href={`/purchases/${target.bill.id}`} className="font-bold text-brand hover:underline">
+        <Link href={`/purchases/${target.bill.id}`} className="font-semibold text-brand hover:underline">
           {target.bill.reference}
         </Link>
       </span>

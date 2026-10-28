@@ -27,7 +27,7 @@ export function SelectField({ label, options, className, ...props }: SelectField
   const id = useId();
 
   return (
-    <div className={clsx("flex flex-col gap-1.5", className)}>
+    <div className={clsx("flex flex-col gap-1", className)}>
       <label htmlFor={id} className={fieldLabelClasses}>
         {label}
       </label>
@@ -40,7 +40,7 @@ export function SelectField({ label, options, className, ...props }: SelectField
             <Select.Value />
           </span>
           <Select.Icon>
-            <ChevronDown aria-hidden="true" className="size-[18px] text-muted transition-transform group-data-[state=open]:rotate-180" />
+            <ChevronDown aria-hidden="true" className="size-4 text-muted transition-transform group-data-[state=open]:rotate-180" />
           </Select.Icon>
         </Select.Trigger>
         <Select.Portal>
@@ -49,12 +49,12 @@ export function SelectField({ label, options, className, ...props }: SelectField
             sideOffset={6}
             className="z-30 max-h-(--radix-select-content-available-height) w-(--radix-select-trigger-width) animate-pop-in glass-popover overflow-hidden"
           >
-            <Select.Viewport className="p-1.5">
+            <Select.Viewport className="p-1">
               {options.map((option) => (
                 <Select.Item
                   key={option.value}
                   value={option.value}
-                  className="flex h-11 cursor-pointer items-center justify-between gap-2 rounded-2xl px-3.5 text-sm font-semibold text-ink-soft outline-none select-none data-[highlighted]:bg-brand-tint data-[highlighted]:text-brand-strong data-[state=checked]:font-extrabold data-[state=checked]:text-ink"
+                  className="flex h-8 cursor-pointer items-center justify-between gap-2 rounded-md px-2.5 text-[13px] text-ink-soft outline-none select-none data-[highlighted]:bg-brand-tint data-[highlighted]:text-brand-strong data-[state=checked]:font-semibold data-[state=checked]:text-ink"
                 >
                   <Select.ItemText>{option.label}</Select.ItemText>
                   <Select.ItemIndicator>

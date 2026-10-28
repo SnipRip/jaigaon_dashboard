@@ -4,12 +4,13 @@ import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { buttonClasses } from "@/components/ui/button";
-import { FilterChip } from "@/components/ui/filter-chip";
 import { GlassCard } from "@/components/ui/glass-card";
 import { GlassTable } from "@/components/ui/glass-table";
+import { ListToolbar } from "@/components/ui/list-toolbar";
 import { SearchField } from "@/components/ui/search-field";
 import { StatTile } from "@/components/ui/stat-tile";
 import { StatusChip } from "@/components/ui/status-chip";
+import { ViewTabs } from "@/components/ui/view-tabs";
 import { formatDayMonth, formatInr } from "@/lib/format";
 import { useToday } from "@/lib/use-today";
 import { AGE_BUCKETS, ageBucket, modeLabel, msmeDaysLeft } from "./payment-rules";
@@ -52,8 +53,8 @@ export function PaymentsWorkspace({ receivable, payable, receipts, payments, nam
   const msmeSoon = today ? payable.filter((document) => document.flag === "msme" && document.balance > 0 && msmeDaysLeft(document, today) <= 7) : [];
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+    <div className="flex flex-col gap-3.5">
+      <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
         <StatTile label="Customers owe us" value={formatInr(sum(receivable))} />
         <StatTile label="Overdue from customers" value={formatInr(sum(overdue))} tone={overdue.length ? "danger" : undefined} />
         <StatTile label="We owe vendors" value={formatInr(sum(payable))} />
@@ -61,31 +62,30 @@ export function PaymentsWorkspace({ receivable, payable, receipts, payments, nam
       </div>
 
       {msmeSoon.length > 0 && (
-        <p role="status" className="rounded-[18px] bg-warning-tint px-4 py-3 text-sm font-semibold text-warning-strong">
+        <p role="status" className="rounded-(--radius-tile) bg-warning-tint px-4 py-3 text-sm font-semibold text-warning-strong">
           MSME vendors must be paid within 45 days of the bill, or we owe interest and lose the tax deduction:{" "}
           {msmeSoon.map((document) => `${names[document.partyId]} (${Math.max(msmeDaysLeft(document, today!), 0)} days left)`).join(", ")}.
         </p>
       )}
 
       <GlassCard className="flex flex-col gap-3.5">
-        <div className="flex flex-wrap gap-2.5">
-          <Link href="/payments/receipts/new" className={buttonClasses("success")}>
-            <ArrowDownLeft aria-hidden="true" className="size-[18px]" />
-            Record a receipt
-          </Link>
-          <Link href="/payments/vendor-payments/new" className={buttonClasses("primary")}>
-            <ArrowUpRight aria-hidden="true" className="size-[18px]" />
-            Pay a vendor
-          </Link>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {TABS.map((option) => (
-            <FilterChip key={option.value} selected={tab === option.value} onClick={() => setTab(option.value)}>
-              {option.label}
-            </FilterChip>
-          ))}
-        </div>
-        <SearchField id="payment-search" label="Search" value={query} onChange={setQuery} placeholder="Search by party, invoice, bill or reference" />
+        <ViewTabs label="Payment views" tabs={TABS} value={tab} onChange={setTab} className="-mx-4 -mt-2 px-4 sm:-mx-[18px] sm:px-[18px]" />
+        <ListToolbar
+          actions={
+            <>
+              <Link href="/payments/vendor-payments/new" className={buttonClasses("neutral")}>
+                <ArrowUpRight aria-hidden="true" />
+                Pay a vendor
+              </Link>
+              <Link href="/payments/receipts/new" className={buttonClasses("success", undefined, "lg")}>
+                <ArrowDownLeft aria-hidden="true" />
+                Record a receipt
+              </Link>
+            </>
+          }
+        >
+          <SearchField className="max-w-[340px] flex-[1_1_240px]" id="payment-search" label="Search" value={query} onChange={setQuery} placeholder="Search by party, invoice, bill or reference" />
+        </ListToolbar>
 
         {(tab === "receivable" || tab === "payable") && (
           <OpenTable documents={open(tab === "receivable" ? receivable : payable)} names={names} today={today} direction={tab === "receivable" ? "in" : "out"} />
@@ -105,9 +105,9 @@ function OpenTable({ documents, names, today, direction }: { documents: OpenDocu
       {buckets.length > 0 && (
         <dl className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           {buckets.map(({ bucket, total }) => (
-            <div key={bucket} className="glass-inset rounded-[18px] px-3 py-2.5">
-              <dt className="text-xs font-bold text-muted">{bucket}</dt>
-              <dd className={total && bucket !== "Not due" ? "font-extrabold text-danger-strong tabular-nums" : "font-extrabold tabular-nums"}>{formatInr(total)}</dd>
+            <div key={bucket} className="glass-inset rounded-(--radius-tile) px-3 py-2.5">
+              <dt className="text-xs font-medium text-muted">{bucket}</dt>
+              <dd className={total && bucket !== "Not due" ? "font-semibold text-danger-strong tabular-nums" : "font-semibold tabular-nums"}>{formatInr(total)}</dd>
             </div>
           ))}
         </dl>
@@ -132,13 +132,13 @@ function OpenTable({ documents, names, today, direction }: { documents: OpenDocu
             return (
               <tr key={document.id} className="align-top">
                 <td className="text-left">
-                  <Link href={document.href} className="font-bold hover:text-brand hover:underline">
+                  <Link href={document.href} className="font-semibold hover:text-brand hover:underline">
                     {document.number}
                   </Link>
                   <div className="text-xs text-muted">{formatDayMonth(document.date)}</div>
                 </td>
                 <td className="text-left">
-                  <Link href={`/payments/ledger/${document.partyId}`} className="font-bold hover:text-brand hover:underline">
+                  <Link href={`/payments/ledger/${document.partyId}`} className="font-semibold hover:text-brand hover:underline">
                     {names[document.partyId]}
                   </Link>
                   {document.flag === "export" && <div className="text-xs text-muted">Export: BRC on receipt</div>}
@@ -146,7 +146,7 @@ function OpenTable({ documents, names, today, direction }: { documents: OpenDocu
                 </td>
                 <td>{formatInr(document.total)}</td>
                 <td className="text-muted">{formatInr(document.settled)}</td>
-                <td className="font-bold">{formatInr(document.balance)}</td>
+                <td className="font-semibold">{formatInr(document.balance)}</td>
                 <td className="text-left">
                   {formatDayMonth(document.dueDate)}
                   {late && late !== "Not due" && (
@@ -168,7 +168,7 @@ function OpenTable({ documents, names, today, direction }: { documents: OpenDocu
           })}
         </tbody>
       </GlassTable>
-      {documents.length === 0 && <p className="py-6 text-center text-sm font-semibold text-muted">Nothing outstanding.</p>}
+      {documents.length === 0 && <p className="py-6 text-center text-[13px] text-muted">Nothing outstanding.</p>}
     </>
   );
 }
@@ -190,15 +190,15 @@ function SettlementTable({ settlements, names, documentNumbers }: { settlements:
           {[...settlements].sort((a, b) => b.date.localeCompare(a.date)).map((settlement) => (
             <tr key={settlement.id} className="align-top">
               <td className="text-left">
-                <span className="font-bold">{settlement.number}</span>
+                <span className="font-semibold">{settlement.number}</span>
                 <div className="text-xs text-muted">{formatDayMonth(settlement.date)}</div>
               </td>
               <td className="text-left">
-                <Link href={`/payments/ledger/${settlement.partyId}`} className="font-bold hover:text-brand hover:underline">
+                <Link href={`/payments/ledger/${settlement.partyId}`} className="font-semibold hover:text-brand hover:underline">
                   {names[settlement.partyId]}
                 </Link>
               </td>
-              <td className="font-bold">{formatInr(settlement.amount)}</td>
+              <td className="font-semibold">{formatInr(settlement.amount)}</td>
               <td className="text-left">
                 {modeLabel(settlement.mode)}
                 <div className="text-xs text-muted">
@@ -218,7 +218,7 @@ function SettlementTable({ settlements, names, documentNumbers }: { settlements:
           ))}
         </tbody>
       </GlassTable>
-      {settlements.length === 0 && <p className="py-6 text-center text-sm font-semibold text-muted">None yet.</p>}
+      {settlements.length === 0 && <p className="py-6 text-center text-[13px] text-muted">None yet.</p>}
     </>
   );
 }

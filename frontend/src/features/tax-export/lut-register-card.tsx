@@ -84,7 +84,7 @@ export function LutRegisterCard({ initialLuts }: { initialLuts: Lut[] }) {
           {luts.map((lut) => (
             <tr key={lut.arn}>
               <td className="text-left">
-                <div className="font-bold">{lut.financialYear}</div>
+                <div className="font-semibold">{lut.financialYear}</div>
                 <div className="text-xs text-muted tabular-nums">{lut.arn}</div>
               </td>
               <td className="text-left text-xs tabular-nums">{lut.adCode ?? <span className="text-warning-strong">Not entered</span>}</td>
@@ -113,7 +113,7 @@ export function LutRegisterCard({ initialLuts }: { initialLuts: Lut[] }) {
             <TextField label="Valid to" type="date" error={errors.validTo?.message} {...register("validTo")} />
           </div>
           {validFrom && /^\d{4}-\d{2}-\d{2}$/.test(validFrom) && (
-            <p className="text-xs font-bold text-muted">Financial year {financialYearOf(validFrom)}</p>
+            <p className="text-xs font-medium text-muted">Financial year {financialYearOf(validFrom)}</p>
           )}
           <div className="flex justify-end gap-2.5">
             <Button variant="neutral" onClick={() => setAdding(false)}>
