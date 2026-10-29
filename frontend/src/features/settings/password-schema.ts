@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // Mirrors backend/src/auth/password-policy.ts. The backend is the authority;
 // this copy only gives feedback before the request is sent.
-const PASSWORD_MIN_LENGTH = 12;
+const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
 
 export const PASSWORD_RULE = `At least ${PASSWORD_MIN_LENGTH} characters, with a letter, a number and a symbol.`;
