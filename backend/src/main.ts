@@ -31,6 +31,8 @@ async function bootstrap() {
   );
   app.enableShutdownHooks();
 
-  await app.listen(config.get('PORT', { infer: true }));
+  // HOST unset listens on every interface; on a shared server set 127.0.0.1
+  // so only the frontend (through its rewrite) can reach the API.
+  await app.listen(config.get('PORT', { infer: true }), config.get('HOST', { infer: true }));
 }
 await bootstrap();

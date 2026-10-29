@@ -5,6 +5,7 @@ import { z } from 'zod';
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
+  HOST: z.string().min(1).optional(),
   DATABASE_URL: z.string().min(1),
   FRONTEND_ORIGIN: z.url(),
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(1),
