@@ -35,7 +35,8 @@ interface CategoryEditorProps {
   units: string[];
   gstRates: number[];
   submitLabel: string;
-  onSubmit: (draft: CategoryDraft) => void;
+  /** Resolves true when saved; the form then takes the saved values as its start. */
+  onSubmit: (draft: CategoryDraft) => Promise<boolean>;
   onCancel?: () => void;
 }
 
@@ -47,20 +48,19 @@ export function CategoryEditor({ draft, parent, units, gstRates, submitLabel, on
     control,
     handleSubmit,
     reset,
-    formState: { errors, isDirty },
+    formState: { errors, isDirty, isSubmitting },
   } = useForm<CategoryFormValues>({ resolver: zodResolver(categorySchema), defaultValues: toCategoryValues(draft) });
 
-  const submit = handleSubmit((values) => {
-    onSubmit(fromCategoryValues(values));
-    reset(values);
+  const submit = handleSubmit(async (values) => {
+    if (await onSubmit(fromCategoryValues(values))) reset(values);
   });
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-3.5">
       <CategoryFields control={control} register={register} errors={errors} units={units} gstRates={gstRates} parent={parent} />
       <div className="flex flex-wrap gap-2.5">
-        <Button type="submit" disabled={Boolean(draft) && !isDirty}>
-          {submitLabel}
+        <Button type="submit" disabled={(Boolean(draft) && !isDirty) || isSubmitting}>
+          {isSubmitting ? "Saving…" : submitLabel}
         </Button>
         {onCancel ? (
           <Button variant="neutral" onClick={onCancel}>

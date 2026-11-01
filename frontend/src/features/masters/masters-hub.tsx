@@ -1,5 +1,6 @@
 import { ChevronRight, type LucideIcon } from "lucide-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { GlassCard } from "@/components/ui/glass-card";
 
 export interface MasterCard {
@@ -8,8 +9,8 @@ export interface MasterCard {
   icon: LucideIcon;
   /** What it holds, in one line. */
   description: string;
-  /** e.g. "44 items · 6 groups" */
-  count: string;
+  /** e.g. "44 items · 6 groups"; a LiveCount for masters saved in the backend. */
+  count: ReactNode;
 }
 
 // The index of every master (agent/masters-plan.md), grouped as the plan

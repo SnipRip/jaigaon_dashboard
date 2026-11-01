@@ -10,13 +10,15 @@ import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { GlassModal } from "@/components/ui/glass-modal";
 import { StatusChip } from "@/components/ui/status-chip";
 import { formatQuantity } from "@/lib/format";
+import { createCategory, deleteCategory, updateCategory, type ItemMasters } from "./catalog-api";
 import { CategoryEditor, type CategoryDraft } from "./category-editor";
+import { saveErrorText } from "./item-form";
 import { countItems } from "./item-rules";
-import type { Category, Item } from "./types";
 
 interface CategoriesWorkspaceProps {
-  initialCategories: Category[];
-  items: Item[];
+  masters: ItemMasters;
+  /** Reloads the item master after a change. */
+  onChanged: () => Promise<void>;
   units: string[];
   gstRates: number[];
 }
@@ -29,15 +31,13 @@ interface Selection {
 /** Which "add" dialog is open: a new category, or a sub-category under one. */
 type Adding = { level: "category" } | { level: "sub-category"; categoryId: string } | null;
 
-const newId = () => crypto.randomUUID();
-
-// Category management. Changes live in this page's memory only until the
-// item master is connected to the database, which the page says.
-export function CategoriesWorkspace({ initialCategories, items, units, gstRates }: CategoriesWorkspaceProps) {
-  const [categories, setCategories] = useState(initialCategories);
-  const [selection, setSelection] = useState<Selection>({ categoryId: initialCategories[0].id });
+// Category management, saved through the backend. Only two levels: a
+// sub-category has no sub-categories of its own.
+export function CategoriesWorkspace({ masters, onChanged, units, gstRates }: CategoriesWorkspaceProps) {
+  const { categories, items } = masters.catalog;
+  const [selection, setSelection] = useState<Selection>({ categoryId: categories[0]?.id ?? "" });
   const [adding, setAdding] = useState<Adding>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
   const counts = useMemo(() => countItems(items), [items]);
   const category = categories.find((candidate) => candidate.id === selection.categoryId);
@@ -45,49 +45,41 @@ export function CategoriesWorkspace({ initialCategories, items, units, gstRates 
   const selected = sub ?? category;
   const itemCount = selected ? (counts.get(selected.id) ?? 0) : 0;
 
-  const updateCategory = (categoryId: string, change: (category: Category) => Category) =>
-    setCategories((current) => current.map((candidate) => (candidate.id === categoryId ? change(candidate) : candidate)));
-
-  const saveSelected = (draft: CategoryDraft) => {
-    if (!category) return;
-    if (sub) {
-      updateCategory(category.id, (current) => ({
-        ...current,
-        subCategories: current.subCategories.map((candidate) => (candidate.id === sub.id ? { ...candidate, ...draft } : candidate)),
-      }));
-    } else {
-      updateCategory(category.id, (current) => ({ ...current, ...draft }));
+  // Runs one backend call, reloads, and reports. Resolves true on success.
+  const run = async (call: () => Promise<unknown>, done: string) => {
+    try {
+      await call();
+      await onChanged();
+      setNotice({ tone: "success", text: done });
+      return true;
+    } catch (error) {
+      setNotice({ tone: "error", text: saveErrorText(error) });
+      return false;
     }
-    setNotice(`${draft.name} updated on this page. It is not saved to the database yet.`);
   };
 
-  const add = (draft: CategoryDraft) => {
-    const id = newId();
-    if (adding?.level === "sub-category") {
-      updateCategory(adding.categoryId, (current) => ({ ...current, subCategories: [...current.subCategories, { id, ...draft }] }));
-      setSelection({ categoryId: adding.categoryId, subCategoryId: id });
-    } else {
-      setCategories((current) => [...current, { id, ...draft, subCategories: [] }]);
-      setSelection({ categoryId: id });
+  const saveSelected = (draft: CategoryDraft) =>
+    selected ? run(() => updateCategory(masters, selected.id, draft), `${draft.name} saved.`) : Promise.resolve(false);
+
+  const add = async (draft: CategoryDraft) => {
+    const parentId = adding?.level === "sub-category" ? adding.categoryId : undefined;
+    let createdId = "";
+    const saved = await run(async () => {
+      createdId = (await createCategory(masters, draft, parentId)).id;
+    }, `${draft.name} added.`);
+    if (saved) {
+      setSelection(parentId ? { categoryId: parentId, subCategoryId: createdId } : { categoryId: createdId });
+      setAdding(null);
     }
-    setAdding(null);
-    setNotice(`${draft.name} added on this page. It is not saved to the database yet.`);
+    return saved;
   };
 
-  const removeSelected = () => {
+  const removeSelected = async () => {
     if (!category || !selected) return;
-    if (sub) {
-      updateCategory(category.id, (current) => ({
-        ...current,
-        subCategories: current.subCategories.filter((candidate) => candidate.id !== sub.id),
-      }));
-      setSelection({ categoryId: category.id });
-    } else {
-      const remaining = categories.filter((candidate) => candidate.id !== category.id);
-      setCategories(remaining);
-      setSelection({ categoryId: remaining[0]?.id ?? "" });
+    const removed = await run(() => deleteCategory(selected.id), `${selected.name} deleted.`);
+    if (removed) {
+      setSelection(sub ? { categoryId: category.id } : { categoryId: categories.find((candidate) => candidate.id !== category.id)?.id ?? "" });
     }
-    setNotice(`${selected.name} removed on this page.`);
   };
 
   const deleteBlocker =
@@ -194,7 +186,7 @@ export function CategoriesWorkspace({ initialCategories, items, units, gstRates 
               onSubmit={saveSelected}
             />
             <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
-              <Button variant="danger" disabled={Boolean(deleteBlocker)} onClick={removeSelected}>
+              <Button variant="danger" disabled={Boolean(deleteBlocker)} onClick={() => void removeSelected()}>
                 <Trash2 aria-hidden="true" className="size-[18px]" />
                 Delete {sub ? "sub-category" : "category"}
               </Button>
@@ -206,7 +198,7 @@ export function CategoriesWorkspace({ initialCategories, items, units, gstRates 
             <p className="text-sm font-semibold text-muted">Pick a category or sub-category to edit it.</p>
           </GlassCard>
         )}
-        {notice && <FormMessage tone="success">{notice}</FormMessage>}
+        {notice && <FormMessage tone={notice.tone}>{notice.text}</FormMessage>}
       </div>
 
       <GlassModal

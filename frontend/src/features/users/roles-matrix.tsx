@@ -9,6 +9,8 @@ import { FilterGroup } from "@/components/ui/filter-group";
 import { FormMessage } from "@/components/ui/form-message";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { GlassTable } from "@/components/ui/glass-table";
+import { ApiError } from "@/lib/api-client";
+import { saveRolePermissions } from "./staff-api";
 import type { Permission, Role } from "./types";
 
 const PERMISSIONS: Permission[] = ["view", "create", "edit", "delete"];
@@ -16,14 +18,16 @@ const PERMISSIONS: Permission[] = ["view", "create", "edit", "delete"];
 interface RolesMatrixProps {
   initialRoles: Role[];
   modules: { href: string; label: string }[];
+  onSaved?: () => void;
 }
 
-// What each role may do in each module: a grid of ticks. Turning off "view"
-// hides the module from that role's sidebar. The Owner role is fixed.
-export function RolesMatrix({ initialRoles, modules }: RolesMatrixProps) {
+// What each role may do in each module: a grid of ticks. Saved roles are
+// checked by the backend on every request. The Administrator role is fixed.
+export function RolesMatrix({ initialRoles, modules, onSaved }: RolesMatrixProps) {
   const [roles, setRoles] = useState(initialRoles);
   const [roleId, setRoleId] = useState(initialRoles[1]?.id ?? initialRoles[0].id);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [saving, setSaving] = useState(false);
   const role = roles.find((candidate) => candidate.id === roleId)!;
 
   const toggle = (href: string, permission: Permission) => {
@@ -39,6 +43,22 @@ export function RolesMatrix({ initialRoles, modules }: RolesMatrixProps) {
         return { ...candidate, access: { ...candidate.access, [href]: next } };
       }),
     );
+    setNotice(null);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const saved = await saveRolePermissions(role, role.access);
+      setRoles((current) => current.map((candidate) => (candidate.id === saved.id ? saved : candidate)));
+      const count = saved.userCount ?? 0;
+      setNotice({ tone: "success", text: `${saved.name} saved. It applies to its ${count} ${count === 1 ? "user" : "users"} from their next click.` });
+      onSaved?.();
+    } catch (error) {
+      setNotice({ tone: "error", text: error instanceof ApiError ? error.message : "Could not save the role. Try again." });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -53,7 +73,7 @@ export function RolesMatrix({ initialRoles, modules }: RolesMatrixProps) {
       </FilterGroup>
       <p className="-mt-1 text-sm font-medium text-muted">
         {role.description}
-        {role.locked && ". The Owner role cannot be changed."}
+        {role.locked && ". The Administrator role cannot be changed."}
       </p>
       <GlassTable className="min-w-[560px]">
         <thead>
@@ -95,13 +115,9 @@ export function RolesMatrix({ initialRoles, modules }: RolesMatrixProps) {
           ))}
         </tbody>
       </GlassTable>
-      {notice && <FormMessage tone="success">{notice}</FormMessage>}
-      <Button
-        className="self-start"
-        disabled={role.locked}
-        onClick={() => setNotice(`${role.name} changed on this page. Saving switches on when roles are connected to the backend; each request is then checked against them.`)}
-      >
-        Save {role.name} role
+      {notice && <FormMessage tone={notice.tone}>{notice.text}</FormMessage>}
+      <Button className="self-start" disabled={role.locked || saving} onClick={() => void save()}>
+        {saving ? "Saving…" : `Save ${role.name} role`}
       </Button>
     </GlassCard>
   );

@@ -13,6 +13,7 @@ import { StatusChip } from "@/components/ui/status-chip";
 import { TextField } from "@/components/ui/text-field";
 import { Tooltip } from "@/components/ui/tooltip";
 import { HsnSummary } from "@/features/hsn/hsn-summary";
+import { ApiError } from "@/lib/api-client";
 import { formatPercent } from "@/lib/format";
 import { InheritedField } from "./inherited-field";
 import { findGroup, resolveDefaults, resolveItemDefaults, type ItemCatalog } from "./item-rules";
@@ -31,7 +32,12 @@ interface ItemFormProps extends ItemFormOptions {
   catalog: ItemCatalog;
   /** The item being edited; a new item when absent. */
   item?: Item;
+  /** Saves through the backend; throws an ApiError the form shows. */
+  onSave: (values: ItemFormValues, overridden: ReadonlySet<Overridable>) => Promise<void>;
 }
+
+export const saveErrorText = (error: unknown) =>
+  error instanceof ApiError ? error.message : "Could not save. Check the connection and try again.";
 
 const text = (value: number | undefined) => (value === undefined ? "" : String(value));
 
@@ -66,7 +72,7 @@ function toFormValues(item: Item | undefined, godowns: string[], currentHsn?: st
 // The item form, in Zoho's order: basics, units, tax, sales, purchase,
 // inventory. HSN, GST rate and unit are inherited from the category tree and
 // only stored on the item when it is changed here.
-export function ItemForm({ catalog, item, brands, units, godowns, gstRates }: ItemFormProps) {
+export function ItemForm({ catalog, item, brands, units, godowns, gstRates, onSave }: ItemFormProps) {
   const isNew = !item;
   const group = findGroup(catalog, item?.groupId);
   const overrides = useOverrides(item?.overrides);
@@ -79,7 +85,7 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates }: It
     handleSubmit,
     setValue,
     reset,
-    formState: { errors, isDirty },
+    formState: { errors, isDirty, isSubmitting },
   } = useForm<ItemFormValues>({ resolver: zodResolver(itemSchema), defaultValues: toFormValues(item, godowns, item && resolveItemDefaults(catalog, item).hsn.value) });
   const alternateUnits = useFieldArray({ control, name: "alternateUnits" });
 
@@ -108,7 +114,17 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates }: It
   };
 
   const onSubmit = handleSubmit(
-    () => setResult({ tone: "success", text: "All fields check out. Saving switches on when Items is connected to the database." }),
+    async (values) => {
+      setResult(null);
+      try {
+        await onSave(values, overridden);
+        // The saved values become the new starting point for "Discard changes".
+        reset(values);
+        setResult({ tone: "success", text: `${values.name} saved.` });
+      } catch (error) {
+        setResult({ tone: "error", text: saveErrorText(error) });
+      }
+    },
     () => setResult({ tone: "error", text: "Some fields need attention. See the ones marked in red above." }),
   );
 
@@ -327,7 +343,7 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates }: It
               )}
             />
           </InheritedField>
-          <HsnSummary codes={catalog.hsnCodes ?? []} code={hsn || undefined} />
+          {catalog.hsnCodes && <HsnSummary codes={catalog.hsnCodes} code={hsn || undefined} />}
           <p className="text-xs font-semibold text-muted">
             CGST + SGST or IGST is decided on each invoice from the place of supply. Bhutan exports under LUT carry no GST.
           </p>
@@ -400,8 +416,8 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates }: It
       <GlassCard className="flex flex-col gap-3">
         {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
         <div className="flex flex-wrap gap-2.5">
-          <Button type="submit" size="lg">
-            {isNew ? "Save item" : "Save changes"}
+          <Button type="submit" size="lg" disabled={isSubmitting}>
+            {isSubmitting ? "Saving…" : isNew ? "Save item" : "Save changes"}
           </Button>
           <Button
             variant="neutral"

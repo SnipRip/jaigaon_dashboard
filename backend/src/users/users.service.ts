@@ -55,6 +55,7 @@ export class UsersService {
       data: {
         passwordHash: await hashPassword(dto.newPassword),
         passwordChangedAt: new Date(),
+        mustChangePassword: false,
       },
     });
     await this.sessions.revokeOthers(auth);

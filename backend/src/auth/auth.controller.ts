@@ -16,6 +16,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { CurrentAuth } from '../common/decorators/current-auth.decorator.js';
 import { Public } from '../common/decorators/public.decorator.js';
+import { AllowPendingPassword } from '../common/decorators/require-access.decorator.js';
 import type { AuthContext } from '../common/types/authenticated-request.js';
 import { clientMetaFrom } from '../common/types/client-meta.js';
 import type { Env } from '../config/env.js';
@@ -25,6 +26,8 @@ import { LoginDto } from './dto/login.dto.js';
 import { SESSION_COOKIE_NAME, sessionCookieOptions } from './session-cookie.js';
 import { SessionService, type SessionSummary } from './session.service.js';
 
+// Signing in and out and the device list stay open while a new password is pending.
+@AllowPendingPassword()
 @Controller('auth')
 export class AuthController {
   private readonly isProduction: boolean;

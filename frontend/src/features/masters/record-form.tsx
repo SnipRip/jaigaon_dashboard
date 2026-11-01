@@ -5,6 +5,7 @@ import { Controller, useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { FilterGroup } from "@/components/ui/filter-group";
+import { FormMessage } from "@/components/ui/form-message";
 import { SelectField } from "@/components/ui/select-field";
 import { TextArea } from "@/components/ui/text-area";
 import { TextField } from "@/components/ui/text-field";
@@ -14,17 +15,19 @@ interface RecordFormProps {
   fields: FieldSpec[];
   initial?: Record<string, unknown>;
   submitLabel: string;
-  onSubmit: (values: FormValues) => void;
+  onSubmit: (values: FormValues) => void | Promise<void>;
   onCancel: () => void;
+  /** Why the last save failed, shown above the buttons. */
+  error?: string | null;
 }
 
 // The form inside a master's dialog, laid out from its field list.
-export function RecordForm({ fields, initial, submitLabel, onSubmit, onCancel }: RecordFormProps) {
+export function RecordForm({ fields, initial, submitLabel, onSubmit, onCancel, error }: RecordFormProps) {
   const {
     register,
     control,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<FormValues>({ resolver: zodResolver(schemaFor(fields)), defaultValues: toFormValues(fields, initial) });
   const errorOf = (key: string) => errors[key]?.message as string | undefined;
 
@@ -96,11 +99,14 @@ export function RecordForm({ fields, initial, submitLabel, onSubmit, onCancel }:
           }
         })}
       </div>
+      {error && <FormMessage tone="error">{error}</FormMessage>}
       <div className="flex flex-wrap justify-end gap-2.5">
         <Button variant="neutral" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit">{submitLabel}</Button>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Saving…" : submitLabel}
+        </Button>
       </div>
     </form>
   );

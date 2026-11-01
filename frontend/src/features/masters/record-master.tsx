@@ -17,10 +17,27 @@ import type { StatusTone } from "@/components/ui/status-chip";
 import { Tooltip } from "@/components/ui/tooltip";
 import { fromFormValues, newId, type FieldSpec, type FormValues } from "./record-fields";
 import { RecordForm } from "./record-form";
+import { ApiError } from "@/lib/api-client";
 
 export interface MasterRecord {
   id: string;
   archived?: boolean;
+}
+
+/** Saves through the backend. Without it, changes stay on the page. */
+export interface RecordPersistence<T> {
+  create: (changes: Record<string, unknown>) => Promise<T>;
+  update: (record: T, changes: Record<string, unknown>) => Promise<T>;
+  /** Left out: no archive button or Archived filter. */
+  archive?: (record: T) => Promise<T>;
+  /** Left out: records are never deleted from this screen. */
+  remove?: (record: T) => Promise<void>;
+}
+
+export interface RowAction<T> {
+  label: (record: T) => string;
+  icon: ReactNode;
+  onClick: (record: T) => void;
 }
 
 export interface Column<T> {
@@ -32,6 +49,7 @@ export interface Column<T> {
 interface RecordMasterProps<T extends MasterRecord> {
   /** Singular and plural, lower case: "brand", "brands". */
   noun: [string, string];
+  /** With `persist`, pass the reloaded list again after a save; it replaces the shown one. */
   initialRecords: T[];
   fields: FieldSpec[];
   columns: Column<T>[];
@@ -49,12 +67,18 @@ interface RecordMasterProps<T extends MasterRecord> {
   importColumns: string[];
   /** A line under the list, e.g. where these records are picked. */
   footnote?: string;
+  persist?: RecordPersistence<T>;
+  /** Extra fields shown only when adding (a temporary password). */
+  createOnlyFields?: FieldSpec[];
+  /** Extra buttons on each row, before edit. */
+  rowActions?: RowAction<T>[];
 }
 
 // The pattern every simple master follows (masters-plan.md, "UI placement"):
 // a searchable list, a dialog to add or edit, import from a sheet, and a
-// "used in N documents" check that archives instead of deleting. Changes
-// stay on the page until the master is connected to the database.
+// "used in N documents" check that archives instead of deleting. With
+// `persist` the changes are saved through the backend; without it they stay
+// on the page until the master is connected to the database.
 export function RecordMaster<T extends MasterRecord>({
   noun: [one, many],
   initialRecords,
@@ -68,13 +92,27 @@ export function RecordMaster<T extends MasterRecord>({
   blank,
   importColumns,
   footnote,
+  persist,
+  createOnlyFields = [],
+  rowActions = [],
 }: RecordMasterProps<T>) {
   const [records, setRecords] = useState(initialRecords);
+  // A reloaded list (a new array from the parent) replaces the local copy.
+  // The parent must keep the array stable between reloads (useMemo).
+  const [loaded, setLoaded] = useState(initialRecords);
+  if (loaded !== initialRecords) {
+    setLoaded(initialRecords);
+    setRecords(initialRecords);
+  }
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState(-1);
   const [showArchived, setShowArchived] = useState(false);
   const [editing, setEditing] = useState<T | "new" | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const canArchive = !persist || Boolean(persist.archive);
+  const canRemove = !persist || Boolean(persist.remove);
+  const formFields = editing === "new" ? [...fields, ...createOnlyFields] : fields;
 
   const needle = query.trim().toLowerCase();
   const visible = records.filter(
@@ -85,27 +123,58 @@ export function RecordMaster<T extends MasterRecord>({
   );
   const nameOf = (record: T) => String(record[nameKey]);
 
-  const save = (values: FormValues) => {
-    const changes = fromFormValues(fields, values);
+  const replace = (saved: T) => setRecords((current) => current.map((record) => (record.id === saved.id ? saved : record)));
+  const closeForm = () => (setEditing(null), setSaveError(null));
+
+  const save = async (values: FormValues) => {
+    const changes = fromFormValues(formFields, values);
+    setSaveError(null);
+    if (persist) {
+      try {
+        if (editing === "new") {
+          const created = await persist.create(changes);
+          setRecords((current) => [...current, created]);
+          setNotice({ tone: "success", text: `${nameOf(created)} added.` });
+        } else if (editing) {
+          const updated = await persist.update(editing, changes);
+          replace(updated);
+          setNotice({ tone: "success", text: `${nameOf(updated)} saved.` });
+        }
+        setEditing(null);
+      } catch (error) {
+        setSaveError(messageOf(error));
+      }
+      return;
+    }
     if (editing === "new") {
       const id = newId(String(changes[nameKey] ?? one), records.map((record) => record.id));
       setRecords((current) => [...current, { ...blank, ...changes, id } as unknown as T]);
-      setNotice(`${String(changes[nameKey])} added on this page. Saving switches on when ${many} are connected to the database.`);
+      setNotice({ tone: "success", text: `${String(changes[nameKey])} added on this page. Saving switches on when ${many} are connected to the database.` });
     } else if (editing) {
       setRecords((current) => current.map((record) => (record.id === editing.id ? ({ ...record, ...changes } as T) : record)));
-      setNotice(`${String(changes[nameKey])} updated on this page. Saving switches on when ${many} are connected to the database.`);
+      setNotice({ tone: "success", text: `${String(changes[nameKey])} updated on this page. Saving switches on when ${many} are connected to the database.` });
     }
     setEditing(null);
   };
 
-  const archive = (record: T) => {
-    setRecords((current) => current.map((candidate) => (candidate.id === record.id ? { ...candidate, archived: !candidate.archived } : candidate)));
-    setNotice(`${nameOf(record)} ${record.archived ? "restored" : "archived"} on this page.`);
+  const archive = async (record: T) => {
+    try {
+      if (persist?.archive) replace(await persist.archive(record));
+      else setRecords((current) => current.map((candidate) => (candidate.id === record.id ? { ...candidate, archived: !candidate.archived } : candidate)));
+      setNotice({ tone: "success", text: `${nameOf(record)} ${record.archived ? "restored" : "archived"}${persist ? "" : " on this page"}.` });
+    } catch (error) {
+      setNotice({ tone: "error", text: messageOf(error) });
+    }
   };
 
-  const remove = (record: T) => {
-    setRecords((current) => current.filter((candidate) => candidate.id !== record.id));
-    setNotice(`${nameOf(record)} deleted on this page.`);
+  const remove = async (record: T) => {
+    try {
+      await persist?.remove?.(record);
+      setRecords((current) => current.filter((candidate) => candidate.id !== record.id));
+      setNotice({ tone: "success", text: `${nameOf(record)} deleted${persist ? "" : " on this page"}.` });
+    } catch (error) {
+      setNotice({ tone: "error", text: messageOf(error) });
+    }
   };
 
   return (
@@ -148,9 +217,11 @@ export function RecordMaster<T extends MasterRecord>({
                 {option.label}
               </FilterChip>
             ))}
-            <FilterChip selected={showArchived} onClick={() => (setFilter(-1), setShowArchived(true))}>
-              Archived
-            </FilterChip>
+            {canArchive && (
+              <FilterChip selected={showArchived} onClick={() => (setFilter(-1), setShowArchived(true))}>
+                Archived
+              </FilterChip>
+            )}
           </FilterGroup>
         </ListToolbar>
 
@@ -191,14 +262,21 @@ export function RecordMaster<T extends MasterRecord>({
                   {usage && <td className="text-right text-muted">{used ? `${used} documents` : "Not used"}</td>}
                   <td className="text-right whitespace-nowrap">
                     <span className="inline-flex gap-1.5">
+                      {rowActions.map((action) => (
+                        <IconAction key={action.label(record)} label={action.label(record)} onClick={() => action.onClick(record)}>
+                          {action.icon}
+                        </IconAction>
+                      ))}
                       <IconAction label={`Edit ${nameOf(record)}`} onClick={() => setEditing(record)}>
                         <Pencil aria-hidden="true" className="size-4" />
                       </IconAction>
-                      <IconAction label={record.archived ? `Restore ${nameOf(record)}` : `Archive ${nameOf(record)}`} onClick={() => archive(record)}>
-                        {record.archived ? <ArchiveRestore aria-hidden="true" className="size-4" /> : <Archive aria-hidden="true" className="size-4" />}
-                      </IconAction>
-                      {used === 0 && (
-                        <IconAction label={`Delete ${nameOf(record)}`} onClick={() => remove(record)} danger>
+                      {canArchive && (
+                        <IconAction label={record.archived ? `Restore ${nameOf(record)}` : `Archive ${nameOf(record)}`} onClick={() => void archive(record)}>
+                          {record.archived ? <ArchiveRestore aria-hidden="true" className="size-4" /> : <Archive aria-hidden="true" className="size-4" />}
+                        </IconAction>
+                      )}
+                      {canRemove && used === 0 && (
+                        <IconAction label={`Delete ${nameOf(record)}`} onClick={() => void remove(record)} danger>
                           <Trash2 aria-hidden="true" className="size-4" />
                         </IconAction>
                       )}
@@ -210,30 +288,33 @@ export function RecordMaster<T extends MasterRecord>({
           </tbody>
         </GlassTable>
         {visible.length === 0 && <p className="py-6 text-center text-[13px] text-muted">No {many} match.</p>}
-        {notice && <FormMessage tone="success">{notice}</FormMessage>}
+        {notice && <FormMessage tone={notice.tone}>{notice.text}</FormMessage>}
         {footnote && <p className="text-xs font-semibold text-muted">{footnote}</p>}
       </GlassCard>
 
       <GlassModal
         open={editing !== null}
-        onOpenChange={(open) => !open && setEditing(null)}
+        onOpenChange={(open) => !open && closeForm()}
         title={editing === "new" ? `New ${one}` : `Edit ${editing ? nameOf(editing) : one}`}
         description={usage && editing && editing !== "new" && usage(editing) > 0 ? `Used in ${usage(editing)} documents: archive it rather than delete.` : undefined}
       >
         {editing !== null && (
           <RecordForm
             key={editing === "new" ? "new" : editing.id}
-            fields={fields}
+            fields={formFields}
+            error={saveError}
             initial={editing === "new" ? (blank as Record<string, unknown>) : (editing as unknown as Record<string, unknown>)}
             submitLabel={editing === "new" ? `Add ${one}` : "Save changes"}
             onSubmit={save}
-            onCancel={() => setEditing(null)}
+            onCancel={closeForm}
           />
         )}
       </GlassModal>
     </div>
   );
 }
+
+const messageOf = (error: unknown) => (error instanceof ApiError ? error.message : "Could not save. Check the connection and try again.");
 
 function IconAction({ label, onClick, danger, children }: { label: string; onClick: () => void; danger?: boolean; children: ReactNode }) {
   return (

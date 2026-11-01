@@ -9,26 +9,49 @@ datasource db {
   provider = "postgresql"
 }
 
+// ADMIN may do everything, including managing users and roles. STAFF may do
+// what their access role allows.
 enum Role {
   ADMIN
   STAFF
 }
 
+// What a staff member may do in each module. `permissions` maps a dashboard
+// module href ("/items") to the actions allowed there: view, create, edit,
+// delete. Administrators ignore it.
+model AccessRole {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  description String   @default("")
+  permissions Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       User[]
+}
+
 model User {
-  id                String    @id @default(uuid()) @db.Uuid
-  email             String    @unique
-  fullName          String
-  displayName       String
-  phone             String?
-  role              Role      @default(STAFF)
-  isActive          Boolean   @default(true)
-  passwordHash      String
-  passwordChangedAt DateTime  @default(now())
-  failedLoginCount  Int       @default(0)
-  lockedUntil       DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  sessions          Session[]
+  id                 String      @id @default(uuid()) @db.Uuid
+  email              String      @unique
+  fullName           String
+  displayName        String
+  phone              String?
+  role               Role        @default(STAFF)
+  accessRoleId       String?     @db.Uuid
+  accessRole         AccessRole? @relation(fields: [accessRoleId], references: [id], onDelete: Restrict)
+  isActive           Boolean     @default(true)
+  // Set when an administrator creates the account or resets its password:
+  // the person must choose their own password before using the app.
+  mustChangePassword Boolean     @default(false)
+  lastSignInAt       DateTime?
+  passwordHash       String
+  passwordChangedAt  DateTime    @default(now())
+  failedLoginCount   Int         @default(0)
+  lockedUntil        DateTime?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  sessions           Session[]
+
+  @@index([accessRoleId])
 }
 
 // One row per signed-in device. Only the SHA-256 of the cookie token is stored.
@@ -60,4 +83,200 @@ model WhatsappOptIn {
   userAgent      String?
   optedInAt      DateTime  @default(now())
   optedOutAt     DateTime?
+}
+
+// ---------------------------------------------------------------------------
+// Item master (agent/masters-plan.md, section C). Category → sub-category →
+// optional item group → item. Only items hold stock; the levels above carry
+// defaults (HSN, GST rate, unit) that an item inherits unless it overrides
+// them. Records in use are archived, never deleted (foreign keys restrict).
+// ---------------------------------------------------------------------------
+
+enum UnitKind {
+  COUNT
+  WEIGHT
+  VOLUME
+  LENGTH
+  AREA
+}
+
+model Unit {
+  id         String   @id @default(uuid()) @db.Uuid
+  // As printed on documents: kg, pcs, bag.
+  symbol     String   @unique
+  name       String
+  kind       UnitKind
+  // Decimals allowed in quantities.
+  decimals   Int      @default(0)
+  // Unit code used by e-way bills and e-invoices (UQC).
+  uqc        String
+  isArchived Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  categoryDefaults ItemCategory[]
+  groupDefaults    ItemGroup[]
+  items            Item[]
+  conversions      ItemUnitConversion[]
+}
+
+model Brand {
+  id           String        @id @default(uuid()) @db.Uuid
+  name         String        @unique
+  // The category the brand mostly sells in.
+  categoryId   String?       @db.Uuid
+  category     ItemCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  isAuthorised Boolean       @default(false)
+  notes        String?
+  isArchived   Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  groups ItemGroup[]
+  items  Item[]
+}
+
+enum GodownKind {
+  STORE
+  YARD
+  SITE
+}
+
+model Godown {
+  id         String     @id @default(uuid()) @db.Uuid
+  name       String     @unique
+  address    String
+  kind       GodownKind
+  // At most one godown is the default; the service keeps it that way.
+  isDefault  Boolean    @default(false)
+  inCharge   String?
+  phone      String?
+  isArchived Boolean    @default(false)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  openingStock ItemOpeningStock[]
+}
+
+// Both category levels. A row with no parent is a category; a row with a
+// parent is a sub-category. Only two levels: a sub-category is never a parent.
+model ItemCategory {
+  id            String         @id @default(uuid()) @db.Uuid
+  name          String
+  parentId      String?        @db.Uuid
+  parent        ItemCategory?  @relation("SubCategories", fields: [parentId], references: [id], onDelete: Restrict)
+  subCategories ItemCategory[] @relation("SubCategories")
+  // Defaults for everything below. Null means inherit from the parent.
+  hsn           String?
+  gstRatePct    Decimal?       @db.Decimal(5, 2)
+  defaultUnitId String?        @db.Uuid
+  defaultUnit   Unit?          @relation(fields: [defaultUnitId], references: [id], onDelete: Restrict)
+  sortOrder     Int            @default(0)
+  isArchived    Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  brands           Brand[]
+  groups           ItemGroup[] @relation("GroupCategory")
+  subGroups        ItemGroup[] @relation("GroupSubCategory")
+  items            Item[]      @relation("ItemCategory")
+  subCategoryItems Item[]      @relation("ItemSubCategory")
+
+  // Postgres treats NULL parents as distinct, so the service also checks
+  // that top-level names are unique.
+  @@unique([parentId, name])
+  @@index([parentId])
+}
+
+// Variants that differ only by attribute (TMT bar → 8, 10, 12 mm). A group
+// never holds stock; its items do.
+model ItemGroup {
+  id            String        @id @default(uuid()) @db.Uuid
+  name          String
+  skuPrefix     String        @unique
+  categoryId    String        @db.Uuid
+  category      ItemCategory  @relation("GroupCategory", fields: [categoryId], references: [id], onDelete: Restrict)
+  subCategoryId String?       @db.Uuid
+  subCategory   ItemCategory? @relation("GroupSubCategory", fields: [subCategoryId], references: [id], onDelete: Restrict)
+  brandId       String?       @db.Uuid
+  brand         Brand?        @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  description   String?
+  // [{ "name": "Size", "options": ["8 mm", "10 mm"] }], one to three attributes.
+  attributes    Json
+  hsn           String?
+  gstRatePct    Decimal?      @db.Decimal(5, 2)
+  defaultUnitId String?       @db.Uuid
+  defaultUnit   Unit?         @relation(fields: [defaultUnitId], references: [id], onDelete: Restrict)
+  isArchived    Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  items Item[]
+}
+
+model Item {
+  id                String        @id @default(uuid()) @db.Uuid
+  name              String
+  sku               String        @unique
+  categoryId        String        @db.Uuid
+  category          ItemCategory  @relation("ItemCategory", fields: [categoryId], references: [id], onDelete: Restrict)
+  subCategoryId     String?       @db.Uuid
+  subCategory       ItemCategory? @relation("ItemSubCategory", fields: [subCategoryId], references: [id], onDelete: Restrict)
+  groupId           String?       @db.Uuid
+  group             ItemGroup?    @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  // Attribute name → option, for items in a group: { "Size": "12 mm" }.
+  attributeValues   Json?
+  brandId           String?       @db.Uuid
+  brand             Brand?        @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  description       String?
+  // Every item carries its own HSN (client, 28 Oct 2026).
+  hsn               String
+  // Overrides only; null inherits from group, sub-category, category.
+  gstRatePct        Decimal?      @db.Decimal(5, 2)
+  unitId            String?       @db.Uuid
+  unit              Unit?         @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  // Kilograms per base unit, for truck load and e-way bill weight.
+  weightKg          Decimal?      @db.Decimal(12, 3)
+  mrp               Decimal?      @db.Decimal(12, 2)
+  sellingPrice      Decimal       @db.Decimal(12, 2)
+  minSellingPrice   Decimal?      @db.Decimal(12, 2)
+  costPrice         Decimal       @db.Decimal(12, 2)
+  preferredSupplier String?
+  reorderLevel      Decimal       @default(0) @db.Decimal(14, 3)
+  isArchived        Boolean       @default(false)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  alternateUnits ItemUnitConversion[]
+  openingStock   ItemOpeningStock[]
+
+  @@index([categoryId])
+  @@index([subCategoryId])
+  @@index([groupId])
+}
+
+// "1 bundle = 25 kg": an alternate unit and how many base units one of it holds.
+model ItemUnitConversion {
+  id           String  @id @default(uuid()) @db.Uuid
+  itemId       String  @db.Uuid
+  item         Item    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  unitId       String  @db.Uuid
+  unit         Unit    @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  baseQuantity Decimal @db.Decimal(14, 4)
+
+  @@unique([itemId, unitId])
+}
+
+// Opening stock per godown. Stock on hand will be this plus movements, once
+// purchases, sales and stock journals are stored.
+model ItemOpeningStock {
+  itemId   String  @db.Uuid
+  item     Item    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  godownId String  @db.Uuid
+  godown   Godown  @relation(fields: [godownId], references: [id], onDelete: Restrict)
+  quantity Decimal @db.Decimal(14, 3)
+  // At cost: quantity × the item's cost price when not given.
+  value    Decimal @db.Decimal(14, 2)
+
+  @@id([itemId, godownId])
 }

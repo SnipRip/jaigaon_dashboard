@@ -10,6 +10,8 @@ export interface UserProfile {
   phone: string | null;
   role: Role;
   passwordChangedAt: Date;
+  /** True until the person replaces a password an administrator set. */
+  mustChangePassword: boolean;
 }
 
 export function toUserProfile(user: User): UserProfile {
@@ -21,5 +23,6 @@ export function toUserProfile(user: User): UserProfile {
     phone: user.phone,
     role: user.role,
     passwordChangedAt: user.passwordChangedAt,
+    mustChangePassword: user.mustChangePassword,
   };
 }

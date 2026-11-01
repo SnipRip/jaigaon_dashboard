@@ -31,6 +31,8 @@ export interface GroupAttribute {
 export interface ItemGroup {
   id: string;
   name: string;
+  /** Each variant's SKU starts with this. */
+  skuPrefix?: string;
   categoryId: string;
   subCategoryId?: string;
   brand?: string;

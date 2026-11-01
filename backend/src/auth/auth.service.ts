@@ -52,13 +52,13 @@ export class AuthService {
       throw new UnauthorizedException(INVALID_CREDENTIALS);
     }
 
-    await this.prisma.user.update({
+    const signedIn = await this.prisma.user.update({
       where: { id: user.id },
-      data: { failedLoginCount: 0, lockedUntil: null },
+      data: { failedLoginCount: 0, lockedUntil: null, lastSignInAt: new Date() },
     });
     return {
       token: await this.sessions.create(user.id, meta),
-      profile: toUserProfile(user),
+      profile: toUserProfile(signedIn),
     };
   }
 

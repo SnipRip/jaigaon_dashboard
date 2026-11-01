@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'node:crypto';
 import type { AuthContext } from '../common/types/authenticated-request.js';
 import type { ClientMeta } from '../common/types/client-meta.js';
+import { readStoredPermissions } from '../common/types/module-permissions.js';
 import type { Env } from '../config/env.js';
 import { PrismaService } from '../database/prisma.service.js';
 
@@ -50,7 +51,16 @@ export class SessionService {
   async resolve(token: string): Promise<AuthContext | null> {
     const session = await this.prisma.session.findUnique({
       where: { tokenHash: hashSessionToken(token) },
-      include: { user: { select: { role: true, isActive: true } } },
+      include: {
+        user: {
+          select: {
+            role: true,
+            isActive: true,
+            mustChangePassword: true,
+            accessRole: { select: { permissions: true } },
+          },
+        },
+      },
     });
     if (!session || session.expiresAt <= new Date() || !session.user.isActive) {
       return null;
@@ -66,6 +76,11 @@ export class SessionService {
       userId: session.userId,
       role: session.user.role,
       sessionId: session.id,
+      permissions:
+        session.user.role === 'ADMIN'
+          ? {}
+          : readStoredPermissions(session.user.accessRole?.permissions),
+      mustChangePassword: session.user.mustChangePassword,
     };
   }
 
@@ -93,6 +108,11 @@ export class SessionService {
       where: { id: sessionId, userId },
     });
     if (count === 0) throw new NotFoundException('Session not found');
+  }
+
+  // Used when an administrator disables a user or resets their password.
+  async revokeAllForUser(userId: string): Promise<void> {
+    await this.prisma.session.deleteMany({ where: { userId } });
   }
 
   async revokeOthers(auth: AuthContext): Promise<void> {

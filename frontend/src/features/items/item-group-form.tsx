@@ -13,7 +13,7 @@ import { TextField } from "@/components/ui/text-field";
 import { InheritedField } from "./inherited-field";
 import { itemGroupSchema, variantRowSchema, type ItemGroupFormValues, type VariantRow } from "./item-group-schema";
 import { generateVariants, resolveDefaults, variantName, variantSku, type ItemCatalog } from "./item-rules";
-import type { ItemFormOptions } from "./item-form";
+import { saveErrorText, type ItemFormOptions } from "./item-form";
 import { OptionsInput } from "./options-input";
 import type { Item, ItemGroup } from "./types";
 import { NONE, OVERRIDE_FIELD, useOverrides, type Overridable } from "./use-overrides";
@@ -23,9 +23,13 @@ interface ItemGroupFormProps extends Omit<ItemFormOptions, "godowns"> {
   catalog: ItemCatalog;
   /** The group being edited; a new group when absent. */
   group?: ItemGroup;
+  /** Saves the group and its variant rows; throws an ApiError the form shows. */
+  onSave: (values: ItemGroupFormValues, overridden: ReadonlySet<Overridable>, lines: VariantLine[]) => Promise<void>;
 }
 
-const variantKey = (values: Record<string, string>) => JSON.stringify(values);
+// Sorted by attribute name: the database does not keep the keys' order.
+const variantKey = (values: Record<string, string>) =>
+  JSON.stringify(Object.keys(values).sort().map((name) => [name, values[name]]));
 const text = (value: number | undefined) => (value === undefined ? "" : String(value));
 
 /** "IS-TMT-12" → "IS-TMT": the shared start of the variants' SKUs. */
@@ -47,7 +51,7 @@ function rowFromItem(item: Item): VariantRow {
 // Zoho-style item group: shared details once, attributes with their options,
 // and a generated row per combination. Each row becomes an item that holds
 // its own stock and can be edited on its own afterwards.
-export function ItemGroupForm({ catalog, group, brands, units, gstRates }: ItemGroupFormProps) {
+export function ItemGroupForm({ catalog, group, brands, units, gstRates, onSave }: ItemGroupFormProps) {
   const isNew = !group;
   const existingVariants = group ? catalog.items.filter((item) => item.groupId === group.id) : [];
   const overrides = useOverrides(group?.defaults);
@@ -62,12 +66,12 @@ export function ItemGroupForm({ catalog, group, brands, units, gstRates }: ItemG
     control,
     handleSubmit,
     setValue,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<ItemGroupFormValues>({
     resolver: zodResolver(itemGroupSchema),
     defaultValues: {
       name: group?.name ?? "",
-      skuPrefix: skuPrefixOf(existingVariants),
+      skuPrefix: group?.skuPrefix ?? skuPrefixOf(existingVariants),
       categoryId: group?.categoryId ?? "",
       subCategoryId: group?.subCategoryId ?? NONE,
       brand: group?.brand ?? NONE,
@@ -123,7 +127,7 @@ export function ItemGroupForm({ catalog, group, brands, units, gstRates }: ItemG
     setValue(OVERRIDE_FIELD[key], "", { shouldDirty: true });
   };
 
-  const onSubmit = handleSubmit(() => {
+  const onSubmit = handleSubmit(async (values) => {
     const found: Record<string, VariantLine["errors"]> = {};
     for (const line of lines) {
       const check = variantRowSchema.safeParse(line.row);
@@ -137,14 +141,18 @@ export function ItemGroupForm({ catalog, group, brands, units, gstRates }: ItemG
     });
     setRowErrors(found);
     const problems = Object.keys(found).length;
-    setResult(
-      problems > 0
-        ? { tone: "error", text: `${problems} ${problems === 1 ? "variant needs" : "variants need"} attention. See the rows marked in red.` }
-        : {
-            tone: "success",
-            text: `${lines.length} variants check out. Saving switches on when Items is connected to the database.`,
-          },
-    );
+    if (problems > 0) {
+      setResult({ tone: "error", text: `${problems} ${problems === 1 ? "variant needs" : "variants need"} attention. See the rows marked in red.` });
+      return;
+    }
+    setResult(null);
+    try {
+      await onSave(values, overridden, lines);
+      setEdits({});
+      setResult({ tone: "success", text: `${values.name} saved with ${lines.length} ${lines.length === 1 ? "variant" : "variants"}.` });
+    } catch (error) {
+      setResult({ tone: "error", text: saveErrorText(error) });
+    }
   }, () => setResult({ tone: "error", text: "Some group details need attention. See the fields marked in red above." }));
 
   const unitOptions = units.map((option) => ({ value: option, label: option }));
@@ -344,7 +352,8 @@ export function ItemGroupForm({ catalog, group, brands, units, gstRates }: ItemG
         <VariantRowsTable lines={lines} unit={unit} onChange={editRow} />
         {!isNew && (
           <p className="text-xs font-semibold text-muted">
-            Removing an option never deletes an item that already has stock or documents. It is archived instead.
+            New options add variants. An option a variant already uses cannot be removed; archive that variant from its item page
+            first.
           </p>
         )}
       </GlassCard>
@@ -352,8 +361,8 @@ export function ItemGroupForm({ catalog, group, brands, units, gstRates }: ItemG
       <GlassCard className="flex flex-col gap-3">
         {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
         <div className="flex flex-wrap gap-2.5">
-          <Button type="submit" size="lg">
-            {isNew ? `Create group and ${lines.length} items` : "Save changes"}
+          <Button type="submit" size="lg" disabled={isSubmitting}>
+            {isSubmitting ? "Saving…" : isNew ? `Create group and ${lines.length} items` : "Save changes"}
           </Button>
           <Link href="/items" className={buttonClasses("neutral", "ml-auto", "lg")}>
             Back to items

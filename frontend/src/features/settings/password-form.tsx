@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useSWRConfig } from "swr";
@@ -19,6 +20,7 @@ import { useFormResult } from "./use-form-result";
 export function PasswordForm() {
   const user = useCurrentUser();
   const { mutate } = useSWRConfig();
+  const router = useRouter();
   const { result, run } = useFormResult();
   const [showPasswords, setShowPasswords] = useState(false);
   const {
@@ -39,11 +41,18 @@ export function PasswordForm() {
       reset();
       // The backend revoked every other session, so the device list is stale.
       await mutate(SESSIONS_PATH);
+      // Reloads the signed-in user, which lifts the "choose a password" gate.
+      if (user.mustChangePassword) router.refresh();
     }
   });
 
   return (
     <GlassCard aria-labelledby="settings-password" className="flex flex-col gap-3.5">
+      {user.mustChangePassword && (
+        <p role="status" className="rounded-(--radius-tile) bg-warning-tint/85 px-3 py-2 text-[13px] font-medium text-warning-strong ring-1 ring-warning/20 ring-inset">
+          An administrator set your password. Choose your own below before using the rest of the app.
+        </p>
+      )}
       <div className="flex flex-col gap-1">
         <CardTitle id="settings-password">Change password</CardTitle>
         <span className="text-[13px] font-semibold text-muted">

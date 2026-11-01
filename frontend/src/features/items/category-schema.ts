@@ -4,7 +4,8 @@ import { z } from "zod";
 // back to its category, a category to nothing.
 export const categorySchema = z.object({
   name: z.string().trim().min(2, "Enter a name").max(60),
-  hsn: z.union([z.literal(""), z.string().regex(/^\d{4,8}$/, "HSN is 4 to 8 digits")]),
+  // Items take this HSN as a suggestion, and an item's HSN is 4, 6 or 8 digits.
+  hsn: z.union([z.literal(""), z.string().regex(/^(\d{4}|\d{6}|\d{8})$/, "HSN is 4, 6 or 8 digits")]),
   gstRatePct: z.string(),
   unit: z.string(),
 });

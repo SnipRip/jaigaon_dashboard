@@ -55,6 +55,8 @@ export function ItemActivity({ catalog, item, movements }: { catalog: ItemCatalo
             ))}
           </tbody>
         </GlassTable>
+        {movements.length === 0 && <p className="py-4 text-center text-[13px] text-muted">No stock movements yet.</p>}
+        <p className="text-xs font-semibold text-muted">Purchases, sales and stock adjustments appear here once they are recorded.</p>
       </GlassCard>
     </div>
   );

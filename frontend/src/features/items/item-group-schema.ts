@@ -12,7 +12,8 @@ export const itemGroupSchema = z.object({
   subCategoryId: z.string(),
   brand: z.string(),
   description: z.string().max(500),
-  hsnOverride: z.union([z.literal(""), z.string().regex(/^\d{4,8}$/, "HSN is 4 to 8 digits")]),
+  // Variants take this HSN, and an item's HSN is 4, 6 or 8 digits.
+  hsnOverride: z.union([z.literal(""), z.string().regex(/^(\d{4}|\d{6}|\d{8})$/, "HSN is 4, 6 or 8 digits")]),
   gstOverride: z.string(),
   unitOverride: z.string(),
   attributes: z

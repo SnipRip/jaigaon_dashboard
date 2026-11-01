@@ -2,9 +2,11 @@ import { BadgeCheck, Building2, Container, Globe, Hash, Landmark, ListOrdered, M
 import type { Metadata } from "next";
 import { SampleDataNotice } from "@/components/ui/sample-data-notice";
 import { hsnCodes } from "@/features/hsn/sample-data";
-import { itemGroups, items } from "@/features/items/sample-data";
+import { ITEM_GROUPS_PATH, ITEMS_PATH } from "@/features/items/item-paths";
+import { LiveCount } from "@/features/masters/live-count";
+import { BRANDS_PATH, GODOWNS_PATH, UNITS_PATH } from "@/features/masters/masters-api";
 import { MastersHub } from "@/features/masters/masters-hub";
-import { brands, expenseHeads, godowns, moneyAccounts, numberSeries, transporters, units, vehicles } from "@/features/masters/sample-data";
+import { expenseHeads, moneyAccounts, numberSeries, transporters, vehicles } from "@/features/masters/sample-data";
 import { parties } from "@/features/parties/sample-data";
 import { priceLevels, specialRates } from "@/features/rates/sample-data";
 import { lutRegister } from "@/features/tax-export/sample-data";
@@ -20,7 +22,7 @@ const sac = hsnCodes.filter((code) => code.kind === "SAC").length;
 export default function MastersPage() {
   return (
     <>
-      <SampleDataNotice />
+      <SampleDataNotice>Items, brands, units and godowns are live. The other counts are still sample data.</SampleDataNotice>
       <MastersHub
         groups={[
           {
@@ -35,10 +37,15 @@ export default function MastersPage() {
           {
             label: "Products and stock",
             cards: [
-              { href: "/items", title: "Items", icon: Package, description: "Categories, sub-categories, item groups with variants, units and stock levels.", count: `${items.length} items · ${itemGroups.length} groups` },
-              { href: "/masters/brands", title: "Brands", icon: BadgeCheck, description: "Brands we stock, and which we are authorised dealers for.", count: `${live(brands)} brands` },
-              { href: "/masters/units", title: "Units", icon: Ruler, description: "Units of measure with decimals and the GST unit code.", count: `${live(units)} units` },
-              { href: "/masters/godowns", title: "Godowns", icon: Warehouse, description: "Stores and yards where stock is kept.", count: `${live(godowns)} godowns` },
+              { href: "/items", title: "Items", icon: Package, description: "Categories, sub-categories, item groups with variants, units and stock levels.", count: (
+                  <>
+                    <LiveCount path={ITEMS_PATH} noun={["item", "items"]} /> · <LiveCount path={ITEM_GROUPS_PATH} noun={["group", "groups"]} />
+                  </>
+                ),
+              },
+              { href: "/masters/brands", title: "Brands", icon: BadgeCheck, description: "Brands we stock, and which we are authorised dealers for.", count: <LiveCount path={BRANDS_PATH} noun={["brand", "brands"]} /> },
+              { href: "/masters/units", title: "Units", icon: Ruler, description: "Units of measure with decimals and the GST unit code.", count: <LiveCount path={UNITS_PATH} noun={["unit", "units"]} /> },
+              { href: "/masters/godowns", title: "Godowns", icon: Warehouse, description: "Stores and yards where stock is kept.", count: <LiveCount path={GODOWNS_PATH} noun={["godown", "godowns"]} /> },
             ],
           },
           {

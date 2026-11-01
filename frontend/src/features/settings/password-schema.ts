@@ -5,6 +5,9 @@ import { z } from "zod";
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
 
+/** The whole rule as one pattern, for a single password field (a temporary password). */
+export const PASSWORD_FIELD_PATTERN = new RegExp(PASSWORD_PATTERN.source.replace(".+$", `.{${PASSWORD_MIN_LENGTH},128}$`));
+
 export const PASSWORD_RULE = `At least ${PASSWORD_MIN_LENGTH} characters, with a letter, a number and a symbol.`;
 
 export const passwordSchema = z

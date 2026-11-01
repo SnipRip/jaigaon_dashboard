@@ -78,7 +78,7 @@ export const units = ["kg", "ton", "pcs", "bag", "bundle", "sheet", "box", "sq f
 export const godowns = ["Jaigaon store", "Jaigaon yard"];
 
 /** GST slabs offered in pickers. Will come from the GST rates master. */
-export const gstRates = [0, 5, 12, 18, 28, 40];
+export { GST_RATES as gstRates } from "./item-rules";
 
 export const itemGroups: ItemGroup[] = [
   {

@@ -1,23 +1,28 @@
 "use client";
 
+import { useMemo } from "react";
+import useSWR from "swr";
+import { LoadNotice } from "@/components/ui/load-notice";
 import { StatusChip } from "@/components/ui/status-chip";
+import { CATEGORIES_PATH } from "@/features/items/item-paths";
+import { apiGet } from "@/lib/api-client";
 import { formatQuantity } from "@/lib/format";
+import type { BrandView, CategoryView } from "@/types/item-master";
+import { BRANDS_PATH, brandPersistence, toBrand, withArchived } from "./masters-api";
 import { RecordMaster } from "./record-master";
-import type { Brand } from "./types";
 
-interface BrandsMasterProps {
-  brands: Brand[];
-  categories: { id: string; name: string }[];
-  /** Brand name → items carrying it. */
-  itemCounts: Record<string, number>;
-}
+export function BrandsMaster() {
+  const { data, error, mutate } = useSWR<BrandView[]>(withArchived(BRANDS_PATH), apiGet);
+  const { data: categories, error: categoryError } = useSWR<CategoryView[]>(CATEGORIES_PATH, apiGet);
+  const brands = useMemo(() => data?.map(toBrand), [data]);
+  if (!brands || !categories) return <LoadNotice error={error ?? categoryError} what="brands" />;
 
-export function BrandsMaster({ brands, categories, itemCounts }: BrandsMasterProps) {
   const categoryName = (id?: string) => categories.find((category) => category.id === id)?.name ?? "Any";
   return (
     <RecordMaster
       noun={["brand", "brands"]}
       initialRecords={brands}
+      persist={brandPersistence(() => void mutate())}
       nameKey="name"
       blank={{ authorised: false }}
       fields={[
@@ -43,10 +48,10 @@ export function BrandsMaster({ brands, categories, itemCounts }: BrandsMasterPro
       stats={(records) => [
         { label: "Brands", value: formatQuantity(records.length) },
         { label: "Authorised dealer", value: formatQuantity(records.filter((brand) => brand.authorised).length) },
-        { label: "Items with a brand", value: formatQuantity(Object.values(itemCounts).reduce((sum, count) => sum + count, 0)) },
-        { label: "Not on any item", value: formatQuantity(records.filter((brand) => !itemCounts[brand.name]).length) },
+        { label: "Items with a brand", value: formatQuantity(records.reduce((sum, brand) => sum + (brand.itemCount ?? 0), 0)) },
+        { label: "Not on any item", value: formatQuantity(records.filter((brand) => !brand.itemCount).length) },
       ]}
-      usage={(brand) => itemCounts[brand.name] ?? 0}
+      usage={(brand) => brand.itemCount ?? 0}
       importColumns={["Brand name", "Category", "Authorised (Y/N)", "Notes"]}
       footnote="Brands are picked on the item form and searched on Rate enquiry. Used in = items carrying the brand."
     />

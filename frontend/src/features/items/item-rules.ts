@@ -14,6 +14,9 @@ import type {
   SubCategory,
 } from "./types";
 
+/** GST slabs offered in the rate pickers. */
+export const GST_RATES = [0, 5, 12, 18, 28, 40];
+
 export interface ItemCatalog {
   /** The HSN / SAC master. When an item's HSN is in it, its GST rate comes from there. */
   hsnCodes?: HsnCode[];

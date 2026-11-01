@@ -1,9 +1,14 @@
 "use client";
 
+import { useMemo } from "react";
+import useSWR from "swr";
+import { LoadNotice } from "@/components/ui/load-notice";
 import { StatusChip } from "@/components/ui/status-chip";
+import { apiGet } from "@/lib/api-client";
 import { formatQuantity } from "@/lib/format";
+import type { GodownView } from "@/types/item-master";
+import { godownPersistence, GODOWNS_PATH, toGodown, withArchived } from "./masters-api";
 import { RecordMaster } from "./record-master";
-import type { Godown } from "./types";
 
 const KINDS = [
   { value: "store", label: "Store" },
@@ -11,11 +16,16 @@ const KINDS = [
   { value: "site", label: "Customer site" },
 ];
 
-export function GodownsMaster({ godowns }: { godowns: Godown[] }) {
+export function GodownsMaster() {
+  const { data, error, mutate } = useSWR<GodownView[]>(withArchived(GODOWNS_PATH), apiGet);
+  const godowns = useMemo(() => data?.map(toGodown), [data]);
+  if (!godowns) return <LoadNotice error={error} what="godowns" />;
+
   return (
     <RecordMaster
       noun={["godown", "godowns"]}
       initialRecords={godowns}
+      persist={godownPersistence(() => void mutate())}
       nameKey="name"
       blank={{ kind: "store", isDefault: false }}
       fields={[
@@ -23,8 +33,8 @@ export function GodownsMaster({ godowns }: { godowns: Godown[] }) {
         { key: "kind", label: "Kind", kind: "select", options: KINDS, required: true },
         { key: "address", label: "Address", kind: "text", required: true, wide: true },
         { key: "inCharge", label: "In charge", kind: "text" },
-        { key: "phone", label: "Phone", kind: "text", pattern: /^\+?\d{10,13}$/, message: "10 to 13 digits" },
-        { key: "isDefault", label: "Default for purchases and sales", kind: "toggle", onLabel: "Default", offLabel: "Not default", wide: true },
+        { key: "phone", label: "Phone", kind: "text", pattern: /^\+[1-9]\d{7,14}$/, message: "With the country code, for example +919635312988" },
+        { key: "isDefault", label: "Default for purchases, sales and opening stock", kind: "toggle", onLabel: "Default", offLabel: "Not default", hint: "Only one godown is the default. Choosing this one replaces the current default.", wide: true },
       ]}
       columns={[
         { label: "Godown", render: (godown) => godown.name },

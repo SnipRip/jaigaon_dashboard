@@ -9,14 +9,16 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { CurrentAuth } from '../common/decorators/current-auth.decorator.js';
+import { AllowPendingPassword } from '../common/decorators/require-access.decorator.js';
 import type { AuthContext } from '../common/types/authenticated-request.js';
 import { ChangePasswordDto } from './dto/change-password.dto.js';
 import { UpdateProfileDto } from './dto/update-profile.dto.js';
 import type { UserProfile } from './user-profile.js';
 import { UsersService } from './users.service.js';
 
-// Routes for the signed-in user's own account. Admin user management will
-// live in its own controller.
+// Routes for the signed-in user's own account. Managing other users is in
+// src/staff. Open while a new password is pending, so it can be chosen.
+@AllowPendingPassword()
 @Controller('users/me')
 export class UsersController {
   constructor(private readonly users: UsersService) {}

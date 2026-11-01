@@ -1,5 +1,6 @@
 // Shapes of the smaller masters (masters-plan.md, sections A, C, F). Each is
-// edited through RecordMaster; the backend will own them later.
+// edited through RecordMaster. Brands, units and godowns are saved through
+// the backend (masters-api.ts); the rest are still sample data.
 import type { MasterRecord } from "./record-master";
 
 export interface Brand extends MasterRecord {
@@ -8,6 +9,8 @@ export interface Brand extends MasterRecord {
   categoryId?: string;
   authorised: boolean;
   notes?: string;
+  /** Items carrying the brand. */
+  itemCount?: number;
 }
 
 export type UnitKind = "count" | "weight" | "volume" | "length" | "area";
@@ -21,6 +24,8 @@ export interface Unit extends MasterRecord {
   decimals: number;
   /** The unit code e-way bills and e-invoices use (UQC). */
   uqc: string;
+  /** Items with this as their own base unit. */
+  itemCount?: number;
 }
 
 export interface Godown extends MasterRecord {

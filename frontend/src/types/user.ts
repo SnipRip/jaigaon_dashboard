@@ -10,6 +10,8 @@ export interface UserProfile {
   phone: string | null;
   role: Role;
   passwordChangedAt: string;
+  /** True until the person replaces a password an administrator set. */
+  mustChangePassword: boolean;
 }
 
 export interface SessionSummary {
