@@ -14,7 +14,11 @@ import {
   Min,
 } from 'class-validator';
 import { IsAmount, IsPhone } from '../../common/dto/field-validators.js';
-import { trim, trimToNull } from '../../common/dto/text-transforms.js';
+import {
+  codeOrNull,
+  trim,
+  trimToNull,
+} from '../../common/dto/text-transforms.js';
 import {
   BalanceSide,
   ExportRoute,
@@ -22,13 +26,6 @@ import {
   PartyCurrency,
   PartyKind,
 } from '../../generated/prisma/enums.js';
-
-/** Trimmed, upper case, blank → null: GSTIN, PAN, IFSC, Udyam number. */
-const codeOrNull = ({ value }: { value: unknown }) => {
-  if (typeof value !== 'string') return value;
-  const code = value.trim().toUpperCase();
-  return code === '' ? null : code;
-};
 
 // Field formats only. Which fields a GST treatment needs, and how they fit
 // together, is checked in party-rules.ts.

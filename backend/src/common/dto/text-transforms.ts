@@ -9,5 +9,12 @@ export const trimToNull = ({ value }: { value: unknown }) => {
   return trimmed === '' ? null : trimmed;
 };
 
+/** Trimmed, upper case, blank → null: GSTIN, PAN, IFSC, IEC, Udyam number. */
+export const codeOrNull = ({ value }: { value: unknown }) => {
+  if (typeof value !== 'string') return value;
+  const code = value.trim().toUpperCase();
+  return code === '' ? null : code;
+};
+
 export const lowerCaseEmail = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim().toLowerCase() : value;

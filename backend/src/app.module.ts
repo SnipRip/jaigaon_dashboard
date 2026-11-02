@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AccessRolesModule } from './access-roles/access-roles.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { BrandsModule } from './brands/brands.module.js';
+import { CompanyProfileModule } from './company-profile/company-profile.module.js';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter.js';
 import { AccessGuard } from './common/guards/access.guard.js';
 import { OriginGuard } from './common/guards/origin.guard.js';
@@ -42,6 +43,7 @@ import { WhatsappOptInsModule } from './whatsapp-optins/whatsapp-optins.module.j
     HsnCodesModule,
     PartiesModule,
     PricingModule,
+    CompanyProfileModule,
     WhatsappOptInsModule,
     HealthModule,
   ],

@@ -53,5 +53,9 @@ export async function apiRequest<T = void>(
   return (await response.json()) as T;
 }
 
+/** What a failed save tells the user: the backend's reason, or a connection hint. */
+export const saveErrorText = (error: unknown) =>
+  error instanceof ApiError ? error.message : "Could not save. Check the connection and try again.";
+
 /** SWR fetcher for GET endpoints. */
 export const apiGet = <T>(path: string) => apiRequest<T>(path);

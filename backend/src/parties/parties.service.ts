@@ -4,6 +4,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { archivedFilter } from '../common/dto/archivable.js';
+import { definedFields } from '../common/dto/defined-fields.js';
 import { toNumber } from '../common/decimal.js';
 import { canAccess } from '../common/guards/access.guard.js';
 import type { AuthContext } from '../common/types/authenticated-request.js';
@@ -106,11 +107,10 @@ export class PartiesService {
       where: { id },
     });
     // Fields left out keep their stored value; null clears an optional one.
-    const changes = Object.fromEntries(
-      Object.entries(dto).filter(([, value]) => value !== undefined),
-    );
-    const merged = { ...factsOf(current), ...changes } as PartyFacts &
-      UpdatePartyDto;
+    const merged = {
+      ...factsOf(current),
+      ...definedFields(dto),
+    } as PartyFacts & UpdatePartyDto;
     assertMay(
       auth,
       [...new Set([...partyModules(current), ...partyModules(merged)])],

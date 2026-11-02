@@ -498,3 +498,36 @@ model QuantitySlab {
   @@index([itemId])
   @@index([categoryId])
 }
+
+// ── Company profile ──────────────────────────────────────────────────────
+
+// The business itself: one row (id 1, CHECK constraint and first row in
+// migration company_profile). Its state decides CGST+SGST or IGST on every
+// document; invoices and quotations print the rest.
+model CompanyProfile {
+  id                 Int           @id @default(1)
+  legalName          String
+  // Shown on documents when it differs from the legal name.
+  tradeName          String?
+  gstin              String?
+  pan                String?
+  // GST state code of our registration ("19", West Bengal).
+  stateCode          String
+  // Importer-Exporter Code from DGFT.
+  iec                String?
+  addressLine        String?
+  city               String?
+  district           String?
+  pin                String?
+  // E.164.
+  phone              String?
+  altPhone           String?
+  email              String?
+  // Bank that receives export payments. The AD code is per year, beside the LUT.
+  exportBank         String?
+  customsStation     String?
+  portCode           String?
+  defaultExportRoute ExportRoute   @default(LUT)
+  exportCurrency     PartyCurrency @default(INR)
+  updatedAt          DateTime      @updatedAt
+}
