@@ -531,3 +531,20 @@ model CompanyProfile {
   exportCurrency     PartyCurrency @default(INR)
   updatedAt          DateTime      @updatedAt
 }
+
+// One financial year's export registrations: the LUT (form RFD-11 on the GST
+// portal), which lets an export go out without IGST, and the AD code, which
+// the client says is issued afresh every year (28 Oct 2026). An export
+// invoice under LUT quotes the one in force on its date.
+model Lut {
+  id            String   @id @default(uuid()) @db.Uuid
+  // "2026-27", from validFrom. An LUT never spans two financial years.
+  financialYear String   @unique
+  // ARN of the RFD-11 acknowledgement.
+  arn           String   @unique
+  adCode        String?
+  validFrom     DateTime @db.Date
+  validTo       DateTime @db.Date
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}

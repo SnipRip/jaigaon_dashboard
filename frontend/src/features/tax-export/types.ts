@@ -6,6 +6,7 @@ import type { ExportRoute } from "@/features/gst/gst-rules";
  * afresh every year (28 Oct 2026).
  */
 export interface Lut {
+  id: string;
   arn: string;
   adCode?: string;
   financialYear: string;

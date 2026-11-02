@@ -7,8 +7,8 @@
 import type { ExportDocumentType, ExportSettings, Lut } from "./types";
 
 export const lutRegister: Lut[] = [
-  { arn: "AD1903250000001 (sample)", adCode: "0000001 (sample)", financialYear: "2025-26", validFrom: "2025-04-01", validTo: "2026-03-31" },
-  { arn: "AD1904260000002 (sample)", adCode: "0000002 (sample)", financialYear: "2026-27", validFrom: "2026-04-01", validTo: "2027-03-31" },
+  { id: "lut-2025-26", arn: "AD1903250000001 (sample)", adCode: "0000001 (sample)", financialYear: "2025-26", validFrom: "2025-04-01", validTo: "2026-03-31" },
+  { id: "lut-2026-27", arn: "AD1904260000002 (sample)", adCode: "0000002 (sample)", financialYear: "2026-27", validFrom: "2026-04-01", validTo: "2027-03-31" },
 ];
 
 export const exportSettings: ExportSettings = {

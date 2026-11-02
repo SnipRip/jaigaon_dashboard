@@ -40,6 +40,8 @@ function toHttpException(
 
 // Column names as a person reads them; any other column shows as named.
 const FIELD_LABELS: Record<string, string> = {
+  arn: 'ARN',
+  financialYear: 'financial year',
   gstin: 'GSTIN',
   sku: 'SKU',
   skuPrefix: 'SKU prefix',

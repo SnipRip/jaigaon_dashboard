@@ -1,19 +1,25 @@
 "use client";
 
+import { useMemo } from "react";
+import useSWR from "swr";
 import { LoadNotice } from "@/components/ui/load-notice";
-import { SampleDataNotice } from "@/components/ui/sample-data-notice";
 import { saveCompanyProfile, toCompanyValues } from "@/features/company/company-profile-api";
 import { CompanyProfileForm } from "@/features/company/company-profile-form";
 import { useCompanyProfile } from "@/features/company/use-company-profile";
+import { apiGet } from "@/lib/api-client";
+import type { LutView } from "@/types/lut";
 import { ExportDocumentsCard } from "./export-documents-card";
 import { GstDecisionTable } from "./gst-decision-table";
 import { LutRegisterCard } from "./lut-register-card";
-import { exportDocuments, lutRegister } from "./sample-data";
+import { LUTS_PATH, toLut } from "./luts-api";
+import { exportDocuments } from "./sample-data";
 
-// GST & export setup: the company profile is stored; the LUT register is
-// still sample data.
+// GST & export setup: the company profile and the LUT register are stored;
+// the decision table and document list are fixed rules.
 export function TaxExportScreen() {
   const { profile, error, mutate } = useCompanyProfile();
+  const luts = useSWR<LutView[]>(LUTS_PATH, apiGet);
+  const register = useMemo(() => luts.data?.map(toLut), [luts.data]);
   if (!profile) return <LoadNotice error={error} what="the company profile" />;
   return (
     <>
@@ -25,8 +31,16 @@ export function TaxExportScreen() {
           return toCompanyValues(saved);
         }}
       />
-      <SampleDataNotice>The LUT register below is sample data. It is not connected to the database yet.</SampleDataNotice>
-      <LutRegisterCard initialLuts={lutRegister} />
+      {register ? (
+        <LutRegisterCard
+          luts={register}
+          onChanged={async () => {
+            await luts.mutate();
+          }}
+        />
+      ) : (
+        <LoadNotice error={luts.error} what="the LUT register" />
+      )}
       <GstDecisionTable companyState={profile.stateCode} />
       <ExportDocumentsCard documents={exportDocuments} />
     </>

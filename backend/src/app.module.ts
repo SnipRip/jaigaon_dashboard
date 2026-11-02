@@ -18,6 +18,7 @@ import { HsnCodesModule } from './hsn-codes/hsn-codes.module.js';
 import { ItemCategoriesModule } from './item-categories/item-categories.module.js';
 import { ItemGroupsModule } from './item-groups/item-groups.module.js';
 import { ItemsModule } from './items/items.module.js';
+import { LutsModule } from './luts/luts.module.js';
 import { PartiesModule } from './parties/parties.module.js';
 import { PricingModule } from './pricing/pricing.module.js';
 import { StaffModule } from './staff/staff.module.js';
@@ -44,6 +45,7 @@ import { WhatsappOptInsModule } from './whatsapp-optins/whatsapp-optins.module.j
     PartiesModule,
     PricingModule,
     CompanyProfileModule,
+    LutsModule,
     WhatsappOptInsModule,
     HealthModule,
   ],

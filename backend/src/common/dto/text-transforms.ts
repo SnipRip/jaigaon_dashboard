@@ -9,6 +9,10 @@ export const trimToNull = ({ value }: { value: unknown }) => {
   return trimmed === '' ? null : trimmed;
 };
 
+/** Trimmed, upper case: a required code such as an LUT ARN. */
+export const code = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim().toUpperCase() : value;
+
 /** Trimmed, upper case, blank → null: GSTIN, PAN, IFSC, IEC, Udyam number. */
 export const codeOrNull = ({ value }: { value: unknown }) => {
   if (typeof value !== 'string') return value;
