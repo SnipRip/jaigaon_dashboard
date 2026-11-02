@@ -1,7 +1,7 @@
 import { BadgeCheck, Building2, Container, Globe, Hash, Landmark, ListOrdered, MessageCircle, Package, Ruler, Tag, Truck, Users, Wallet, Warehouse } from "lucide-react";
 import type { Metadata } from "next";
 import { SampleDataNotice } from "@/components/ui/sample-data-notice";
-import { hsnCodes } from "@/features/hsn/sample-data";
+import { HSN_CODES_PATH } from "@/features/hsn/hsn-api";
 import { ITEM_GROUPS_PATH, ITEMS_PATH } from "@/features/items/item-paths";
 import { LiveCount } from "@/features/masters/live-count";
 import { BRANDS_PATH, GODOWNS_PATH, UNITS_PATH } from "@/features/masters/masters-api";
@@ -15,13 +15,11 @@ import { templates } from "@/features/whatsapp/sample-data";
 export const metadata: Metadata = { title: "Masters" };
 
 const live = <T extends { archived?: boolean }>(records: T[]) => records.filter((record) => !record.archived).length;
-const hsn = hsnCodes.filter((code) => code.kind === "HSN").length;
-const sac = hsnCodes.filter((code) => code.kind === "SAC").length;
 
 export default function MastersPage() {
   return (
     <>
-      <SampleDataNotice>Customers, vendors, items, brands, units and godowns are live. The other counts are still sample data.</SampleDataNotice>
+      <SampleDataNotice>Customers, vendors, items, brands, units, godowns and HSN codes are live. The other counts are still sample data.</SampleDataNotice>
       <MastersHub
         groups={[
           {
@@ -50,7 +48,7 @@ export default function MastersPage() {
           {
             label: "Tax and export",
             cards: [
-              { href: "/masters/hsn", title: "HSN / SAC codes", icon: Hash, description: "Every code with its GST rate. Items take their rate from here.", count: `${hsn} HSN · ${sac} SAC` },
+              { href: "/masters/hsn", title: "HSN / SAC codes", icon: Hash, description: "Every code with its GST rate. Items take their rate from here.", count: <LiveCount path={HSN_CODES_PATH} noun={["code", "codes"]} /> },
               { href: "/masters/tax-export", title: "GST & export setup", icon: Globe, description: "Our GST state, LUT register, IEC, AD code and the documents each export needs.", count: `${lutRegister.length} LUTs on record` },
             ],
           },

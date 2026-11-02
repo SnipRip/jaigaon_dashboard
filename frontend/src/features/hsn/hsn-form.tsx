@@ -1,8 +1,10 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
+import { FormMessage } from "@/components/ui/form-message";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { FilterGroup } from "@/components/ui/filter-group";
 import { SelectField } from "@/components/ui/select-field";
@@ -17,7 +19,8 @@ interface HsnFormProps {
   gstRates: number[];
   /** Codes already in the master, to stop duplicates. */
   takenCodes: string[];
-  onSave: (hsn: HsnCode) => void;
+  /** Saves through the backend; resolves to an error message, or null when saved. */
+  onSave: (values: HsnFormValues) => Promise<string | null>;
   onCancel?: () => void;
 }
 
@@ -29,7 +32,8 @@ export function HsnForm({ hsn, gstRates, takenCodes, onSave, onCancel }: HsnForm
     control,
     handleSubmit,
     setError,
-    formState: { errors, isDirty },
+    reset,
+    formState: { errors, isDirty, isSubmitting },
   } = useForm<HsnFormValues>({
     resolver: zodResolver(hsnSchema),
     defaultValues: {
@@ -43,26 +47,16 @@ export function HsnForm({ hsn, gstRates, takenCodes, onSave, onCancel }: HsnForm
     },
   });
 
-  const submit = handleSubmit((values) => {
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const submit = handleSubmit(async (values) => {
     if (!hsn && takenCodes.includes(values.code)) {
       setError("code", { message: "This code is already in the master" });
       return;
     }
-    const rate = Number(values.ratePct);
-    const previous = hsn?.rates ?? [];
-    const last = previous.at(-1);
-    const rates =
-      last && last.ratePct === rate
-        ? previous
-        : [...previous.filter((change) => change.from < values.from), { ratePct: rate, from: values.from }];
-    onSave({
-      code: values.code,
-      kind: values.kind,
-      description: values.description,
-      rates,
-      reverseCharge: values.reverseCharge || undefined,
-      notes: values.notes || undefined,
-    });
+    const problem = await onSave(values);
+    setSaveError(problem);
+    if (!problem) reset(values);
   });
 
   return (
@@ -104,7 +98,7 @@ export function HsnForm({ hsn, gstRates, takenCodes, onSave, onCancel }: HsnForm
         <TextField
           label="Rate applies from"
           type="date"
-          hint={hsn ? "A new rate is added from this date; the old one stays for earlier documents" : undefined}
+          hint={hsn ? "A new date adds a rate from that day; earlier documents keep the old one. The same date corrects that rate." : undefined}
           error={errors.from?.message}
           {...register("from")}
         />
@@ -130,9 +124,10 @@ export function HsnForm({ hsn, gstRates, takenCodes, onSave, onCancel }: HsnForm
         )}
       />
       <TextField label="Notes" error={errors.notes?.message} {...register("notes")} />
+      {saveError && <FormMessage tone="error">{saveError}</FormMessage>}
       <div className="flex flex-wrap gap-2.5">
-        <Button type="submit" disabled={Boolean(hsn) && !isDirty}>
-          {hsn ? "Save code" : "Add code"}
+        <Button type="submit" disabled={(Boolean(hsn) && !isDirty) || isSubmitting}>
+          {isSubmitting ? "Saving…" : hsn ? "Save code" : "Add code"}
         </Button>
         {onCancel && (
           <Button variant="neutral" onClick={onCancel}>

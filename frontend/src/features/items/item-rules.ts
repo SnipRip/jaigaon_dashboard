@@ -1,7 +1,7 @@
 // Pure rules of the item master: inheritance of HSN / GST / unit down the
 // category tree, variant generation for item groups, stock status and search.
 // No React here, so the backend can port these one to one.
-import { findHsn, latestRate } from "@/features/hsn/hsn-rules";
+import { currentRate, findHsn } from "@/features/hsn/hsn-rules";
 import type { HsnCode } from "@/features/hsn/types";
 import type {
   Category,
@@ -67,8 +67,8 @@ export function resolveDefaults(
   const gstRatePct: ResolvedValue<number> =
     ownRate !== undefined
       ? { value: ownRate, source: "item" }
-      : masterRate && latestRate(masterRate) !== undefined
-        ? { value: latestRate(masterRate), source: "hsn" }
+      : masterRate && currentRate(masterRate) !== undefined
+        ? { value: currentRate(masterRate), source: "hsn" }
         : resolve(levels, "gstRatePct");
   return { hsn, gstRatePct, unit: resolve(levels, "unit") };
 }

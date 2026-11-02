@@ -13,6 +13,7 @@ import { validateEnv } from './config/env.js';
 import { DatabaseModule } from './database/database.module.js';
 import { GodownsModule } from './godowns/godowns.module.js';
 import { HealthModule } from './health/health.module.js';
+import { HsnCodesModule } from './hsn-codes/hsn-codes.module.js';
 import { ItemCategoriesModule } from './item-categories/item-categories.module.js';
 import { ItemGroupsModule } from './item-groups/item-groups.module.js';
 import { ItemsModule } from './items/items.module.js';
@@ -37,6 +38,7 @@ import { WhatsappOptInsModule } from './whatsapp-optins/whatsapp-optins.module.j
     ItemCategoriesModule,
     ItemGroupsModule,
     ItemsModule,
+    HsnCodesModule,
     PartiesModule,
     WhatsappOptInsModule,
     HealthModule,

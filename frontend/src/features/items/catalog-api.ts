@@ -3,8 +3,10 @@
 // unique), so this file converts both ways and holds the save calls.
 import { useMemo } from "react";
 import useSWR from "swr";
+import { HSN_CODES_PATH, toHsnCode } from "@/features/hsn/hsn-api";
 import { BRANDS_PATH, GODOWNS_PATH, UNITS_PATH, withArchived } from "@/features/masters/masters-api";
 import { apiGet, apiRequest } from "@/lib/api-client";
+import type { HsnCodeView } from "@/types/hsn";
 import type { BrandView, CategoryView, GodownView, ItemGroupView, ItemView, SubCategoryView, UnitView } from "@/types/item-master";
 import type { CategoryDraft } from "./category-editor";
 import type { ItemGroupFormValues } from "./item-group-schema";
@@ -79,9 +81,9 @@ const toItem = (view: ItemView, units: UnitView[], brands: BrandView[]): Item =>
 });
 
 /**
- * Loads the item master. No HSN master is passed in the catalog yet (that
- * master is still sample data), so GST comes from the item, group or
- * category only, exactly as the backend resolves it.
+ * Loads the item master and the HSN master. An item's GST rate is its own,
+ * else the rate in force today on its HSN code (hsnCodes), else the group,
+ * sub-category or category default (item-rules.ts, resolveDefaults).
  */
 export function useItemMasters() {
   const units = useSWR<UnitView[]>(withArchived(UNITS_PATH), apiGet);
@@ -90,23 +92,28 @@ export function useItemMasters() {
   const categories = useSWR<CategoryView[]>(CATEGORIES_PATH, apiGet);
   const groups = useSWR<ItemGroupView[]>(ITEM_GROUPS_PATH, apiGet);
   const items = useSWR<ItemView[]>(ITEMS_PATH, apiGet);
+  const hsnCodes = useSWR<HsnCodeView[]>(HSN_CODES_PATH, apiGet);
 
   const masters = useMemo((): ItemMasters | undefined => {
-    if (!units.data || !brands.data || !godowns.data || !categories.data || !groups.data || !items.data) return undefined;
+    if (!units.data || !brands.data || !godowns.data || !categories.data || !groups.data || !items.data || !hsnCodes.data) {
+      return undefined;
+    }
     return {
       catalog: {
         categories: categories.data.map((view) => toCategory(view, units.data!)),
         groups: groups.data.map((view) => toGroup(view, units.data!, brands.data!)),
         items: items.data.map((view) => toItem(view, units.data!, brands.data!)),
+        hsnCodes: hsnCodes.data.map(toHsnCode),
       },
       units: units.data,
       brands: brands.data,
       godowns: godowns.data,
       itemViews: new Map(items.data.map((view) => [view.id, view])),
     };
-  }, [units.data, brands.data, godowns.data, categories.data, groups.data, items.data]);
+  }, [units.data, brands.data, godowns.data, categories.data, groups.data, items.data, hsnCodes.data]);
 
-  const error = units.error ?? brands.error ?? godowns.error ?? categories.error ?? groups.error ?? items.error;
+  const error =
+    units.error ?? brands.error ?? godowns.error ?? categories.error ?? groups.error ?? items.error ?? hsnCodes.error;
   // After a save: categories, groups and items change together; units and
   // brands carry item counts.
   const reload = async () => {

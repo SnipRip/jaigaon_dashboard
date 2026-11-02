@@ -369,3 +369,41 @@ model Party {
   @@index([isCustomer])
   @@index([isVendor])
 }
+
+// ---------------------------------------------------------------------------
+// HSN / SAC master (masters-plan.md, section D). Rates change by
+// notification, so each code keeps a dated rate history; a document uses
+// the rate in force on its own date. Items keep their HSN as text and take
+// the most specific code here that it starts with (72142090 → 7214).
+// ---------------------------------------------------------------------------
+
+enum CodeKind {
+  HSN
+  SAC
+}
+
+model HsnCode {
+  id            String    @id @default(uuid()) @db.Uuid
+  // HSN for goods: 4, 6 or 8 digits. SAC for services: 4 or 6, starting 99.
+  code          String    @unique
+  kind          CodeKind
+  description   String
+  cessPct       Decimal?  @db.Decimal(5, 2)
+  // Bought under reverse charge (goods transport agency freight).
+  reverseCharge Boolean   @default(false)
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  rates HsnRate[]
+}
+
+model HsnRate {
+  id            String   @id @default(uuid()) @db.Uuid
+  hsnCodeId     String   @db.Uuid
+  hsnCode       HsnCode  @relation(fields: [hsnCodeId], references: [id], onDelete: Cascade)
+  ratePct       Decimal  @db.Decimal(5, 2)
+  effectiveFrom DateTime @db.Date
+
+  @@unique([hsnCodeId, effectiveFrom])
+}
