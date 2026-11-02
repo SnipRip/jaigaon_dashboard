@@ -40,6 +40,8 @@ export interface Party {
 
   creditDays: number;
   openingBalance: number;
+  /** Which way the opening balance runs. Sample parties leave it out. */
+  balanceSide?: "receivable" | "payable";
   /** Customers. */
   creditLimit?: number;
   priceLevel?: string;
@@ -48,7 +50,8 @@ export interface Party {
   isGta?: boolean;
   bankAccount?: { name: string; number: string; ifsc: string };
 
-  /** Customers: what they owe. Vendors: what we owe. */
+  /** Customers: what they owe. Vendors: what we owe. See dueFor in party-rules.ts. */
   outstanding: number;
   notes?: string;
+  archived?: boolean;
 }

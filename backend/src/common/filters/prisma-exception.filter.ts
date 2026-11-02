@@ -38,6 +38,14 @@ function toHttpException(
   }
 }
 
+// Column names as a person reads them; any other column shows as named.
+const FIELD_LABELS: Record<string, string> = {
+  gstin: 'GSTIN',
+  sku: 'SKU',
+  skuPrefix: 'SKU prefix',
+  uqc: 'UQC',
+};
+
 // The pg adapter reports the index ("Item_sku_key"), not the fields; Prisma's
 // own engine reports `target`. Foreign-key parts (parentId) are left out of
 // the message, so "That name is already used" reads naturally.
@@ -56,7 +64,10 @@ function uniqueFields(error: Prisma.PrismaClientKnownRequestError): string {
     fields = match ? match[1].split('_') : null;
   }
   const names = Array.isArray(fields)
-    ? fields.map(String).filter((field) => !field.endsWith('Id'))
+    ? fields
+        .map(String)
+        .filter((field) => !field.endsWith('Id'))
+        .map((field) => FIELD_LABELS[field] ?? field)
     : [];
   return names.length > 0 ? names.join(' and ') : 'name';
 }

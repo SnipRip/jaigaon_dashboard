@@ -15,16 +15,17 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { StatusChip } from "@/components/ui/status-chip";
 import { treatmentLabel, type GstTreatment } from "@/features/gst/gst-rules";
 import { formatInr, formatQuantity } from "@/lib/format";
-import { matchesPartySearch, placeOf, ROLE_TEXT, taxFor } from "./party-rules";
+import { dueFor, matchesPartySearch, placeOf, ROLE_TEXT, taxFor } from "./party-rules";
 import type { Party, PartyRole } from "./types";
 
-type TreatmentFilter = "all" | "with-gstin" | "without-gstin" | "overseas";
+type TreatmentFilter = "all" | "with-gstin" | "without-gstin" | "overseas" | "archived";
 
 const FILTERS: { value: TreatmentFilter; label: string; treatments?: GstTreatment[] }[] = [
   { value: "all", label: "All" },
   { value: "with-gstin", label: "With GSTIN", treatments: ["registered", "composition", "sez"] },
   { value: "without-gstin", label: "Without GSTIN", treatments: ["unregistered", "consumer"] },
   { value: "overseas", label: "Outside India", treatments: ["overseas"] },
+  { value: "archived", label: "Archived" },
 ];
 
 interface PartiesWorkspaceProps {
@@ -40,11 +41,13 @@ export function PartiesWorkspace({ role, parties, companyState }: PartiesWorkspa
   const [filter, setFilter] = useState<TreatmentFilter>("all");
   const text = ROLE_TEXT[role];
 
-  const mine = parties.filter((party) => party.roles.includes(role));
+  const showArchived = filter === "archived";
+  const mine = parties.filter((party) => party.roles.includes(role) && !party.archived);
+  const shown = parties.filter((party) => party.roles.includes(role) && Boolean(party.archived) === showArchived);
   const allowed = FILTERS.find((option) => option.value === filter)?.treatments;
-  const visible = mine.filter((party) => (!allowed || allowed.includes(party.treatment)) && matchesPartySearch(party, query));
+  const visible = shown.filter((party) => (!allowed || allowed.includes(party.treatment)) && matchesPartySearch(party, query));
 
-  const outstanding = mine.reduce((sum, party) => sum + party.outstanding, 0);
+  const outstanding = mine.reduce((sum, party) => sum + dueFor(role, party), 0);
   const noCredit = mine.filter((party) => taxFor(role, companyState, party).itc === false).length;
   const overseas = mine.filter((party) => party.treatment === "overseas").length;
 
@@ -84,7 +87,7 @@ export function PartiesWorkspace({ role, parties, companyState }: PartiesWorkspa
             value={query}
             onChange={setQuery}
             placeholder="Search by name, GSTIN, phone or town"
-            trailing={`${visible.length} of ${mine.length}`}
+            trailing={`${visible.length} of ${shown.length}`}
           />
           <FilterGroup label="Show">
             {FILTERS.map((option) => (
@@ -136,7 +139,7 @@ export function PartiesWorkspace({ role, parties, companyState }: PartiesWorkspa
                     </div>
                   </td>
                   <td>{party.creditDays === 0 ? "Cash" : `${party.creditDays} days`}</td>
-                  <td className={party.outstanding > 0 ? "font-semibold" : "text-muted"}>{formatInr(party.outstanding)}</td>
+                  <td className={dueFor(role, party) > 0 ? "font-semibold" : "text-muted"}>{formatInr(dueFor(role, party))}</td>
                 </tr>
               );
             })}

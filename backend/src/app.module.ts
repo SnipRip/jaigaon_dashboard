@@ -16,6 +16,7 @@ import { HealthModule } from './health/health.module.js';
 import { ItemCategoriesModule } from './item-categories/item-categories.module.js';
 import { ItemGroupsModule } from './item-groups/item-groups.module.js';
 import { ItemsModule } from './items/items.module.js';
+import { PartiesModule } from './parties/parties.module.js';
 import { StaffModule } from './staff/staff.module.js';
 import { UnitsModule } from './units/units.module.js';
 import { UsersModule } from './users/users.module.js';
@@ -36,6 +37,7 @@ import { WhatsappOptInsModule } from './whatsapp-optins/whatsapp-optins.module.j
     ItemCategoriesModule,
     ItemGroupsModule,
     ItemsModule,
+    PartiesModule,
     WhatsappOptInsModule,
     HealthModule,
   ],

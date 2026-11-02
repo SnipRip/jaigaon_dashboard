@@ -7,14 +7,13 @@ import { LiveCount } from "@/features/masters/live-count";
 import { BRANDS_PATH, GODOWNS_PATH, UNITS_PATH } from "@/features/masters/masters-api";
 import { MastersHub } from "@/features/masters/masters-hub";
 import { expenseHeads, moneyAccounts, numberSeries, transporters, vehicles } from "@/features/masters/sample-data";
-import { parties } from "@/features/parties/sample-data";
+import { PARTIES_PATH } from "@/features/parties/parties-api";
 import { priceLevels, specialRates } from "@/features/rates/sample-data";
 import { lutRegister } from "@/features/tax-export/sample-data";
 import { templates } from "@/features/whatsapp/sample-data";
 
 export const metadata: Metadata = { title: "Masters" };
 
-const count = (role: "customer" | "vendor") => parties.filter((party) => party.roles.includes(role)).length;
 const live = <T extends { archived?: boolean }>(records: T[]) => records.filter((record) => !record.archived).length;
 const hsn = hsnCodes.filter((code) => code.kind === "HSN").length;
 const sac = hsnCodes.filter((code) => code.kind === "SAC").length;
@@ -22,14 +21,14 @@ const sac = hsnCodes.filter((code) => code.kind === "SAC").length;
 export default function MastersPage() {
   return (
     <>
-      <SampleDataNotice>Items, brands, units and godowns are live. The other counts are still sample data.</SampleDataNotice>
+      <SampleDataNotice>Customers, vendors, items, brands, units and godowns are live. The other counts are still sample data.</SampleDataNotice>
       <MastersHub
         groups={[
           {
             label: "Parties",
             cards: [
-              { href: "/customers", title: "Customers", icon: Users, description: "GST treatment, place of supply, Bhutan buyers with export route, credit and price level.", count: `${count("customer")} customers` },
-              { href: "/vendors", title: "Vendors", icon: Building2, description: "Who gives a GST bill and who does not, composition and transporters, MSME and bank details.", count: `${count("vendor")} vendors` },
+              { href: "/customers", title: "Customers", icon: Users, description: "GST treatment, place of supply, Bhutan buyers with export route, credit and price level.", count: <LiveCount path={`${PARTIES_PATH}?role=customer`} noun={["customer", "customers"]} /> },
+              { href: "/vendors", title: "Vendors", icon: Building2, description: "Who gives a GST bill and who does not, composition and transporters, MSME and bank details.", count: <LiveCount path={`${PARTIES_PATH}?role=vendor`} noun={["vendor", "vendors"]} /> },
               { href: "/masters/transporters", title: "Transporters", icon: Truck, description: "Transporter ID for e-way bills, and whether they bill freight under reverse charge.", count: `${live(transporters)} transporters` },
               { href: "/masters/vehicles", title: "Vehicles", icon: Container, description: "Own and hired trucks with capacity and driver contact.", count: `${live(vehicles)} vehicles` },
             ],

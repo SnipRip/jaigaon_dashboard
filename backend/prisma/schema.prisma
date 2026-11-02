@@ -280,3 +280,92 @@ model ItemOpeningStock {
 
   @@id([itemId, godownId])
 }
+
+// ---------------------------------------------------------------------------
+// Parties (masters-plan.md, section B). One record per customer or vendor;
+// a party can be both, as Zoho's contacts are.
+// ---------------------------------------------------------------------------
+
+enum PartyKind {
+  BUSINESS
+  INDIVIDUAL
+}
+
+// Decides the tax on every document with the party (frontend gst-rules.ts).
+enum GstTreatment {
+  REGISTERED
+  COMPOSITION
+  UNREGISTERED
+  CONSUMER
+  OVERSEAS
+  SEZ
+}
+
+enum ExportRoute {
+  LUT
+  IGST
+}
+
+enum PartyCurrency {
+  INR
+  BTN
+}
+
+// Which way the opening balance runs: they owe us, or we owe them.
+enum BalanceSide {
+  RECEIVABLE
+  PAYABLE
+}
+
+model Party {
+  id                 String        @id @default(uuid()) @db.Uuid
+  isCustomer         Boolean       @default(false)
+  isVendor           Boolean       @default(false)
+  kind               PartyKind     @default(BUSINESS)
+  // Shown on quotations and invoices.
+  displayName        String
+  legalName          String?
+  contactPerson      String?
+  // E.164, for calls and WhatsApp.
+  phone              String?
+  email              String?
+
+  treatment          GstTreatment
+  // Unique when present: the same GSTIN is the same registered business.
+  gstin              String?       @unique
+  pan                String?
+  // GST state code ("19"). Null for a party outside India.
+  placeOfSupply      String?
+  // Outside India only.
+  country            String?
+  // Outside India: the buyer's own tax ID, e.g. Bhutan TPN.
+  foreignTaxId       String?
+  currency           PartyCurrency @default(INR)
+  // Customers outside India: export under LUT or with IGST paid.
+  exportRoute        ExportRoute?
+  // Vendors: goods transport agency, freight under reverse charge.
+  isGta              Boolean       @default(false)
+
+  addressLine        String?
+  city               String?
+  pin                String?
+
+  // 0 is cash.
+  creditDays         Int           @default(0)
+  creditLimit        Decimal?      @db.Decimal(14, 2)
+  openingBalance     Decimal       @default(0) @db.Decimal(14, 2)
+  openingBalanceSide BalanceSide   @default(RECEIVABLE)
+  // Vendors: MSME vendors must be paid within 45 days.
+  udyamNumber        String?
+  bankName           String?
+  bankAccountNumber  String?
+  ifsc               String?
+  notes              String?
+
+  isArchived         Boolean       @default(false)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([isCustomer])
+  @@index([isVendor])
+}

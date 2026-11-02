@@ -1,22 +1,10 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { SampleDataNotice } from "@/components/ui/sample-data-notice";
-import { COMPANY_TAX_PROFILE } from "@/features/gst/company-tax-profile";
-import { PartyForm } from "@/features/parties/party-form";
-import { parties, priceLevels } from "@/features/parties/sample-data";
+import { PartyScreen } from "@/features/parties/party-screens";
 
 type PartyParams = PageProps<"/vendors/[partyId]">["params"];
 
-const findVendor = (id: string) => parties.find((party) => party.id === id && party.roles.includes("vendor"));
-
-export function generateStaticParams() {
-  return parties.filter((party) => party.roles.includes("vendor")).map((party) => ({ partyId: party.id }));
-}
-
-export async function generateMetadata({ params }: { params: PartyParams }): Promise<Metadata> {
-  return { title: findVendor((await params).partyId)?.displayName ?? "Vendor" };
-}
+export const metadata: Metadata = { title: "Vendor" };
 
 // `params` is request data, so it is read inside a Suspense boundary.
 export default function VendorPage({ params }: { params: PartyParams }) {
@@ -28,13 +16,5 @@ export default function VendorPage({ params }: { params: PartyParams }) {
 }
 
 async function VendorDetail({ params }: { params: PartyParams }) {
-  const party = findVendor((await params).partyId);
-  if (!party) notFound();
-
-  return (
-    <>
-      <SampleDataNotice />
-      <PartyForm role="vendor" party={party} priceLevels={priceLevels} companyState={COMPANY_TAX_PROFILE.stateCode} />
-    </>
-  );
+  return <PartyScreen role="vendor" partyId={(await params).partyId} />;
 }

@@ -11,6 +11,7 @@ import { FormMessage } from "@/components/ui/form-message";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { SelectField } from "@/components/ui/select-field";
 import { TextField } from "@/components/ui/text-field";
+import { ApiError } from "@/lib/api-client";
 import { GST_TREATMENTS, needsGstin } from "@/features/gst/gst-rules";
 import { checkGstin, gstinPan, gstinStateCode } from "@/features/gst/gstin";
 import { INDIAN_STATES, stateName } from "@/features/gst/indian-states";
@@ -23,9 +24,17 @@ interface PartyFormProps {
   /** Which list the form was opened from; it is ticked for a new party. */
   role: PartyRole;
   party?: Party;
-  priceLevels: string[];
+  /** Left out until price levels are stored: the picker is hidden. */
+  priceLevels?: string[];
   companyState: string;
+  /** Saves through the backend; throws an ApiError the form shows. */
+  onSave: (values: PartyFormValues) => Promise<void>;
+  /** Archives or restores a saved party. */
+  onArchive?: (archived: boolean) => Promise<void>;
 }
+
+const errorText = (error: unknown) =>
+  error instanceof ApiError ? error.message : "Could not save. Check the connection and try again.";
 
 const NONE = "__none";
 const text = (value?: number) => (value === undefined ? "" : String(value));
@@ -55,6 +64,7 @@ function toValues(role: PartyRole, party?: Party): PartyFormValues {
     creditLimit: text(party?.creditLimit),
     priceLevel: party?.priceLevel ?? NONE,
     openingBalance: text(party?.openingBalance),
+    openingBalanceSide: party?.balanceSide ?? (role === "vendor" ? "payable" : "receivable"),
     udyamNumber: party?.udyamNumber ?? "",
     bankName: party?.bankAccount?.name ?? "",
     bankAccount: party?.bankAccount?.number ?? "",
@@ -66,20 +76,22 @@ function toValues(role: PartyRole, party?: Party): PartyFormValues {
 // Zoho-style contact form for customers and vendors. GST treatment decides
 // which fields show: a GSTIN fills in the state and PAN, an overseas party
 // gets country, tax ID and export route instead of a place of supply.
-export function PartyForm({ role, party, priceLevels, companyState }: PartyFormProps) {
+export function PartyForm({ role, party, priceLevels = [], companyState, onSave, onArchive }: PartyFormProps) {
   const [result, setResult] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const {
     register,
     control,
     handleSubmit,
     setValue,
-    formState: { errors },
+    reset,
+    formState: { errors, isSubmitting, isDirty },
   } = useForm<PartyFormValues>({ resolver: zodResolver(partySchema), defaultValues: toValues(role, party) });
 
-  const [roles, treatment, gstin, placeOfSupply, exportRoute, isGta] = useWatch({
+  const [roles, treatment, gstin, placeOfSupply, exportRoute, isGta, balanceSide] = useWatch({
     control,
-    name: ["roles", "treatment", "gstin", "placeOfSupply", "exportRoute", "isGta"],
+    name: ["roles", "treatment", "gstin", "placeOfSupply", "exportRoute", "isGta", "openingBalanceSide"],
   });
+  const [archiving, setArchiving] = useState(false);
   const isCustomer = roles.includes("customer");
   const isVendor = roles.includes("vendor");
   const overseas = treatment === "overseas";
@@ -101,9 +113,34 @@ export function PartyForm({ role, party, priceLevels, companyState }: PartyFormP
     });
 
   const onSubmit = handleSubmit(
-    () => setResult({ tone: "success", text: "All fields check out. Saving switches on when this master is connected to the database." }),
+    async (values) => {
+      setResult(null);
+      try {
+        await onSave(values);
+        reset(values);
+        setResult({ tone: "success", text: `${values.displayName} saved.` });
+      } catch (error) {
+        setResult({ tone: "error", text: errorText(error) });
+      }
+    },
     () => setResult({ tone: "error", text: "Some fields need attention. See the ones marked in red above." }),
   );
+
+  const toggleArchived = async () => {
+    if (!party || !onArchive) return;
+    setArchiving(true);
+    try {
+      await onArchive(!party.archived);
+      setResult({ tone: "success", text: `${party.displayName} ${party.archived ? "restored" : "archived"}.` });
+    } catch (error) {
+      setResult({ tone: "error", text: errorText(error) });
+    } finally {
+      setArchiving(false);
+    }
+  };
+
+  const balanceLabel =
+    isCustomer && isVendor ? "Opening balance (₹)" : isCustomer ? "Opening balance they owe (₹)" : "Opening balance we owe (₹)";
 
   const stateOptions = INDIAN_STATES.map((state) => ({ value: state.code, label: `${state.name} (${state.code})` }));
 
@@ -280,22 +317,37 @@ export function PartyForm({ role, party, priceLevels, companyState }: PartyFormP
           <CardTitle>Terms and balances</CardTitle>
           <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3.5">
             <TextField label="Credit days" inputMode="numeric" hint="0 for cash" error={errors.creditDays?.message} {...register("creditDays")} />
-            <TextField label="Opening balance (₹)" inputMode="decimal" error={errors.openingBalance?.message} {...register("openingBalance")} />
+            <TextField label={balanceLabel} inputMode="decimal" error={errors.openingBalance?.message} {...register("openingBalance")} />
+            {isCustomer && isVendor && (
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-muted">The opening balance is</span>
+                <FilterGroup label="The opening balance is">
+                  <FilterChip selected={balanceSide === "receivable"} onClick={() => setValue("openingBalanceSide", "receivable", { shouldDirty: true })}>
+                    They owe us
+                  </FilterChip>
+                  <FilterChip selected={balanceSide === "payable"} onClick={() => setValue("openingBalanceSide", "payable", { shouldDirty: true })}>
+                    We owe them
+                  </FilterChip>
+                </FilterGroup>
+              </div>
+            )}
             {isCustomer && (
               <>
                 <TextField label="Credit limit (₹)" inputMode="decimal" error={errors.creditLimit?.message} {...register("creditLimit")} />
-                <Controller
-                  control={control}
-                  name="priceLevel"
-                  render={({ field }) => (
-                    <SelectField
-                      label="Price level"
-                      options={[{ value: NONE, label: "Standard rates" }, ...priceLevels.map((level) => ({ value: level, label: level }))]}
-                      value={field.value}
-                      onValueChange={field.onChange}
-                    />
-                  )}
-                />
+                {priceLevels.length > 0 && (
+                  <Controller
+                    control={control}
+                    name="priceLevel"
+                    render={({ field }) => (
+                      <SelectField
+                        label="Price level"
+                        options={[{ value: NONE, label: "Standard rates" }, ...priceLevels.map((level) => ({ value: level, label: level }))]}
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      />
+                    )}
+                  />
+                )}
               </>
             )}
           </div>
@@ -319,9 +371,14 @@ export function PartyForm({ role, party, priceLevels, companyState }: PartyFormP
         <GlassCard className="flex flex-col gap-3">
           {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
           <div className="flex flex-wrap gap-2.5">
-            <Button type="submit" size="lg">
-              {party ? "Save changes" : `Save ${ROLE_TEXT[role].one}`}
+            <Button type="submit" size="lg" disabled={isSubmitting || (Boolean(party) && !isDirty)}>
+              {isSubmitting ? "Saving…" : party ? "Save changes" : `Save ${ROLE_TEXT[role].one}`}
             </Button>
+            {party && onArchive && (
+              <Button variant="neutral" size="lg" disabled={archiving} onClick={() => void toggleArchived()}>
+                {party.archived ? "Restore" : "Archive"}
+              </Button>
+            )}
             <Link href={ROLE_TEXT[role].path} className={buttonClasses("neutral", "ml-auto", "lg")}>
               Back to {ROLE_TEXT[role].many}
             </Link>

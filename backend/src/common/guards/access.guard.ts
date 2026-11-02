@@ -11,7 +11,12 @@ import {
   REQUIRED_ACCESS_KEY,
   type RequiredAccess,
 } from '../decorators/require-access.decorator.js';
-import type { AuthenticatedRequest } from '../types/authenticated-request.js';
+import type { AuthContext, AuthenticatedRequest } from '../types/authenticated-request.js';
+import type { ModuleAction } from '../types/module-permissions.js';
+
+/** Whether the user may do `action` in a module. Administrators may do everything. */
+export const canAccess = (auth: AuthContext, module: string, action: ModuleAction) =>
+  auth.role === 'ADMIN' || Boolean(auth.permissions[module]?.includes(action));
 
 // Runs after SessionGuard. Public routes have no `auth` and pass through.
 @Injectable()
@@ -34,7 +39,7 @@ export class AccessGuard implements CanActivate {
     }
 
     const required = read<RequiredAccess>(REQUIRED_ACCESS_KEY);
-    if (required && !auth.permissions[required.module]?.includes(required.action)) {
+    if (required && !canAccess(auth, required.module, required.action)) {
       throw new ForbiddenException('Your role does not allow this');
     }
     return true;

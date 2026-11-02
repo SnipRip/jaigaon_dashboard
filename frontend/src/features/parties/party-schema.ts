@@ -33,6 +33,8 @@ export const partySchema = z
     creditLimit: amount,
     priceLevel: z.string(),
     openingBalance: amount,
+    /** Asked only of a party that is both customer and vendor. */
+    openingBalanceSide: z.enum(["receivable", "payable"]),
     udyamNumber: z.union([z.literal(""), z.string().trim().toUpperCase().regex(/^UDYAM-[A-Z]{2}-\d{2}-\d{7}$/, "Format: UDYAM-WB-00-0000000")]),
     bankName: z.string().trim().max(80),
     bankAccount: z.union([z.literal(""), z.string().regex(/^\d{9,18}$/, "Account number is 9 to 18 digits")]),

@@ -17,6 +17,15 @@ export const taxFor = (role: PartyRole, companyState: string, party: Party) =>
 export const placeOf = (party: Party) =>
   [party.billing.city, party.billing.country ?? stateName(party.billing.stateCode)].filter(Boolean).join(", ");
 
+/**
+ * What is due in this list: receivable for customers, payable for vendors.
+ * A party that is both shows its balance only in the list it runs towards.
+ */
+export function dueFor(role: PartyRole, party: Party) {
+  if (!party.balanceSide) return party.outstanding;
+  return (party.balanceSide === "receivable") === (role === "customer") ? party.outstanding : 0;
+}
+
 export function matchesPartySearch(party: Party, query: string) {
   const needle = query.trim().toLowerCase();
   if (!needle) return true;
