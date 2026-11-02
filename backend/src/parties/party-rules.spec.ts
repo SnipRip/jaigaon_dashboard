@@ -19,6 +19,7 @@ const base: PartyFacts = {
   exportRoute: null,
   isGta: false,
   creditLimit: null,
+  priceLevelId: null,
   openingBalanceSide: 'PAYABLE',
 };
 
@@ -39,6 +40,18 @@ describe('settleParty', () => {
     expect(settleParty({ ...base, isVendor: true }).openingBalanceSide).toBe(
       'PAYABLE',
     );
+  });
+
+  it('keeps a price level for customers only', () => {
+    const onLevel = { ...base, priceLevelId: 'dealer', creditLimit: 5000 };
+    expect(settleParty(onLevel).priceLevelId).toBe('dealer');
+    const vendor = settleParty({
+      ...onLevel,
+      isCustomer: false,
+      isVendor: true,
+    });
+    expect(vendor.priceLevelId).toBeNull();
+    expect(vendor.creditLimit).toBeNull();
   });
 
   it('gives an overseas customer the LUT route and clears GTA for non-vendors', () => {

@@ -181,6 +181,9 @@ model ItemCategory {
   subGroups        ItemGroup[] @relation("GroupSubCategory")
   items            Item[]      @relation("ItemCategory")
   subCategoryItems Item[]      @relation("ItemSubCategory")
+  levelDiscounts   PriceLevelDiscount[]
+  specialRates     SpecialRate[]
+  quantitySlabs    QuantitySlab[]
 
   // Postgres treats NULL parents as distinct, so the service also checks
   // that top-level names are unique.
@@ -249,6 +252,8 @@ model Item {
 
   alternateUnits ItemUnitConversion[]
   openingStock   ItemOpeningStock[]
+  specialRates   SpecialRate[]
+  quantitySlabs  QuantitySlab[]
 
   @@index([categoryId])
   @@index([subCategoryId])
@@ -361,10 +366,15 @@ model Party {
   bankAccountNumber  String?
   ifsc               String?
   notes              String?
+  // Customers only: the discount they get off MRP (pricing section below).
+  priceLevelId       String?       @db.Uuid
+  priceLevel         PriceLevel?   @relation(fields: [priceLevelId], references: [id], onDelete: Restrict)
 
   isArchived         Boolean       @default(false)
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
+
+  specialRates SpecialRate[]
 
   @@index([isCustomer])
   @@index([isVendor])
@@ -406,4 +416,85 @@ model HsnRate {
   effectiveFrom DateTime @db.Date
 
   @@unique([hsnCodeId, effectiveFrom])
+}
+
+// ---------------------------------------------------------------------------
+// Pricing (masters-plan.md, section E). A customer's rate for an item is,
+// in order: a special rate in force for that customer, else their price
+// level off MRP, else the item's selling price; a quantity slab then takes
+// its extra discount, never below the minimum selling price
+// (src/pricing/pricing-rules.ts). A special rate or slab is for one item or
+// a whole category / sub-category: exactly one of itemId and categoryId.
+// ---------------------------------------------------------------------------
+
+model PriceLevel {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  // Off MRP, for every category without its own figure below.
+  discountPct Decimal  @default(0) @db.Decimal(5, 2)
+  description String?
+  isArchived  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  categoryDiscounts PriceLevelDiscount[]
+  customers         Party[]
+}
+
+// A level's discount for one category or sub-category (the sub-category's wins).
+model PriceLevelDiscount {
+  id           String       @id @default(uuid()) @db.Uuid
+  priceLevelId String       @db.Uuid
+  priceLevel   PriceLevel   @relation(fields: [priceLevelId], references: [id], onDelete: Cascade)
+  categoryId   String       @db.Uuid
+  category     ItemCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  discountPct  Decimal      @db.Decimal(5, 2)
+
+  @@unique([priceLevelId, categoryId])
+}
+
+enum SpecialRateKind {
+  // A rate in rupees per base unit.
+  NET
+  // A discount % off MRP (off the selling price when the item has no MRP).
+  DISCOUNT
+}
+
+model SpecialRate {
+  id         String          @id @default(uuid()) @db.Uuid
+  partyId    String          @db.Uuid
+  party      Party           @relation(fields: [partyId], references: [id], onDelete: Restrict)
+  itemId     String?         @db.Uuid
+  item       Item?           @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  categoryId String?         @db.Uuid
+  category   ItemCategory?   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  kind       SpecialRateKind
+  value      Decimal         @db.Decimal(12, 2)
+  validFrom  DateTime        @db.Date
+  // Null: until withdrawn.
+  validTill  DateTime?       @db.Date
+  notes      String?
+  isArchived Boolean         @default(false)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@index([partyId])
+}
+
+model QuantitySlab {
+  id          String        @id @default(uuid()) @db.Uuid
+  itemId      String?       @db.Uuid
+  item        Item?         @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  categoryId  String?       @db.Uuid
+  category    ItemCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  // In the item's base unit.
+  minQuantity Decimal       @db.Decimal(14, 3)
+  // Extra, on top of the rate that would otherwise apply.
+  discountPct Decimal       @db.Decimal(5, 2)
+  isArchived  Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([itemId])
+  @@index([categoryId])
 }

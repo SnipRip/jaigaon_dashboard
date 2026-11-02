@@ -1,6 +1,7 @@
 import { applyDecorators } from '@nestjs/common';
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsNumber, IsOptional, Matches, Max, Min } from 'class-validator';
+import { IsBoolean, IsISO8601, IsNumber, IsOptional, Matches, Max, Min } from 'class-validator';
+import { ISO_DATE_PATTERN } from '../dates.js';
 
 // Validators for the number and code fields the masters share, so every DTO
 // checks rupees, quantities, GST and HSN the same way.
@@ -16,6 +17,14 @@ export const IsQuantity = (decimals = 3) =>
 /** A GST rate in percent: 0, 5, 18 … */
 export const IsGstRate = () =>
   applyDecorators(IsNumber({ maxDecimalPlaces: 2 }), Min(0), Max(100));
+
+/** A discount in percent, up to 2 decimals. The pricing rules narrow the range. */
+export const IsDiscountPct = () =>
+  applyDecorators(IsNumber({ maxDecimalPlaces: 2 }), Min(0), Max(100));
+
+/** A real calendar day as YYYY-MM-DD (2026-02-30 fails). */
+export const IsIsoDate = (message: string) =>
+  applyDecorators(Matches(ISO_DATE_PATTERN, { message }), IsISO8601({ strict: true }, { message }));
 
 export const HSN_PATTERN = /^\d{4,8}$/;
 /** HSN as stored on an item: 4, 6 or 8 digits (exports need 8). */

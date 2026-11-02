@@ -22,6 +22,8 @@ export interface PartyFacts {
   exportRoute: 'LUT' | 'IGST' | null;
   isGta: boolean;
   creditLimit: number | null;
+  /** Customers only. */
+  priceLevelId: string | null;
   openingBalanceSide: BalanceSide;
 }
 
@@ -64,7 +66,10 @@ export function settleParty<T extends PartyFacts>(party: T): T {
     settled.exportRoute = null;
   }
   if (!party.isVendor) settled.isGta = false;
-  if (!party.isCustomer) settled.creditLimit = null;
+  if (!party.isCustomer) {
+    settled.creditLimit = null;
+    settled.priceLevelId = null;
+  }
   if (party.isCustomer !== party.isVendor) {
     settled.openingBalanceSide = party.isCustomer ? 'RECEIVABLE' : 'PAYABLE';
   }

@@ -1,3 +1,4 @@
+import { isoDate } from '../common/dates.js';
 import { toNumber } from '../common/decimal.js';
 import type { HsnCode, HsnRate } from '../generated/prisma/client.js';
 
@@ -21,10 +22,6 @@ export interface HsnCodeView {
   /** Items whose HSN falls under this code (the most specific match). */
   itemCount: number;
 }
-
-export const isoDate = (date: Date) => date.toISOString().slice(0, 10);
-/** A YYYY-MM-DD string as the midnight-UTC Date a `@db.Date` column stores. */
-export const dateOnly = (iso: string) => new Date(`${iso}T00:00:00Z`);
 
 export const toRateView = (rate: HsnRate): HsnRateView => ({
   id: rate.id,

@@ -46,7 +46,7 @@ export const toGodown = (godown: GodownView): Godown => ({
 
 // Form values (blanks left out) → request bodies. A blank optional field is
 // sent as null so an edit can clear it.
-type Changes = Record<string, unknown>;
+export type Changes = Record<string, unknown>;
 
 const unitBody = (changes: Changes) => ({
   symbol: changes.symbol,
@@ -77,7 +77,7 @@ const godownBody = (changes: Changes) => ({
  * each change, to reload the list (making one godown the default changes
  * the others).
  */
-function persistence<V, R extends MasterRecord>(
+export function persistence<V, R extends MasterRecord>(
   path: string,
   toRecord: (view: V) => R,
   toBody: (changes: Changes) => object,

@@ -48,6 +48,7 @@ const factsOf = (party: Party): PartyFacts => ({
   exportRoute: party.exportRoute,
   isGta: party.isGta,
   creditLimit: toNumber(party.creditLimit),
+  priceLevelId: party.priceLevelId,
   openingBalanceSide: party.openingBalanceSide,
 });
 
@@ -87,10 +88,12 @@ export class PartiesService {
         exportRoute: dto.exportRoute ?? null,
         isGta: dto.isGta ?? false,
         creditLimit: dto.creditLimit ?? null,
+        priceLevelId: dto.priceLevelId ?? null,
         openingBalanceSide: dto.openingBalanceSide ?? 'RECEIVABLE',
       }),
     );
     check(party);
+    await this.assertLevel(party.priceLevelId);
     return toPartyView(await this.prisma.party.create({ data: party }));
   }
 
@@ -121,13 +124,30 @@ export class PartiesService {
     }
     const party = settleParty(merged);
     check(party);
+    if (party.priceLevelId !== current.priceLevelId) {
+      await this.assertLevel(party.priceLevelId);
+    }
     return toPartyView(
       await this.prisma.party.update({ where: { id }, data: party }),
     );
   }
 
-  // Nothing refers to a party yet; once documents do, a party in use is
-  // archived instead (the database will refuse the delete).
+  // A customer is put on a live level; one already on a level archived
+  // since keeps it until changed.
+  private async assertLevel(id: string | null): Promise<void> {
+    if (!id) return;
+    const level = await this.prisma.priceLevel.findUnique({
+      where: { id },
+      select: { isArchived: true },
+    });
+    if (!level)
+      throw new BadRequestException('That price level does not exist');
+    if (level.isArchived)
+      throw new BadRequestException('That price level is archived');
+  }
+
+  // A party with special rates (and, later, documents) is archived instead:
+  // the database refuses the delete (409).
   async remove(auth: AuthContext, id: string): Promise<void> {
     const party = await this.prisma.party.findUniqueOrThrow({ where: { id } });
     assertMay(auth, partyModules(party), 'delete');

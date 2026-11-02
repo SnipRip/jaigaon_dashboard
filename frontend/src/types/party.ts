@@ -23,6 +23,8 @@ export interface PartyView {
   pin: string | null;
   creditDays: number;
   creditLimit: number | null;
+  /** Customers only. */
+  priceLevelId: string | null;
   openingBalance: number;
   openingBalanceSide: "RECEIVABLE" | "PAYABLE";
   udyamNumber: string | null;

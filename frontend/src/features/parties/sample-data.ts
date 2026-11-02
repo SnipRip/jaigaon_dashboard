@@ -3,11 +3,7 @@
 // and check digit. Hind Steel and Bhoomi And Buildings appear because the
 // brochure and the accountant's walkthrough mention them; their details are
 // still invented. Replace with backend calls when the party master is built.
-import { priceLevels as levels } from "@/features/rates/sample-data";
 import type { Party } from "./types";
-
-/** Names of the price levels a customer can be put on (Rate management). */
-export const priceLevels = levels.filter((level) => !level.archived).map((level) => level.name);
 
 export const parties: Party[] = [
   {
@@ -27,6 +23,7 @@ export const parties: Party[] = [
     creditDays: 30,
     creditLimit: 500000,
     priceLevel: "Bhutan export",
+    priceLevelId: "bhutan-export",
     openingBalance: 0,
     outstanding: 112000,
   },
@@ -46,6 +43,7 @@ export const parties: Party[] = [
     creditDays: 15,
     creditLimit: 300000,
     priceLevel: "Bhutan export",
+    priceLevelId: "bhutan-export",
     openingBalance: 0,
     outstanding: 48500,
   },
@@ -66,6 +64,7 @@ export const parties: Party[] = [
     creditDays: 30,
     creditLimit: 400000,
     priceLevel: "Contractor",
+    priceLevelId: "contractor",
     openingBalance: 25000,
     outstanding: 86300,
   },
@@ -85,6 +84,7 @@ export const parties: Party[] = [
     creditDays: 21,
     creditLimit: 250000,
     priceLevel: "Dealer",
+    priceLevelId: "dealer",
     openingBalance: 0,
     outstanding: 0,
   },
@@ -99,6 +99,7 @@ export const parties: Party[] = [
     billing: { line1: "Counter sale", city: "Jaigaon", stateCode: "19", pin: "736182" },
     creditDays: 0,
     priceLevel: "Retail",
+    priceLevelId: "retail",
     openingBalance: 0,
     outstanding: 0,
   },
@@ -233,6 +234,7 @@ export const parties: Party[] = [
     creditDays: 30,
     creditLimit: 150000,
     priceLevel: "Dealer",
+    priceLevelId: "dealer",
     openingBalance: 0,
     outstanding: 9600,
     notes: "Buys crusher parts from us and sells us fasteners.",

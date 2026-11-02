@@ -16,7 +16,7 @@ import { GST_TREATMENTS, needsGstin } from "@/features/gst/gst-rules";
 import { checkGstin, gstinPan, gstinStateCode } from "@/features/gst/gstin";
 import { INDIAN_STATES, stateName } from "@/features/gst/indian-states";
 import { ROLE_TEXT, taxProfileOf } from "./party-rules";
-import { partySchema, type PartyFormValues } from "./party-schema";
+import { NO_PRICE_LEVEL, partySchema, type PartyFormValues } from "./party-schema";
 import { PartyTaxPreview } from "./party-tax-preview";
 import type { Party, PartyRole } from "./types";
 
@@ -24,8 +24,8 @@ interface PartyFormProps {
   /** Which list the form was opened from; it is ticked for a new party. */
   role: PartyRole;
   party?: Party;
-  /** Left out until price levels are stored: the picker is hidden. */
-  priceLevels?: string[];
+  /** The levels a customer can be put on; the picker is hidden when there are none. */
+  priceLevels?: { id: string; name: string }[];
   companyState: string;
   /** Saves through the backend; throws an ApiError the form shows. */
   onSave: (values: PartyFormValues) => Promise<void>;
@@ -36,7 +36,6 @@ interface PartyFormProps {
 const errorText = (error: unknown) =>
   error instanceof ApiError ? error.message : "Could not save. Check the connection and try again.";
 
-const NONE = "__none";
 const text = (value?: number) => (value === undefined ? "" : String(value));
 
 function toValues(role: PartyRole, party?: Party): PartyFormValues {
@@ -62,7 +61,7 @@ function toValues(role: PartyRole, party?: Party): PartyFormValues {
     pin: party?.billing.pin ?? "",
     creditDays: text(party?.creditDays ?? 0),
     creditLimit: text(party?.creditLimit),
-    priceLevel: party?.priceLevel ?? NONE,
+    priceLevelId: party?.priceLevelId ?? NO_PRICE_LEVEL,
     openingBalance: text(party?.openingBalance),
     openingBalanceSide: party?.balanceSide ?? (role === "vendor" ? "payable" : "receivable"),
     udyamNumber: party?.udyamNumber ?? "",
@@ -337,11 +336,11 @@ export function PartyForm({ role, party, priceLevels = [], companyState, onSave,
                 {priceLevels.length > 0 && (
                   <Controller
                     control={control}
-                    name="priceLevel"
+                    name="priceLevelId"
                     render={({ field }) => (
                       <SelectField
                         label="Price level"
-                        options={[{ value: NONE, label: "Standard rates" }, ...priceLevels.map((level) => ({ value: level, label: level }))]}
+                        options={[{ value: NO_PRICE_LEVEL, label: "Standard rates" }, ...priceLevels.map((level) => ({ value: level.id, label: level.name }))]}
                         value={field.value}
                         onValueChange={field.onChange}
                       />

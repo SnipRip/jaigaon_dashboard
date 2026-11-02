@@ -8,7 +8,7 @@ import { BRANDS_PATH, GODOWNS_PATH, UNITS_PATH } from "@/features/masters/master
 import { MastersHub } from "@/features/masters/masters-hub";
 import { expenseHeads, moneyAccounts, numberSeries, transporters, vehicles } from "@/features/masters/sample-data";
 import { PARTIES_PATH } from "@/features/parties/parties-api";
-import { priceLevels, specialRates } from "@/features/rates/sample-data";
+import { PRICE_LEVELS_PATH, SPECIAL_RATES_PATH } from "@/features/rates/rates-api";
 import { lutRegister } from "@/features/tax-export/sample-data";
 import { templates } from "@/features/whatsapp/sample-data";
 
@@ -19,7 +19,7 @@ const live = <T extends { archived?: boolean }>(records: T[]) => records.filter(
 export default function MastersPage() {
   return (
     <>
-      <SampleDataNotice>Customers, vendors, items, brands, units, godowns and HSN codes are live. The other counts are still sample data.</SampleDataNotice>
+      <SampleDataNotice>Customers, vendors, items, brands, units, godowns, HSN codes, price levels and special rates are live. The other counts are still sample data.</SampleDataNotice>
       <MastersHub
         groups={[
           {
@@ -55,7 +55,13 @@ export default function MastersPage() {
           {
             label: "Pricing",
             cards: [
-              { href: "/rates", title: "Price levels & special rates", icon: Tag, description: "Retail, contractor, dealer and Bhutan levels; customer special rates; quantity slabs.", count: `${live(priceLevels)} levels · ${live(specialRates)} special rates` },
+              { href: "/rates", title: "Price levels & special rates", icon: Tag, description: "Price levels by category, customer special rates with validity, and quantity slabs.",
+                count: (
+                  <>
+                    <LiveCount path={PRICE_LEVELS_PATH} noun={["level", "levels"]} /> · <LiveCount path={SPECIAL_RATES_PATH} noun={["special rate", "special rates"]} />
+                  </>
+                ),
+              },
             ],
           },
           {

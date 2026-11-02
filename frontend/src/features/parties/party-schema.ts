@@ -3,6 +3,9 @@ import { needsGstin } from "@/features/gst/gst-rules";
 import { checkGstin, gstinStateCode } from "@/features/gst/gstin";
 
 const amount = z.union([z.literal(""), z.string().trim().regex(/^\d+(\.\d{1,2})?$/, "Enter an amount in rupees")]);
+/** The price level picker's "Standard rates" choice (a select cannot hold an empty value). */
+export const NO_PRICE_LEVEL = "__none";
+
 const days = z.string().trim().regex(/^\d{1,3}$/, "Enter the number of days, 0 for cash");
 
 export const partySchema = z
@@ -31,7 +34,7 @@ export const partySchema = z
 
     creditDays: days,
     creditLimit: amount,
-    priceLevel: z.string(),
+    priceLevelId: z.string(),
     openingBalance: amount,
     /** Asked only of a party that is both customer and vendor. */
     openingBalanceSide: z.enum(["receivable", "payable"]),

@@ -11,6 +11,7 @@ import { STATUS_TEXT } from "@/components/ui/status-chip";
 import type { Item } from "@/features/items/types";
 import { fromFormValues, type FieldSpec } from "@/features/masters/record-fields";
 import { RecordForm } from "@/features/masters/record-form";
+import { ApiError } from "@/lib/api-client";
 import { formatPercent, formatRate } from "@/lib/format";
 import { marginPct } from "./rate-rules";
 
@@ -21,10 +22,25 @@ const FIELDS: FieldSpec[] = [
   { key: "minSellingPrice", label: "Minimum selling price (₹)", kind: "number", hint: "No quotation or invoice may go below it" },
 ];
 
+type Prices = Pick<Item, "mrp" | "costPrice" | "sellingPrice" | "minSellingPrice">;
+
+interface ItemRatesTableProps {
+  /** With `onSave`, pass the reloaded list again after a save; it replaces the shown one. */
+  initialItems: Item[];
+  units: Record<string, string>;
+  /** Saves through the backend; without it, changes stay on the page. */
+  onSave?: (item: Item, prices: Prices) => Promise<void>;
+}
+
 // MRP, cost, selling and minimum price of every item in one table (SOW 3),
 // with the margin each gives. Editing here changes the item's own prices.
-export function ItemRatesTable({ initialItems, units }: { initialItems: Item[]; units: Record<string, string> }) {
+export function ItemRatesTable({ initialItems, units, onSave }: ItemRatesTableProps) {
   const [items, setItems] = useState(initialItems);
+  const [loaded, setLoaded] = useState(initialItems);
+  if (loaded !== initialItems) {
+    setLoaded(initialItems);
+    setItems(initialItems);
+  }
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<Item | null>(null);
   const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
@@ -79,6 +95,7 @@ export function ItemRatesTable({ initialItems, units }: { initialItems: Item[]; 
           })}
         </tbody>
       </GlassTable>
+      {visible.length === 0 && <p className="py-6 text-center text-[13px] text-muted">{items.length ? "No items match." : "No items yet. Add them on the Items screen."}</p>}
       {notice && <FormMessage tone={notice.tone}>{notice.text}</FormMessage>}
       <p className="text-xs font-semibold text-muted">Margin under 8% shows red, under 12% amber.</p>
 
@@ -90,13 +107,21 @@ export function ItemRatesTable({ initialItems, units }: { initialItems: Item[]; 
             initial={editing as unknown as Record<string, unknown>}
             submitLabel="Save prices"
             onCancel={() => setEditing(null)}
-            onSubmit={(values) => {
+            onSubmit={async (values) => {
               const changes = fromFormValues(FIELDS, values) as Partial<Item>;
-              const selling = changes.sellingPrice ?? 0;
-              if ((changes.minSellingPrice ?? 0) > selling || (changes.mrp !== undefined && selling > changes.mrp)) {
+              const prices: Prices = { mrp: changes.mrp, costPrice: changes.costPrice ?? 0, sellingPrice: changes.sellingPrice ?? 0, minSellingPrice: changes.minSellingPrice };
+              if ((prices.minSellingPrice ?? 0) > prices.sellingPrice || (prices.mrp !== undefined && prices.sellingPrice > prices.mrp)) {
                 setNotice({ tone: "error", text: "Keep minimum ≤ selling ≤ MRP. Nothing was changed." });
+              } else if (onSave) {
+                try {
+                  await onSave(editing, prices);
+                  setItems((current) => current.map((item) => (item.id === editing.id ? { ...item, ...prices } : item)));
+                  setNotice({ tone: "success", text: `Prices of ${editing.name} saved.` });
+                } catch (error) {
+                  setNotice({ tone: "error", text: error instanceof ApiError ? error.message : "Could not save. Check the connection and try again." });
+                }
               } else {
-                setItems((current) => current.map((item) => (item.id === editing.id ? { ...item, ...changes } : item)));
+                setItems((current) => current.map((item) => (item.id === editing.id ? { ...item, ...prices } : item)));
                 setNotice({ tone: "success", text: `${editing.name} updated on this page. Saving switches on when items are connected to the database.` });
               }
               setEditing(null);
