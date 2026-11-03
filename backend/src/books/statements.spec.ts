@@ -1,0 +1,92 @@
+import { describe, expect, it } from 'vitest';
+import type { GroupNode } from '../ledgers/ledger-group-rules.js';
+import { balanceSheet, groupTree, ledgerBalances, profitAndLoss, trialBalance, type BookLedger, type Posting } from './statements.js';
+
+// A slice of Tally's groups, enough for a small set of books.
+const rows: [string, string | null, GroupNode['nature'], boolean][] = [
+  ['Capital Account', null, 'LIABILITY', false],
+  ['Loans (Liability)', null, 'LIABILITY', false],
+  ['Secured Loans', 'Loans (Liability)', null, false],
+  ['Current Liabilities', null, 'LIABILITY', false],
+  ['Suspense A/c', null, 'LIABILITY', false],
+  ['Fixed Assets', null, 'ASSET', false],
+  ['Current Assets', null, 'ASSET', false],
+  ['Bank Accounts', 'Current Assets', null, false],
+  ['Sundry Debtors', 'Current Assets', null, false],
+  ['Stock-in-Hand', 'Current Assets', null, false],
+  ['Sales Accounts', null, 'INCOME', true],
+  ['Indirect Incomes', null, 'INCOME', false],
+  ['Purchase Accounts', null, 'EXPENSE', true],
+  ['Indirect Expenses', null, 'EXPENSE', false],
+];
+const groups = rows.map(([name, parent, nature, affectsGrossProfit], position) => ({
+  id: name,
+  name,
+  parentId: parent,
+  nature,
+  affectsGrossProfit,
+  isPredefined: true,
+  position,
+  behavesAsSubLedger: false,
+}));
+const meta = new Map<string, GroupNode>(groups.map((group) => [group.id, group]));
+
+const ledger = (name: string, groupId: string | null, opening = 0): BookLedger => ({ name, groupId, source: 'ledger', sourceId: null, opening });
+const post = (dr: string, cr: string, amount: number, group = ''): Posting[] => [
+  { ledger: dr, group, debit: amount, credit: 0 },
+  { ledger: cr, group, debit: 0, credit: amount },
+];
+
+function books(ledgers: BookLedger[], postings: Posting[], stock = { opening: 30_000, closing: 30_000 }) {
+  const balances = ledgerBalances([...ledgers, { ...ledger('Opening Stock', 'Stock-in-Hand', stock.opening), source: 'stock' }], postings, meta);
+  const trial = trialBalance(groupTree(groups, balances), balances);
+  const pl = profitAndLoss(trial.groups, meta, stock);
+  return { balances, trial, pl, sheet: balanceSheet(trial, meta, pl.netProfit, stock) };
+}
+
+const opening = [
+  ledger("Owner's Capital", 'Capital Account', -100_000),
+  ledger('SBI Current', 'Bank Accounts', 60_000),
+  ledger('Siliguri Infra', 'Sundry Debtors', 10_000),
+  ledger('Profit & Loss A/c', null),
+];
+const vouchers = [...post('SBI Current', 'HDFC Truck Loan', 50_000), ...post('Interest on Loan', 'SBI Current', 1_000)];
+const withLedgers = [...opening, ledger('HDFC Truck Loan', 'Secured Loans'), ledger('Interest on Loan', 'Indirect Expenses')];
+
+describe('books', () => {
+  it('keeps the trial balance in agreement', () => {
+    const { trial } = books(withLedgers, vouchers);
+    expect(trial.differenceInOpening).toBe(0);
+    expect(trial.totalDebit).toBe(trial.totalCredit);
+    expect(trial.totalDebit).toBe(150_000);
+  });
+
+  it('works out gross and nett profit with stock', () => {
+    const { pl } = books(withLedgers, [...vouchers, ...post('SBI Current', 'Sales - GST Local', 40_000, 'Sales Accounts')], { opening: 30_000, closing: 5_000 });
+    // Sales 40,000 + closing 5,000 − opening 30,000.
+    expect(pl.grossProfit).toBe(15_000);
+    expect(pl.netProfit).toBe(14_000);
+  });
+
+  it('balances the sheet, carrying a loss to the assets', () => {
+    const { sheet, pl } = books(withLedgers, vouchers);
+    expect(pl.netProfit).toBe(-1_000);
+    expect(sheet.profitAndLoss.total).toBe(-1_000);
+    expect(sheet.totalLiabilities).toBe(150_000);
+    expect(sheet.totalAssets).toBe(150_000);
+  });
+
+  it('shows openings that do not agree as a difference', () => {
+    const { trial, sheet } = books(withLedgers.slice(1), vouchers);
+    // Bank 60,000 + debtor 10,000 + stock 30,000, with no capital against them.
+    expect(trial.differenceInOpening).toBe(100_000);
+    expect(trial.totalDebit).toBe(trial.totalCredit);
+    expect(sheet.differenceInOpening).toBe(100_000);
+    expect(sheet.totalLiabilities).toBe(sheet.totalAssets);
+  });
+
+  it('keeps a voucher line no master has, under its group or Suspense', () => {
+    const balances = ledgerBalances(opening, post('Mystery', 'SBI Current', 10, 'Nowhere'), meta);
+    expect(balances.find((item) => item.name === 'Mystery')).toMatchObject({ groupId: 'Suspense A/c', source: 'unlisted', closing: 10 });
+  });
+});

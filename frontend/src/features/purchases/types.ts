@@ -2,10 +2,12 @@
 // stock in; a charges bill is freight, loading, unloading or labour, which
 // can be tagged to a goods bill so its cost lands on those items.
 import type { InvoiceLine } from "@/features/invoices/types";
+import type { AccountHead } from "@/features/masters/types";
 
 export type BillKind = "goods" | "charges";
 
-export type ChargeHead = "freight" | "loading" | "unloading" | "labour" | "other";
+/** A charge's expense head (Expense & income heads): what the bill rules read from it. */
+export type ChargeHead = Pick<AccountHead, "id" | "name" | "gst" | "gstRatePct" | "allocation">;
 
 /** Zoho's per-line "ITC eligibility". Ineligible GST (Section 17(5)) becomes cost. */
 export type ItcEligibility = "eligible" | "ineligible";
@@ -16,7 +18,8 @@ export interface BillLine extends InvoiceLine {
 }
 
 export interface BillCharge {
-  head: ChargeHead;
+  /** The expense head's id; sample bills name it by its ledger name (findHead matches both). */
+  head: string;
   description?: string;
   /** Before GST. */
   amount: number;

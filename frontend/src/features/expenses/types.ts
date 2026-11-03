@@ -1,9 +1,9 @@
 // An expense: money spent that is not stock (SOW 13). Its head says what it
 // is; its allocation says whose profit it reduces (masters-plan.md F23).
-import type { ExpenseHead } from "@/features/masters/types";
+import type { HeadAllocation } from "@/features/masters/types";
 
 export interface ExpenseAllocation {
-  kind: ExpenseHead["allocation"];
+  kind: HeadAllocation;
   /** Bill id (item cost), invoice id or shipment id. None for overhead. */
   targetId?: string;
 }
@@ -13,7 +13,8 @@ export interface Expense {
   /** EXPN/2627/0041 */
   number: string;
   date: string;
-  headId: string;
+  /** The expense head's id; sample expenses name it by its ledger name (findHead matches both). */
+  head: string;
   description: string;
   /** Before GST. */
   amount: number;

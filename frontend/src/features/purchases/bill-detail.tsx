@@ -12,6 +12,8 @@ import { describeComponents, treatmentLabel } from "@/features/gst/gst-rules";
 import { stateName } from "@/features/gst/indian-states";
 import { lineTotals } from "@/features/invoices/invoice-rules";
 import type { Item } from "@/features/items/types";
+import { headName } from "@/features/masters/account-head-rules";
+import { useAccountHeads } from "@/features/masters/use-account-heads";
 import type { Party } from "@/features/parties/types";
 import { formatDate, formatInr, formatQuantity, formatRate } from "@/lib/format";
 import { useToday } from "@/lib/use-today";
@@ -19,7 +21,7 @@ import { BillStatusChip } from "./bill-status-chip";
 import { BillTotalsCard } from "./bill-totals-card";
 import { viewBill } from "./bill-view";
 import { LandedCostCard } from "./landed-cost-card";
-import { billChargeRate, chargeBillsFor, chargeHeadLabel, ewayBillMissing, isMsme, MSME_PAYMENT_DAYS } from "./purchase-rules";
+import { billChargeRate, chargeBillsFor, ewayBillMissing, isMsme, MSME_PAYMENT_DAYS } from "./purchase-rules";
 import type { Bill } from "./types";
 
 interface BillDetailProps {
@@ -35,6 +37,9 @@ interface BillDetailProps {
 // with and, for goods, the landed cost of each item.
 export function BillDetail({ bill, bills, parties, items, companyState }: BillDetailProps) {
   const today = useToday();
+  const { heads } = useAccountHeads();
+  // Until the heads load, a charge shows the name it was saved with.
+  const chargeName = (ref: string) => headName(heads ?? [], ref);
   const [method, setMethod] = useState(bill.allocation);
   const view = viewBill(bill, parties, companyState, today);
   const { vendor, tax, split, totals, status } = view;
@@ -129,7 +134,7 @@ export function BillDetail({ bill, bills, parties, items, companyState }: BillDe
               {bill.charges.map((charge, index) => (
                 <li key={index} className="glass-inset flex flex-wrap justify-between gap-2 rounded-(--radius-tile) px-4 py-2.5">
                   <span>
-                    <span className="font-semibold">{chargeHeadLabel(charge.head)}</span>
+                    <span className="font-semibold">{chargeName(charge.head)}</span>
                     {charge.description && <span className="font-semibold text-ink-soft"> · {charge.description}</span>}
                     <span className="block text-xs font-semibold text-muted">
                       GST {describeComponents(chargeRate ?? charge.gstRatePct ?? 0, tax.regime)}
@@ -143,7 +148,7 @@ export function BillDetail({ bill, bills, parties, items, companyState }: BillDe
         )}
 
         {bill.kind === "goods" && (
-          <LandedCostCard goods={view} tagged={tagged} items={items} method={method} onMethodChange={setMethod} />
+          <LandedCostCard goods={view} tagged={tagged} items={items} chargeName={chargeName} method={method} onMethodChange={setMethod} />
         )}
 
         {bill.kind === "charges" && (

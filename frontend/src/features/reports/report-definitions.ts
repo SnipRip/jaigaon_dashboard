@@ -4,12 +4,13 @@ import { documentType } from "@/features/invoices/dispatch-documents";
 import { COMPANY_TAX_PROFILE } from "@/features/gst/company-tax-profile";
 import { stateName } from "@/features/gst/indian-states";
 import { expenses } from "@/features/expenses/sample-data";
+import { expenseRows } from "@/features/expenses/expense-rules";
 import { hsnSummary, invoiceTax, invoiceTotals, lineTotals } from "@/features/invoices/invoice-rules";
 import { invoices } from "@/features/invoices/sample-data";
 import { resolveItemDefaults, stockStatus } from "@/features/items/item-rules";
 import { categories, itemGroups, items } from "@/features/items/sample-data";
 import { hsnCodes } from "@/features/hsn/sample-data";
-import { expenseHeads, units } from "@/features/masters/sample-data";
+import { units } from "@/features/masters/sample-data";
 import { parties } from "@/features/parties/sample-data";
 import { payable, receivable } from "@/features/payments/payment-data";
 import { buildProfitReport } from "@/features/profit/profit-report";
@@ -236,21 +237,14 @@ const expenseReport: Report = {
   description: "What was spent under each head, before GST, and where it landed.",
   columns: [
     { key: "head", label: "Head", kind: "text" },
+    { key: "group", label: "Tally group", kind: "text" },
     { key: "count", label: "Entries", kind: "quantity" },
     { key: "amount", label: "Before GST", kind: "money" },
     { key: "gst", label: "GST", kind: "money" },
   ],
-  rows: expenseHeads
-    .map((head) => {
-      const entries = expenses.filter((expense) => expense.headId === head.id);
-      return {
-        head: head.name,
-        count: entries.length,
-        amount: sumBy(entries, (expense) => expense.amount),
-        gst: sumBy(entries, (expense) => (expense.amount * expense.gstRatePct) / 100),
-      };
-    })
-    .filter((row) => row.count > 0),
+  // Named by the heads the expenses were saved with; the page swaps in the
+  // live heads master (expenses-by-head-view.tsx).
+  rows: expenseRows(expenses, []),
 };
 
 const outstandingReport: Report = {

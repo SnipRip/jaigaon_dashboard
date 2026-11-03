@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { SampleDataNotice } from "@/components/ui/sample-data-notice";
+import { expenses } from "@/features/expenses/sample-data";
+import { ExpensesByHeadView } from "@/features/reports/expenses-by-head-view";
 import { findReport, REPORTS } from "@/features/reports/report-definitions";
 import { ReportListNav } from "@/features/reports/report-list-nav";
 import { ReportView } from "@/features/reports/report-view";
@@ -36,7 +38,7 @@ async function ReportBody({ params }: { params: ReportParams }) {
           <ReportListNav reports={REPORTS} activeId={report.id} />
         </div>
         <div className="min-w-0 flex-[999_1_560px]">
-          <ReportView report={report} />
+          {report.id === "expenses" ? <ExpensesByHeadView report={report} expenses={expenses} /> : <ReportView report={report} />}
         </div>
       </div>
     </>

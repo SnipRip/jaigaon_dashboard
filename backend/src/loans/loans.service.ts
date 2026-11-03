@@ -3,14 +3,17 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { archivedFilter } from '../common/dto/archivable.js';
 import { dateOnly, formatDate, todayInIndia } from '../common/dates.js';
 import { definedFields } from '../common/dto/defined-fields.js';
+import { assertLedgerNameFree } from '../common/tally/ledger-names.js';
 import { PrismaService } from '../database/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { NumberSeriesService } from '../number-series/number-series.service.js';
 import type { CreateLoanDto } from './dto/create-loan.dto.js';
 import type { RecordLoanEntryDto } from './dto/record-loan-entry.dto.js';
 import type { UpdateLoanDto } from './dto/update-loan.dto.js';
+import { placeOf } from '../ledgers/ledger-group-rules.js';
+import { groupMap } from '../ledgers/ledger-views.js';
 import { SERIES_OF, voucherTypeOf } from './loan-kinds.js';
-import { entryProblem, loanProblem, settleLoan } from './loan-rules.js';
+import { entryProblem, interestHeadProblem, linkedLedgerProblem, loanProblem, settleLoan } from './loan-rules.js';
 import { buildSchedule, emiFor, outstandingOf } from './loan-schedule.js';
 import {
   entryFacts,
@@ -46,6 +49,9 @@ async function toRow(tx: Tx, loan: LoanFields, accountsChanged: boolean) {
     await assertLiveAccount(tx, loan.repaymentAccountId, 'Repayment account');
     if (loan.disbursalAccountId) await assertLiveAccount(tx, loan.disbursalAccountId, 'Account the money went through');
   }
+  if (loan.interestHeadId) await assertInterestHead(tx, loan.direction, loan.interestHeadId);
+  if (loan.assetLedgerId) await assertLinkedLedger(tx, 'asset', loan.direction, loan.assetLedgerId);
+  if (loan.tdsLedgerId) await assertLinkedLedger(tx, 'tds', loan.direction, loan.tdsLedgerId);
   const day = (date: string | null) => (date ? dateOnly(date) : null);
   return {
     ...loan,
@@ -61,6 +67,25 @@ async function assertLiveAccount(tx: Tx, id: string, label: string) {
   if (!account || account.isArchived) {
     throw new BadRequestException(`${label}: pick a live account from Bank & cash`);
   }
+}
+
+// The head is locked until the loan is saved, so it cannot be archived or
+// moved to the other side in between (AccountHeadsService locks it too).
+async function assertInterestHead(tx: Tx, direction: LoanFields['direction'], id: string) {
+  await tx.$queryRaw`SELECT 1 FROM "AccountHead" WHERE "id" = ${id}::uuid FOR SHARE`;
+  const problem = interestHeadProblem(direction, await tx.accountHead.findUnique({ where: { id } }));
+  if (problem) throw new BadRequestException(problem);
+}
+
+// A general ledger the loan posts to: live and under the right group. Locked
+// like the interest head, so it cannot be archived while the loan saves.
+async function assertLinkedLedger(tx: Tx, use: 'asset' | 'tds', direction: LoanFields['direction'], id: string) {
+  await tx.$queryRaw`SELECT 1 FROM "Ledger" WHERE "id" = ${id}::uuid FOR SHARE`;
+  const ledger = await tx.ledger.findUnique({ where: { id } });
+  const groups = groupMap(await tx.ledgerGroup.findMany());
+  const path = ledger?.groupId ? placeOf(groups, ledger.groupId).path : [];
+  const problem = linkedLedgerProblem(use, direction, ledger && { name: ledger.name, isArchived: ledger.isArchived, path });
+  if (problem) throw new BadRequestException(problem);
 }
 
 const TERMS = ['principal', 'interestRatePct', 'tenureMonths', 'paidBefore', 'openingOutstanding', 'repayment'];
@@ -126,7 +151,7 @@ export class LoansService {
       disbursedOn: dto.disbursedOn,
       disbursal: dto.disbursal,
       disbursalAccountId: dto.disbursalAccountId ?? null,
-      assetLedgerName: dto.assetLedgerName ?? null,
+      assetLedgerId: dto.assetLedgerId ?? null,
       paidBefore: dto.paidBefore ?? 0,
       openingOutstanding: dto.openingOutstanding ?? null,
       tenureMonths: dto.tenureMonths ?? null,
@@ -136,15 +161,16 @@ export class LoansService {
       firstInterestDate: dto.firstInterestDate ?? null,
       maturityDate: dto.maturityDate ?? null,
       repaymentAccountId: dto.repaymentAccountId,
-      interestLedgerName: dto.interestLedgerName ?? null,
+      interestHeadId: dto.interestHeadId ?? null,
       tdsRatePct: dto.tdsRatePct ?? null,
-      tdsLedgerName: dto.tdsLedgerName ?? null,
+      tdsLedgerId: dto.tdsLedgerId ?? null,
       reminderDays: dto.reminderDays ?? 3,
       notes: dto.notes ?? null,
       isArchived: false,
     };
     const settled = withEmi(settleLoan(fields, {}), fields.emiAmount === null);
     return this.prisma.$transaction(async (tx) => {
+      await assertLedgerNameFree(tx, settled.name);
       const loan = await tx.loan.create({ data: await toRow(tx, settled, true), include: LOAN_INCLUDE });
       return toLoanDetailView(loan, todayInIndia());
     });
@@ -159,6 +185,7 @@ export class LoansService {
       const recompute = dto.emiAmount === null || (dto.emiAmount === undefined && TERMS.some((key) => key in changes));
       const fields = withEmi(settleLoan(stored, changes), recompute);
       const accountsChanged = 'repaymentAccountId' in changes || 'disbursalAccountId' in changes;
+      if (fields.name !== stored.name) await assertLedgerNameFree(tx, fields.name, { owner: 'loan', id });
       const loan = await tx.loan.update({
         where: { id },
         data: await toRow(tx, fields, accountsChanged),

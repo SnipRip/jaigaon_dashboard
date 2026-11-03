@@ -4,7 +4,7 @@ import type { TallyGroupName } from '../common/tally/tally-groups.js';
 import { BANK_CASH_GROUPS } from '../bank-cash-accounts/bank-cash-rules.js';
 import type { BankCashAccount, Prisma } from '../generated/prisma/client.js';
 import type { LoanDirection, LoanEntryKind } from '../generated/prisma/enums.js';
-import { interestLedger, loanGroup, tdsLedger, type LedgerRef } from './loan-kinds.js';
+import { assetLedger, interestLedger, loanGroup, tdsLedger, type LedgerRef } from './loan-kinds.js';
 import { entryVoucher, firstEntry, type Voucher } from './loan-postings.js';
 import {
   buildSchedule,
@@ -20,6 +20,9 @@ import {
 export const LOAN_INCLUDE = {
   repaymentAccount: true,
   disbursalAccount: true,
+  interestHead: true,
+  assetLedger: { include: { group: true } },
+  tdsLedger: { include: { group: true } },
   entries: { include: { bankAccount: true }, orderBy: [{ entryDate: 'asc' }, { createdAt: 'asc' }] },
 } as const satisfies Prisma.LoanInclude;
 
@@ -42,7 +45,7 @@ export const loanFields = (loan: LoanRecord) => ({
   disbursedOn: isoDate(loan.disbursedOn),
   disbursal: loan.disbursal,
   disbursalAccountId: loan.disbursalAccountId,
-  assetLedgerName: loan.assetLedgerName,
+  assetLedgerId: loan.assetLedgerId,
   paidBefore: loan.paidBefore,
   openingOutstanding: toNumber(loan.openingOutstanding),
   tenureMonths: loan.tenureMonths,
@@ -52,9 +55,9 @@ export const loanFields = (loan: LoanRecord) => ({
   firstInterestDate: dateOrNull(loan.firstInterestDate),
   maturityDate: dateOrNull(loan.maturityDate),
   repaymentAccountId: loan.repaymentAccountId,
-  interestLedgerName: loan.interestLedgerName,
+  interestHeadId: loan.interestHeadId,
   tdsRatePct: toNumber(loan.tdsRatePct),
-  tdsLedgerName: loan.tdsLedgerName,
+  tdsLedgerId: loan.tdsLedgerId,
   reminderDays: loan.reminderDays,
   notes: loan.notes,
   isArchived: loan.isArchived,
@@ -100,6 +103,12 @@ export const termsOf = (fields: LoanFields): LoanTerms => ({
 export interface LoanView extends LoanFields {
   id: string;
   repaymentAccountName: string;
+  /** The ledger interest posts to: the loan's head, else the direction's default. */
+  interestLedger: LedgerRef;
+  /** Where TDS on interest posts: the loan's ledger, else TDS Payable on Interest / TDS Receivable. */
+  tdsLedger: LedgerRef;
+  /** PAID_TO_SELLER: the Fixed Assets ledger. */
+  assetLedger: LedgerRef | null;
   tallyGroup: TallyGroupName;
   outstanding: number;
   /** Principal repaid (taken) or recovered (given) through entries here. */
@@ -162,6 +171,9 @@ export function toLoanView(loan: LoanRecord, today: string): LoanView {
     id: loan.id,
     ...fields,
     repaymentAccountName: loan.repaymentAccount.name,
+    interestLedger: interestLedger(loan),
+    tdsLedger: tdsLedger(loan),
+    assetLedger: loan.assetLedger ? assetLedger(loan.assetLedger) : null,
     tallyGroup: loanGroup(loan),
     outstanding,
     principalRepaid: sum(repaid, 'principal'),
@@ -179,8 +191,8 @@ export function toLoanDetailView(loan: LoanRecord, today: string): LoanDetailVie
   const counterpart =
     loan.disbursal === 'THROUGH_BANK' && loan.disbursalAccount
       ? bankLedger(loan.disbursalAccount)
-      : loan.disbursal === 'PAID_TO_SELLER' && loan.assetLedgerName
-        ? { ledger: loan.assetLedgerName, group: 'Fixed Assets' as const }
+      : loan.disbursal === 'PAID_TO_SELLER'
+        ? view.assetLedger
         : null;
   return {
     ...view,
@@ -210,8 +222,8 @@ export function toLoanDetailView(loan: LoanRecord, today: string): LoanDetailVie
           date: isoDate(entry.entryDate),
           voucherNumber: entry.voucherNumber,
           loanLedger,
-          interestLedger: interestLedger(loan),
-          tdsLedger: tdsLedger(loan),
+          interestLedger: view.interestLedger,
+          tdsLedger: view.tdsLedger,
           bank: entry.bankAccount ? bankLedger(entry.bankAccount) : null,
         }),
       };

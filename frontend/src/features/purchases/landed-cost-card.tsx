@@ -10,7 +10,7 @@ import { GlassTable } from "@/components/ui/glass-table";
 import type { Item } from "@/features/items/types";
 import { formatInr, formatQuantity, formatRate } from "@/lib/format";
 import type { BillView } from "./bill-view";
-import { allocateLandedCost, chargeHeadLabel, LANDED_COST_METHODS, lineWeightKg } from "./purchase-rules";
+import { allocateLandedCost, LANDED_COST_METHODS, lineWeightKg } from "./purchase-rules";
 import type { BillLine, LandedCostMethod } from "./types";
 
 interface LandedCostCardProps {
@@ -18,6 +18,8 @@ interface LandedCostCardProps {
   /** Freight, unloading and labour bills tagged to this purchase. */
   tagged: BillView[];
   items: Item[];
+  /** The expense head's name for a charge. */
+  chargeName: (head: string) => string;
   method: LandedCostMethod;
   onMethodChange: (method: LandedCostMethod) => void;
 }
@@ -25,7 +27,7 @@ interface LandedCostCardProps {
 // What each item really cost once freight, unloading and labour are spread
 // over it. Tally cannot do this (27 Oct 2026 walkthrough); stock is valued
 // at the landed rate.
-export function LandedCostCard({ goods, tagged, items, method, onMethodChange }: LandedCostCardProps) {
+export function LandedCostCard({ goods, tagged, items, chargeName, method, onMethodChange }: LandedCostCardProps) {
   const onBill = goods.totals.chargesValue;
   const charges = onBill + tagged.reduce((sum, view) => sum + view.totals.cost, 0);
   const weightOf = (line: BillLine) => lineWeightKg(line, items.find((item) => item.id === line.itemId));
@@ -43,7 +45,7 @@ export function LandedCostCard({ goods, tagged, items, method, onMethodChange }:
         {onBill > 0 && (
           <li className="glass-inset flex flex-wrap justify-between gap-2 rounded-(--radius-tile) px-4 py-2.5">
             <span className="font-semibold">
-              On this bill: {goods.bill.charges.map((charge) => chargeHeadLabel(charge.head).toLowerCase()).join(", ")}
+              On this bill: {goods.bill.charges.map((charge) => chargeName(charge.head).toLowerCase()).join(", ")}
             </span>
             <span className="font-semibold tabular-nums">{formatInr(onBill)}</span>
           </li>
@@ -55,7 +57,7 @@ export function LandedCostCard({ goods, tagged, items, method, onMethodChange }:
                 {view.bill.reference}
               </Link>{" "}
               <span className="font-semibold text-ink-soft">
-                · {view.vendor.displayName} · {view.bill.charges.map((charge) => chargeHeadLabel(charge.head).toLowerCase()).join(", ")}
+                · {view.vendor.displayName} · {view.bill.charges.map((charge) => chargeName(charge.head).toLowerCase()).join(", ")}
               </span>
             </span>
             <span className="font-semibold tabular-nums">{formatInr(view.totals.cost)}</span>

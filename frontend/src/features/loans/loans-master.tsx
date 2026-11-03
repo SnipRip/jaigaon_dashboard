@@ -6,13 +6,24 @@ import { useMemo } from "react";
 import useSWR from "swr";
 import { LoadNotice } from "@/components/ui/load-notice";
 import { StatusChip } from "@/components/ui/status-chip";
+import {
+  DEFAULT_INTEREST_LEDGER,
+  DEFAULT_INTEREST_RECEIVED_LEDGER,
+  expenseHeadsOf,
+  incomeHeadsOf,
+} from "@/features/masters/account-head-rules";
+import { LEDGERS_PATH } from "@/features/ledgers/ledgers-api";
 import { BANK_CASH_PATH, withArchived } from "@/features/masters/masters-api";
+import type { AccountHead } from "@/features/masters/types";
+import { useAccountHeads } from "@/features/masters/use-account-heads";
 import { RecordMaster } from "@/features/masters/record-master";
 import { apiGet } from "@/lib/api-client";
 import { formatDate, formatInr, formatQuantity, formatRate } from "@/lib/format";
 import type { BankCashAccountView } from "@/types/bank-cash";
+import type { LedgerView } from "@/types/ledger";
 import type { LoanView } from "@/types/loan";
 import {
+  DEFAULT_HEAD,
   DIRECTIONS,
   DISBURSALS,
   FREQUENCIES,
@@ -35,6 +46,14 @@ const LEDGER_NAME = /^[A-Za-z0-9][A-Za-z0-9 &.,()/'-]{1,59}$/;
 const LEDGER_NAME_MESSAGE = "2 to 60 letters, digits, spaces and & . , ( ) / ' -";
 const when = (key: string, ...values: string[]) => ({ key, values });
 
+// The default ledger first, then the other heads of that side, with their Tally group.
+const headOptions = (heads: AccountHead[], defaultLedger: string) => [
+  { value: DEFAULT_HEAD, label: `${defaultLedger} (default)` },
+  ...heads
+    .filter((head) => head.name !== defaultLedger)
+    .map((head) => ({ value: head.id, label: `${head.name} · ${head.tallyGroup}` })),
+];
+
 // Every loan we owe and every loan or deposit owed to us: what is
 // outstanding, what falls due next and whether it is late. The schedule and
 // entries open on the loan's own page.
@@ -42,8 +61,18 @@ export function LoansMaster() {
   const router = useRouter();
   const { data, error, mutate } = useSWR<LoanView[]>(withArchived(LOANS_PATH), apiGet);
   const { data: accounts } = useSWR<BankCashAccountView[]>(BANK_CASH_PATH, apiGet);
+  const { heads, error: headsError } = useAccountHeads();
+  const { data: ledgers, error: ledgersError } = useSWR<LedgerView[]>(LEDGERS_PATH, apiGet);
   const loans = useMemo(() => data?.map(toLoanRecord), [data]);
-  if (!loans || !accounts) return <LoadNotice error={error} what="loans" />;
+  if (!loans || !accounts || !heads || !ledgers) return <LoadNotice error={error ?? headsError ?? ledgersError} what="loans" />;
+
+  // General ledgers the loan may post to (the backend checks the same groups).
+  const ledgerOptions = (test: (ledger: LedgerView) => boolean) => ledgers.filter(test).map((ledger) => ({ value: ledger.id, label: `${ledger.name} · ${ledger.groupName}` }));
+  const assetOptions = ledgerOptions((ledger) => ledger.path.includes("Fixed Assets"));
+  const tdsOptions = (within: string, fallback: string) => [
+    { value: DEFAULT_HEAD, label: `${fallback} (default)` },
+    ...ledgerOptions((ledger) => ledger.path.includes(within) && ledger.name !== fallback),
+  ];
 
   const accountOptions = accounts.map((account) => ({ value: account.id, label: account.name }));
   const bankOptions = accounts.filter((account) => account.kind !== "CASH").map((account) => ({ value: account.id, label: account.name }));
@@ -69,6 +98,10 @@ export function LoansMaster() {
         interestFrequency: "MONTHLY",
         reminderDays: 3,
         repaymentAccountId: firstBank,
+        takenInterestHeadId: DEFAULT_HEAD,
+        givenInterestHeadId: DEFAULT_HEAD,
+        takenTdsLedgerId: DEFAULT_HEAD,
+        givenTdsLedgerId: DEFAULT_HEAD,
       }}
       fields={[
         { key: "name", label: "Loan name (Tally ledger)", kind: "text", required: true, placeholder: "HDFC Truck Loan WB73E1234", pattern: LEDGER_NAME, message: LEDGER_NAME_MESSAGE },
@@ -90,15 +123,17 @@ export function LoansMaster() {
         { key: "firstInterestDate", label: "First interest date", kind: "date", hint: "Not needed when interest is once at the end or there is none.", showWhen: when("repayment", "FLEXIBLE") },
         { key: "maturityDate", label: "Repay by", kind: "date", hint: "Blank: repayable on demand.", showWhen: when("repayment", "FLEXIBLE") },
         { key: "disbursal", label: "How the money moved", kind: "select", required: true, options: DISBURSALS, wide: true },
-        { key: "assetLedgerName", label: "Asset bought (Tally ledger)", kind: "text", required: true, placeholder: "Truck WB73E1234", pattern: LEDGER_NAME, message: LEDGER_NAME_MESSAGE, hint: "Goes under Fixed Assets.", showWhen: when("disbursal", "PAID_TO_SELLER") },
+        { key: "assetLedgerId", label: "Asset bought (Tally ledger)", kind: "select", required: true, options: assetOptions, hint: "A ledger under Fixed Assets. Add the asset (e.g. Truck WB73E1234) in Groups & ledgers first.", showWhen: when("disbursal", "PAID_TO_SELLER") },
         { key: "disbursalAccountId", label: "Bank account", kind: "select", required: true, options: bankOptions, showWhen: when("disbursal", "THROUGH_BANK") },
         { key: "paidBefore", label: "EMIs already paid", kind: "number", decimals: 0, hint: "EMI loans only, before these books start.", showWhen: when("disbursal", "BEFORE_BOOKS") },
         { key: "openingOutstanding", label: "Owed when these books start (₹)", kind: "number", required: true, hint: "Principal outstanding, from the statement.", showWhen: when("disbursal", "BEFORE_BOOKS") },
         { key: "repaymentAccountId", label: "Repayments go through", kind: "select", required: true, options: accountOptions },
         { key: "reminderDays", label: "Remind days before", kind: "number", decimals: 0, hint: "0 to 30." },
         { key: "tdsRatePct", label: "TDS on interest (%)", kind: "number", hint: "Non-bank lenders or borrowers, e.g. 10. Blank: none." },
-        { key: "interestLedgerName", label: "Interest ledger in Tally", kind: "text", pattern: LEDGER_NAME, message: LEDGER_NAME_MESSAGE, hint: "Blank: Interest on Loan (we owe) or Interest Received (owed to us)." },
-        { key: "tdsLedgerName", label: "TDS ledger in Tally", kind: "text", pattern: LEDGER_NAME, message: LEDGER_NAME_MESSAGE, hint: "Blank: TDS Payable on Interest, or TDS Receivable." },
+        { key: "takenInterestHeadId", label: "Interest ledger in Tally", kind: "select", options: headOptions(expenseHeadsOf(heads), DEFAULT_INTEREST_LEDGER), hint: "An expense head from Expense & income heads.", showWhen: when("direction", "TAKEN") },
+        { key: "givenInterestHeadId", label: "Interest ledger in Tally", kind: "select", options: headOptions(incomeHeadsOf(heads), DEFAULT_INTEREST_RECEIVED_LEDGER), hint: "An income head from Expense & income heads.", showWhen: when("direction", "GIVEN") },
+        { key: "takenTdsLedgerId", label: "TDS ledger in Tally", kind: "select", options: tdsOptions("Duties & Taxes", "TDS Payable on Interest"), hint: "A ledger under Duties & Taxes.", showWhen: when("direction", "TAKEN") },
+        { key: "givenTdsLedgerId", label: "TDS ledger in Tally", kind: "select", options: tdsOptions("Current Assets", "TDS Receivable"), hint: "A ledger under Current Assets.", showWhen: when("direction", "GIVEN") },
         { key: "notes", label: "Notes", kind: "textarea", maxLength: 500 },
       ]}
       columns={[
@@ -160,7 +195,7 @@ export function LoansMaster() {
           },
         },
       ]}
-      searchText={(loan) => `${loan.name} ${loan.partyName} ${loan.loanAccountNumber ?? ""} ${loan.security ?? ""} ${loan.assetLedgerName ?? ""}`}
+      searchText={(loan) => `${loan.name} ${loan.partyName} ${loan.loanAccountNumber ?? ""} ${loan.security ?? ""} ${loan.view.assetLedger?.ledger ?? ""}`}
       filters={[
         { label: "We owe", test: (loan) => loan.direction === "TAKEN" && loan.view.status === "ACTIVE" },
         { label: "Owed to us", test: (loan) => loan.direction === "GIVEN" && loan.view.status === "ACTIVE" },

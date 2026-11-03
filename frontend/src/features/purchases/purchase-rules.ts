@@ -16,15 +16,8 @@ import type { Bill, BillCharge, BillLine, ChargeHead, LandedCostMethod } from ".
 
 const money = (value: number) => Math.round(value * 100) / 100;
 
-export const CHARGE_HEADS: { value: ChargeHead; label: string }[] = [
-  { value: "freight", label: "Freight / transport" },
-  { value: "loading", label: "Loading" },
-  { value: "unloading", label: "Unloading" },
-  { value: "labour", label: "Labour" },
-  { value: "other", label: "Other charge" },
-];
-
-export const chargeHeadLabel = (head: ChargeHead) => CHARGE_HEADS.find((option) => option.value === head)?.label ?? head;
+/** Whether a charge under this head is spread over a purchase's items (landed cost). */
+export const landsOnItems = (head?: Pick<ChargeHead, "allocation">) => head?.allocation === "item-cost";
 
 /** GST on freight by a goods transport agency under reverse charge. */
 export const GTA_RCM_RATE = 5;
@@ -56,14 +49,20 @@ export function billChargeRate(lines: BillLine[]): number {
   return principal?.gstRatePct ?? 0;
 }
 
+/** GST rates a charges bill may print. */
+export const CHARGE_RATES = [5, 12, 18, 28, 40];
+
 /**
- * What a charges bill's rate can be. Under reverse charge it is fixed at the
- * GTA rate; with no GST bill it is zero; otherwise it is read off the bill.
+ * What a charges bill's rate can be. The vendor decides first: under reverse
+ * charge it is fixed at the GTA rate, with no GST bill it is zero. Then the
+ * expense head: no GST is zero, its own rate is that rate, and "follows the
+ * bill" is read off the vendor's bill (18% until picked).
  */
-export function chargeRateRule(decision: TaxDecision): { fixed?: number; options: number[] } {
-  if (decision.regime === "reverse-charge") return { fixed: GTA_RCM_RATE, options: [GTA_RCM_RATE] };
-  if (decision.regime === "no-gst") return { fixed: 0, options: [0] };
-  return { options: [5, 12, 18] };
+export function chargeRateRule(decision: TaxDecision, head?: Pick<ChargeHead, "gst" | "gstRatePct">): { fixed?: number; options: number[]; suggested: number } {
+  if (decision.regime === "reverse-charge") return { fixed: GTA_RCM_RATE, options: [GTA_RCM_RATE], suggested: GTA_RCM_RATE };
+  if (decision.regime === "no-gst" || head?.gst === "none") return { fixed: 0, options: [0], suggested: 0 };
+  if (head?.gst === "own-rate" && head.gstRatePct !== undefined) return { fixed: head.gstRatePct, options: [head.gstRatePct], suggested: head.gstRatePct };
+  return { options: CHARGE_RATES, suggested: 18 };
 }
 
 const chargeRate = (kind: Bill["kind"], charge: BillCharge, goodsRate: number) => (kind === "goods" ? goodsRate : (charge.gstRatePct ?? 0));

@@ -12,7 +12,9 @@ import { ListToolbar } from "@/components/ui/list-toolbar";
 import { SearchField } from "@/components/ui/search-field";
 import { StatTile } from "@/components/ui/stat-tile";
 import { StatusChip } from "@/components/ui/status-chip";
+import { headName } from "@/features/masters/account-head-rules";
 import { ALLOCATIONS, allocationLabel } from "@/features/masters/expense-heads-master";
+import { useAccountHeads } from "@/features/masters/use-account-heads";
 import { formatDayMonth, formatInr } from "@/lib/format";
 import type { AllocationTarget } from "./expense-form";
 import { expenseGst, sumAmount } from "./expense-rules";
@@ -20,7 +22,6 @@ import type { Expense, ExpenseAllocation } from "./types";
 
 interface ExpensesWorkspaceProps {
   expenses: Expense[];
-  heads: { id: string; name: string }[];
   /** Vendor and account id → name. */
   names: Record<string, string>;
   targets: AllocationTarget[];
@@ -30,16 +31,18 @@ const TARGET_PATH: Record<ExpenseAllocation["kind"], string> = { "item-cost": "/
 
 // Every expense with where its cost lands: on items (landed cost), one
 // invoice, one shipment, or general overhead.
-export function ExpensesWorkspace({ expenses, heads, names, targets }: ExpensesWorkspaceProps) {
+export function ExpensesWorkspace({ expenses, names, targets }: ExpensesWorkspaceProps) {
   const [filter, setFilter] = useState<ExpenseAllocation["kind"] | "all">("all");
   const [query, setQuery] = useState("");
-  const headName = (id: string) => heads.find((head) => head.id === id)?.name ?? id;
+  const { heads } = useAccountHeads();
+  // Until the heads load, an expense shows the head name it was saved with.
+  const headOf = (expense: Expense) => headName(heads ?? [], expense.head);
   const payeeOf = (expense: Expense) => (expense.vendorId ? names[expense.vendorId] : expense.payee) ?? "–";
   const needle = query.trim().toLowerCase();
   const visible = expenses.filter(
     (expense) =>
       (filter === "all" || expense.allocation.kind === filter) &&
-      (!needle || `${expense.number} ${headName(expense.headId)} ${expense.description} ${payeeOf(expense)} ${expense.reference ?? ""}`.toLowerCase().includes(needle)),
+      (!needle || `${expense.number} ${headOf(expense)} ${expense.description} ${payeeOf(expense)} ${expense.reference ?? ""}`.toLowerCase().includes(needle)),
   );
   const byKind = (kind: ExpenseAllocation["kind"]) => sumAmount(expenses.filter((expense) => expense.allocation.kind === kind));
 
@@ -112,7 +115,7 @@ export function ExpensesWorkspace({ expenses, heads, names, targets }: ExpensesW
                     </div>
                   </td>
                   <td className="text-left">
-                    <div className="font-semibold">{headName(expense.headId)}</div>
+                    <div className="font-semibold">{headOf(expense)}</div>
                     <div className="text-xs text-muted">{expense.description}</div>
                   </td>
                   <td className="text-left">{payeeOf(expense)}</td>

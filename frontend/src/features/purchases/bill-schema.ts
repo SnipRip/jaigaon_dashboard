@@ -30,7 +30,7 @@ export const billSchema = z
     ),
     charges: z.array(
       z.object({
-        head: z.enum(["freight", "loading", "unloading", "labour", "other"]),
+        head: z.string().min(1, "Pick the charge"),
         description: z.string().max(80),
         amount: z.string().trim(),
         gstRatePct: z.string(),

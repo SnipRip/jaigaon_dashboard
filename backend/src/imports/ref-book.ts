@@ -4,7 +4,7 @@
 import type { PrismaService } from '../database/prisma.service.js';
 import { RowProblem } from './import-cells.js';
 
-export type RefKind = 'category' | 'brand' | 'unit' | 'priceLevel' | 'customer' | 'item' | 'bankAccount';
+export type RefKind = 'category' | 'brand' | 'unit' | 'priceLevel' | 'customer' | 'item' | 'bankAccount' | 'accountHead' | 'ledger' | 'ledgerGroup';
 
 /** What a column needs to write a name for an id. */
 export interface RefNames {
@@ -19,6 +19,9 @@ const LABELS: Record<RefKind, string> = {
   customer: 'customer',
   item: 'item (by SKU)',
   bankAccount: 'bank or cash account',
+  accountHead: 'expense or income head',
+  ledger: 'general ledger',
+  ledgerGroup: 'group',
 };
 
 /** A sub-category is written "Cement > OPC", a top-level category by its name. */
@@ -108,6 +111,12 @@ export class RefBook implements RefNames {
         return this.set(kind, (await db.item.findMany({ select: { id: true, sku: true } })).map((item) => ({ id: item.id, name: item.sku })));
       case 'bankAccount':
         return this.set(kind, await db.bankCashAccount.findMany({ select: { id: true, name: true } }));
+      case 'accountHead':
+        return this.set(kind, await db.accountHead.findMany({ select: { id: true, name: true } }));
+      case 'ledger':
+        return this.set(kind, await db.ledger.findMany({ select: { id: true, name: true } }));
+      case 'ledgerGroup':
+        return this.set(kind, await db.ledgerGroup.findMany({ select: { id: true, name: true } }));
     }
   }
 }

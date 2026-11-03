@@ -1,5 +1,6 @@
 import {
   BadgeCheck,
+  BookOpen,
   Building2,
   Container,
   Landmark,
@@ -18,6 +19,7 @@ import {
   MessageCircle,
   Package,
   Receipt,
+  Scale,
   ScanLine,
   Search,
   Settings,
@@ -91,6 +93,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/payments", label: "Payments & outstanding", icon: CreditCard, summary: "Receipts, vendor payments, what is owed, ageing, ledgers and the MSME 45-day rule" },
       { href: "/loans", label: "Loans & advances", icon: HandCoins, summary: "Loans we owe and loans or deposits owed to us: schedules, reminders and the Tally voucher for every entry" },
+      { href: "/financial-statements", label: "Financial statements", icon: Scale, summary: "Chart of accounts, trial balance, Profit & Loss and balance sheet, built the way Tally builds them" },
       { href: "/profit", label: "Actual profit", icon: TrendingUp, summary: "Sales value less purchase cost and allocated expenses, by invoice, shipment, customer and item" },
       { href: "/reports", label: "Reports & MIS", icon: ChartColumn, summary: "Sales, purchase, GST, stock, money and export reports" },
     ],
@@ -111,6 +114,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/masters/hsn", label: "HSN / SAC codes", icon: Hash, summary: "Goods and service codes with their GST rate and rate history" },
       { href: "/masters/tax-export", label: "GST & export setup", icon: Globe, summary: "Company GST state, LUT register, IEC, AD code and the export document checklist" },
       { href: "/masters/bank-cash", label: "Bank & cash", icon: Landmark, summary: "Bank accounts and cash books that receipts and payments go through" },
+      { href: "/masters/ledgers", label: "Groups & ledgers", icon: BookOpen, summary: "Tally's 28 groups and your sub-groups, and the general ledgers: capital, sales, purchase, GST, TDS, round off, fixed assets" },
       { href: "/masters/expense-heads", label: "Expense & income heads", icon: Wallet, summary: "Expense and other-income heads: each a Tally ledger under Direct or Indirect Expenses or Incomes, with GST behaviour and where each cost lands" },
       { href: "/masters/number-series", label: "Number series", icon: ListOrdered, summary: "How every document and code is numbered, and its Tally voucher type" },
     ],

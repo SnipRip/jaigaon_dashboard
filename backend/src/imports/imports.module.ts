@@ -5,6 +5,7 @@ import { BrandsModule } from '../brands/brands.module.js';
 import { GodownsModule } from '../godowns/godowns.module.js';
 import { HsnCodesModule } from '../hsn-codes/hsn-codes.module.js';
 import { ItemsModule } from '../items/items.module.js';
+import { LedgersModule } from '../ledgers/ledgers.module.js';
 import { LoansModule } from '../loans/loans.module.js';
 import { PartiesModule } from '../parties/parties.module.js';
 import { PricingModule } from '../pricing/pricing.module.js';
@@ -26,6 +27,7 @@ import { ImportsService } from './imports.service.js';
     ItemsModule,
     PricingModule,
     LoansModule,
+    LedgersModule,
   ],
   controllers: [ImportsController],
   providers: [ImporterRegistry, ImportsService],

@@ -1,9 +1,10 @@
-import { BadgeCheck, Building2, Container, Globe, HandCoins, Hash, Landmark, ListOrdered, MessageCircle, Package, Ruler, Tag, Truck, Users, Wallet, Warehouse } from "lucide-react";
+import { BadgeCheck, BookOpen, Building2, Container, Globe, HandCoins, Hash, Landmark, ListOrdered, MessageCircle, Package, Ruler, Tag, Truck, Users, Wallet, Warehouse } from "lucide-react";
 import type { Metadata } from "next";
 import { SampleDataNotice } from "@/components/ui/sample-data-notice";
 import { HSN_CODES_PATH } from "@/features/hsn/hsn-api";
 import { ITEM_GROUPS_PATH, ITEMS_PATH } from "@/features/items/item-paths";
 import { LOANS_PATH } from "@/features/loans/loans-api";
+import { LEDGERS_PATH } from "@/features/ledgers/ledgers-api";
 import { LiveCount } from "@/features/masters/live-count";
 import { ACCOUNT_HEADS_PATH, BANK_CASH_PATH, BRANDS_PATH, GODOWNS_PATH, UNITS_PATH } from "@/features/masters/masters-api";
 import { MastersHub } from "@/features/masters/masters-hub";
@@ -71,6 +72,7 @@ export default function MastersPage() {
             cards: [
               { href: "/masters/bank-cash", title: "Bank & cash", icon: Landmark, description: "Bank accounts and cash books that receipts and payments go through.", count: <LiveCount path={BANK_CASH_PATH} noun={["account", "accounts"]} /> },
               { href: "/loans", title: "Loans", icon: HandCoins, description: "Loans we owe and loans, advances and deposits owed to us, with schedules and reminders.", count: <LiveCount path={LOANS_PATH} noun={["loan", "loans"]} /> },
+              { href: "/masters/ledgers", title: "Groups & ledgers", icon: BookOpen, description: "Tally's groups and the general ledgers: capital, sales, purchase, GST, TDS, round off, fixed assets.", count: <LiveCount path={LEDGERS_PATH} noun={["ledger", "ledgers"]} /> },
               { href: "/masters/expense-heads", title: "Expense & income heads", icon: Wallet, description: "Freight, labour, overheads and other incomes, each a Tally ledger under Direct or Indirect Expenses or Incomes.", count: <LiveCount path={ACCOUNT_HEADS_PATH} noun={["head", "heads"]} /> },
               { href: "/masters/number-series", title: "Number series", icon: ListOrdered, description: "How every document and code is numbered: pattern, restart, Tally voucher type.", count: <LiveCount path={CONFIGURED_SERIES_PATH} noun={["set up", "set up"]} /> },
             ],

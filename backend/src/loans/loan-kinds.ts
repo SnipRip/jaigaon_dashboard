@@ -1,5 +1,6 @@
 // What each kind of loan is in Tally, and which entries and vouchers fit it
 // (agent/accounts-plan.md, "Every kind of loan").
+import { HEAD_GROUPS } from '../account-heads/account-head-rules.js';
 import {
   DEFAULT_INTEREST_LEDGER,
   DEFAULT_INTEREST_RECEIVED_LEDGER,
@@ -8,6 +9,7 @@ import {
   type TallyGroupName,
 } from '../common/tally/tally-groups.js';
 import type {
+  HeadNature,
   InterestFrequency,
   LoanDirection,
   LoanEntryKind,
@@ -18,8 +20,17 @@ import type {
 
 export interface LedgerRef {
   ledger: string;
-  group: TallyGroupName;
+  /** A Tally group, or a sub-group the user made under one. */
+  group: string;
 }
+
+/** A general ledger a loan points at, with its group. */
+export interface LinkedLedger {
+  name: string;
+  group: { name: string } | null;
+}
+
+const refOf = (ledger: LinkedLedger, fallback: TallyGroupName): LedgerRef => ({ ledger: ledger.name, group: ledger.group?.name ?? fallback });
 
 /** Kinds that fit each direction (the Loan_direction CHECK holds the same). */
 export const KINDS_BY_DIRECTION: Record<LoanDirection, LoanKind[]> = {
@@ -33,17 +44,33 @@ export function loanGroup(loan: { direction: LoanDirection; kind: LoanKind; isSe
   return loan.isSecured ? 'Secured Loans' : 'Unsecured Loans';
 }
 
-/** Interest paid is an expense; interest received an income. */
-export const interestLedger = (loan: { direction: LoanDirection; interestLedgerName: string | null }): LedgerRef =>
-  loan.direction === 'TAKEN'
-    ? { ledger: loan.interestLedgerName ?? DEFAULT_INTEREST_LEDGER, group: 'Indirect Expenses' }
-    : { ledger: loan.interestLedgerName ?? DEFAULT_INTEREST_RECEIVED_LEDGER, group: 'Indirect Incomes' };
+/** The head a loan's interest posts to: an expense head (taken) or an income head (given). */
+export interface InterestHead {
+  name: string;
+  nature: HeadNature;
+  isArchived: boolean;
+}
+
+/** Interest paid is an expense, interest received an income: the loan's head, else the direction's default ledger. */
+export const interestLedger = (loan: { direction: LoanDirection; interestHead: InterestHead | null }): LedgerRef => {
+  if (loan.interestHead) return { ledger: loan.interestHead.name, group: HEAD_GROUPS[loan.interestHead.nature] };
+  return loan.direction === 'TAKEN'
+    ? { ledger: DEFAULT_INTEREST_LEDGER, group: 'Indirect Expenses' }
+    : { ledger: DEFAULT_INTEREST_RECEIVED_LEDGER, group: 'Indirect Incomes' };
+};
 
 /** TDS we deduct is a duty we owe; TDS a borrower deducts is ours to claim. */
-export const tdsLedger = (loan: { direction: LoanDirection; tdsLedgerName: string | null }): LedgerRef =>
+export const tdsLedger = (loan: { direction: LoanDirection; tdsLedger: LinkedLedger | null }): LedgerRef =>
   loan.direction === 'TAKEN'
-    ? { ledger: loan.tdsLedgerName ?? DEFAULT_TDS_PAYABLE_LEDGER, group: 'Duties & Taxes' }
-    : { ledger: loan.tdsLedgerName ?? DEFAULT_TDS_RECEIVABLE_LEDGER, group: 'Loans & Advances (Asset)' };
+    ? loan.tdsLedger
+      ? refOf(loan.tdsLedger, 'Duties & Taxes')
+      : { ledger: DEFAULT_TDS_PAYABLE_LEDGER, group: 'Duties & Taxes' }
+    : loan.tdsLedger
+      ? refOf(loan.tdsLedger, 'Loans & Advances (Asset)')
+      : { ledger: DEFAULT_TDS_RECEIVABLE_LEDGER, group: 'Loans & Advances (Asset)' };
+
+/** The Fixed Assets ledger a loan paid the seller for. */
+export const assetLedger = (ledger: LinkedLedger): LedgerRef => refOf(ledger, 'Fixed Assets');
 
 /** Entries each repayment style takes. An EMI loan's interest entries are pre-EMI or penal interest. */
 export const ENTRY_KINDS: Record<LoanRepayment, LoanEntryKind[]> = {

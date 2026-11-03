@@ -60,6 +60,9 @@ export const FREQUENCIES: { value: InterestFrequency | "NONE"; label: string }[]
   { value: "NONE", label: "No interest" },
 ];
 
+/** Stands for "nothing picked": interest and TDS post to the direction's default ledger; it goes to the backend as null. */
+export const DEFAULT_HEAD = "DEFAULT";
+
 export const DISBURSALS: { value: LoanDisbursal; label: string }[] = [
   { value: "THROUGH_BANK", label: "Through our bank" },
   { value: "PAID_TO_SELLER", label: "Paid to the seller of an asset (loans we take)" },
@@ -126,7 +129,7 @@ export interface LoanRecord extends MasterRecord {
   disbursedOn: string;
   disbursal: LoanDisbursal;
   disbursalAccountId?: string;
-  assetLedgerName?: string;
+  assetLedgerId?: string;
   paidBefore?: number;
   openingOutstanding?: number;
   tenureMonths?: number;
@@ -136,9 +139,13 @@ export interface LoanRecord extends MasterRecord {
   firstInterestDate?: string;
   maturityDate?: string;
   repaymentAccountId: string;
-  interestLedgerName?: string;
+  /** Interest ledger, one field per direction: an expense head when taken, an income head when given. */
+  takenInterestHeadId?: string;
+  givenInterestHeadId?: string;
   tdsRatePct?: number;
-  tdsLedgerName?: string;
+  /** TDS ledger, one field per direction (Duties & Taxes when taken, Current Assets when given). */
+  takenTdsLedgerId?: string;
+  givenTdsLedgerId?: string;
   reminderDays: number;
   notes?: string;
 }
@@ -163,7 +170,7 @@ export const toLoanRecord = (loan: LoanView): LoanRecord => ({
   disbursedOn: loan.disbursedOn,
   disbursal: loan.disbursal,
   disbursalAccountId: orUndefined(loan.disbursalAccountId),
-  assetLedgerName: orUndefined(loan.assetLedgerName),
+  assetLedgerId: orUndefined(loan.assetLedgerId),
   paidBefore: loan.disbursal === "BEFORE_BOOKS" && loan.repayment === "EMI" ? loan.paidBefore : undefined,
   openingOutstanding: orUndefined(loan.openingOutstanding),
   tenureMonths: orUndefined(loan.tenureMonths),
@@ -173,9 +180,11 @@ export const toLoanRecord = (loan: LoanView): LoanRecord => ({
   firstInterestDate: orUndefined(loan.firstInterestDate),
   maturityDate: orUndefined(loan.maturityDate),
   repaymentAccountId: loan.repaymentAccountId,
-  interestLedgerName: orUndefined(loan.interestLedgerName),
+  takenInterestHeadId: loan.direction === "TAKEN" ? (loan.interestHeadId ?? DEFAULT_HEAD) : DEFAULT_HEAD,
+  givenInterestHeadId: loan.direction === "GIVEN" ? (loan.interestHeadId ?? DEFAULT_HEAD) : DEFAULT_HEAD,
   tdsRatePct: orUndefined(loan.tdsRatePct),
-  tdsLedgerName: orUndefined(loan.tdsLedgerName),
+  takenTdsLedgerId: loan.direction === "TAKEN" ? (loan.tdsLedgerId ?? DEFAULT_HEAD) : DEFAULT_HEAD,
+  givenTdsLedgerId: loan.direction === "GIVEN" ? (loan.tdsLedgerId ?? DEFAULT_HEAD) : DEFAULT_HEAD,
   reminderDays: loan.reminderDays,
   notes: orUndefined(loan.notes),
 });
@@ -184,6 +193,8 @@ export const toLoanRecord = (loan: LoanView): LoanRecord => ({
 // repayment or disbursal arrive blank and go as null; a blank EMI is worked
 // out by the backend.
 const loanBody = (changes: Changes) => {
+  const tdsLedgerId = changes.direction === "TAKEN" ? changes.takenTdsLedgerId : changes.givenTdsLedgerId;
+  const interestHeadId = changes.direction === "TAKEN" ? changes.takenInterestHeadId : changes.givenInterestHeadId;
   const frequency = changes.interestFrequency === "NONE" ? null : (changes.interestFrequency ?? null);
   return {
     name: changes.name,
@@ -199,7 +210,7 @@ const loanBody = (changes: Changes) => {
     disbursedOn: changes.disbursedOn,
     disbursal: changes.disbursal,
     disbursalAccountId: changes.disbursalAccountId ?? null,
-    assetLedgerName: changes.assetLedgerName ?? null,
+    assetLedgerId: changes.assetLedgerId ?? null,
     paidBefore: changes.paidBefore ?? 0,
     openingOutstanding: changes.openingOutstanding ?? null,
     tenureMonths: changes.tenureMonths ?? null,
@@ -209,9 +220,9 @@ const loanBody = (changes: Changes) => {
     firstInterestDate: frequency && frequency !== "AT_MATURITY" ? (changes.firstInterestDate ?? null) : null,
     maturityDate: changes.maturityDate ?? null,
     repaymentAccountId: changes.repaymentAccountId,
-    interestLedgerName: changes.interestLedgerName ?? null,
+    interestHeadId: interestHeadId && interestHeadId !== DEFAULT_HEAD ? interestHeadId : null,
     tdsRatePct: changes.tdsRatePct || null,
-    tdsLedgerName: changes.tdsLedgerName ?? null,
+    tdsLedgerId: tdsLedgerId && tdsLedgerId !== DEFAULT_HEAD ? tdsLedgerId : null,
     reminderDays: changes.reminderDays ?? 3,
     notes: changes.notes ?? null,
   };

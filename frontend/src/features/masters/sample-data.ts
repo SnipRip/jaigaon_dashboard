@@ -2,7 +2,7 @@
 // bank accounts, transporters, vehicles and phone numbers are invented.
 // Bank & cash is real since 3 Nov 2026: `moneyAccounts` is no longer shown
 // there, but the sample expense and payment screens still read it.
-import type { Brand, ExpenseHead, Godown, MoneyAccount, Transporter, Unit, Vehicle } from "./types";
+import type { Brand, Godown, MoneyAccount, Transporter, Unit, Vehicle } from "./types";
 
 export const brands: Brand[] = [
   { id: "hind-tmt", name: "Hind TMT", categoryId: "iron-steel", authorised: true, notes: "Hind Steel, Durgapur" },
@@ -51,19 +51,4 @@ export const vehicles: Vehicle[] = [
   { id: "wb37c4410", number: "WB37C4410", type: "trailer", capacityTons: 25, ownership: "hired", transporterId: "royal-transport", driverName: "Driver 2", driverPhone: "+919800000202" },
   { id: "wb73e1234", number: "WB73E1234", type: "truck-6", capacityTons: 9, ownership: "own", driverName: "Driver 3", driverPhone: "+919800000203" },
   { id: "wb74p0088", number: "WB74P0088", type: "pickup", capacityTons: 1.5, ownership: "own", driverName: "Driver 4", driverPhone: "+919800000204" },
-];
-
-export const expenseHeads: ExpenseHead[] = [
-  { id: "freight-inward", name: "Freight inward", kind: "direct", gst: "follows-bill", allocation: "item-cost", notes: "Transport of purchased goods to our yard" },
-  { id: "unloading", name: "Unloading charges", kind: "direct", gst: "none", allocation: "item-cost" },
-  { id: "loading", name: "Loading charges", kind: "direct", gst: "none", allocation: "invoice" },
-  { id: "labour", name: "Labour", kind: "direct", gst: "none", allocation: "item-cost", notes: "Stacking, sorting, cutting" },
-  { id: "freight-outward", name: "Freight outward", kind: "direct", gst: "own-rate", gstRatePct: 5, allocation: "shipment" },
-  { id: "customs-agent", name: "Customs agent (CHA) fee", kind: "direct", gst: "own-rate", gstRatePct: 18, allocation: "shipment" },
-  { id: "border-charges", name: "Border and LCS charges", kind: "direct", gst: "none", allocation: "shipment" },
-  { id: "bank-charges", name: "Bank charges", kind: "indirect", gst: "own-rate", gstRatePct: 18, allocation: "overhead" },
-  { id: "rent", name: "Rent", kind: "indirect", gst: "own-rate", gstRatePct: 18, allocation: "overhead" },
-  { id: "salary", name: "Salary", kind: "indirect", gst: "none", allocation: "overhead" },
-  { id: "repairs", name: "Repairs and maintenance", kind: "indirect", gst: "own-rate", gstRatePct: 18, allocation: "overhead" },
-  { id: "office", name: "Office expenses", kind: "indirect", gst: "own-rate", gstRatePct: 18, allocation: "overhead", notes: "Stationery, keyboards, small equipment" },
 ];

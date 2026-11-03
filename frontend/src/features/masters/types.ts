@@ -105,13 +105,3 @@ export interface AccountHead extends MasterRecord {
   /** Tally group the ledger goes under (from the backend). */
   tallyGroup?: string;
 }
-
-/** The sample expense heads the sample expense, shipment and report screens still read. */
-export interface ExpenseHead extends MasterRecord {
-  name: string;
-  kind: "direct" | "indirect";
-  gst: HeadGst;
-  gstRatePct?: number;
-  allocation: HeadAllocation;
-  notes?: string;
-}

@@ -2,6 +2,7 @@
 // lines at the sample items' cost price. PUR/2627/0012 is the walkthrough's
 // case (27 Oct 2026): a truck of pipes and wire with a separate freight bill
 // and a separate unloading and labour slip. Every number is a placeholder.
+// Charges name their expense head by ledger name (the seeded heads).
 import { hsnCodes } from "@/features/hsn/sample-data";
 import { resolveItemDefaults } from "@/features/items/item-rules";
 import { categories, itemGroups, items } from "@/features/items/sample-data";
@@ -75,8 +76,8 @@ export const bills: Bill[] = [
     sourceOfSupply: "10",
     lines: [costLine("aac-200", 1500), costLine("aac-150", 800)],
     charges: [
-      { head: "freight", description: "Patna to Jaigaon, on the bill", amount: 16500 },
-      { head: "loading", amount: 1800 },
+      { head: "Freight Inward", description: "Patna to Jaigaon, on the bill", amount: 16500 },
+      { head: "Loading Charges", amount: 1800 },
     ],
     ewayBill: { number: "381000000013", date: "2026-10-11", vehicleNumber: "BR01GK7781" },
     paid: 203550,
@@ -129,7 +130,7 @@ export const bills: Bill[] = [
     vendorId: "royal-transport",
     sourceOfSupply: "19",
     lines: [],
-    charges: [{ head: "freight", description: "Siliguri to Jaigaon, truck WB73D2051", amount: 18000, gstRatePct: 5 }],
+    charges: [{ head: "Freight Inward", description: "Siliguri to Jaigaon, truck WB73D2051", amount: 18000, gstRatePct: 5 }],
     landedCostFor: "pur-2627-0012",
     paid: 18000,
   }),
@@ -144,8 +145,8 @@ export const bills: Bill[] = [
     sourceOfSupply: "19",
     lines: [],
     charges: [
-      { head: "unloading", description: "6 men, half day", amount: 3200, gstRatePct: 0 },
-      { head: "labour", description: "Stacking pipes in the yard", amount: 1800, gstRatePct: 0 },
+      { head: "Unloading Charges", description: "6 men, half day", amount: 3200, gstRatePct: 0 },
+      { head: "Labour Charges", description: "Stacking pipes in the yard", amount: 1800, gstRatePct: 0 },
     ],
     landedCostFor: "pur-2627-0012",
     paid: 5000,
@@ -160,7 +161,7 @@ export const bills: Bill[] = [
     vendorId: "royal-transport",
     sourceOfSupply: "19",
     lines: [],
-    charges: [{ head: "freight", description: "Durgapur to Jaigaon, truck WB37C4410", amount: 21500, gstRatePct: 5 }],
+    charges: [{ head: "Freight Inward", description: "Durgapur to Jaigaon, truck WB37C4410", amount: 21500, gstRatePct: 5 }],
     landedCostFor: "pur-2627-0011",
   }),
 ];

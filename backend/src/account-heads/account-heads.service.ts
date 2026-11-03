@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { archivedFilter } from '../common/dto/archivable.js';
 import { definedFields } from '../common/dto/defined-fields.js';
+import { assertLedgerNameFree } from '../common/tally/ledger-names.js';
 import { PrismaService } from '../database/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { toAccountHeadView, type AccountHeadView } from './account-head-view.js';
@@ -24,30 +25,20 @@ function toRow(head: HeadFields) {
   };
 }
 
-const sameName = (name: string) => ({ equals: name, mode: 'insensitive' as const });
-
-// Tally ledger names are unique across every group and ignore case, so a
-// head may not take the name of another head, a bank or cash account or a
-// loan. Same-case reuse among heads also fails on the unique index (409).
-async function assertNameFree(tx: Prisma.TransactionClient, name: string, id?: string) {
-  const [head, account, loan] = await Promise.all([
-    tx.accountHead.findFirst({ where: { name: sameName(name), ...(id && { id: { not: id } }) } }),
-    tx.bankCashAccount.findFirst({
-      where: { OR: [{ tallyLedgerName: sameName(name) }, { tallyLedgerName: null, name: sameName(name) }] },
-    }),
-    tx.loan.findFirst({ where: { name: sameName(name) } }),
-  ]);
-  const owner = head ? 'another head' : account ? 'a bank or cash account' : loan ? 'a loan' : null;
-  if (owner) throw new ConflictException(`The Tally ledger "${name}" is already ${owner}`);
+// Loan entries post to the default interest and bank-charges ledgers by
+// name, and to the head a loan picks as its interest ledger. Those heads keep
+// their name, side (expense or income) and stay live: a loan we take needs
+// an expense head, one we give an income head (loans/loan-rules.ts).
+async function postedByLoans(tx: Prisma.TransactionClient, head: { id: string; name: string }) {
+  if (LOAN_LEDGERS.includes(head.name)) return true;
+  return (await tx.loan.count({ where: { interestHeadId: head.id } })) > 0;
 }
 
-// Loan entries post to the default interest and bank-charges ledgers and to
-// any interest ledger a loan names. Those heads keep their name, side
-// (expense or income) and stay live until loans pick their ledgers from
-// this master.
-async function postedByLoans(tx: Prisma.TransactionClient, name: string) {
-  if (LOAN_LEDGERS.includes(name)) return true;
-  return (await tx.loan.count({ where: { interestLedgerName: name } })) > 0;
+// Locks the head so a loan saving at the same moment either sees the change
+// or is seen by postedByLoans (LoansService locks it FOR SHARE).
+async function lockHead(tx: Prisma.TransactionClient, id: string) {
+  await tx.$queryRaw`SELECT 1 FROM "AccountHead" WHERE "id" = ${id}::uuid FOR UPDATE`;
+  return tx.accountHead.findUniqueOrThrow({ where: { id } });
 }
 
 @Injectable()
@@ -73,20 +64,20 @@ export class AccountHeadsService {
       isArchived: false,
     });
     return this.prisma.$transaction(async (tx) => {
-      await assertNameFree(tx, data.name);
+      await assertLedgerNameFree(tx, data.name);
       return toAccountHeadView(await tx.accountHead.create({ data }));
     });
   }
 
   update(id: string, dto: UpdateAccountHeadDto): Promise<AccountHeadView> {
     return this.prisma.$transaction(async (tx) => {
-      const stored = toAccountHeadView(await tx.accountHead.findUniqueOrThrow({ where: { id } }));
+      const stored = toAccountHeadView(await lockHead(tx, id));
       // Fields left out keep their stored value (definedFields).
       const data = toRow(settleHead<AccountHeadView>(stored, definedFields(dto)));
-      if (data.name !== stored.name) await assertNameFree(tx, data.name, id);
+      if (data.name !== stored.name) await assertLedgerNameFree(tx, data.name, { owner: 'head', id });
       const keepsPlace =
         data.name === stored.name && isExpense(data.nature) === isExpense(stored.nature) && !data.isArchived;
-      if (!keepsPlace && (await postedByLoans(tx, stored.name))) {
+      if (!keepsPlace && (await postedByLoans(tx, stored))) {
         throw new ConflictException(
           `Loan entries post to "${stored.name}": it keeps its name, stays an ${isExpense(stored.nature) ? 'expense' : 'income'} head and cannot be archived`,
         );
@@ -95,12 +86,13 @@ export class AccountHeadsService {
     });
   }
 
-  // Nothing points at a head by id yet. Once expenses and bills do, the
-  // delete fails with 409 and the head is archived instead.
+  // Loans point at their interest head (the foreign key refuses the delete
+  // too). Once expenses and bills store their head, the delete fails with
+  // 409 and the head is archived instead.
   remove(id: string): Promise<void> {
     return this.prisma.$transaction(async (tx) => {
-      const head = await tx.accountHead.findUniqueOrThrow({ where: { id } });
-      if (await postedByLoans(tx, head.name)) {
+      const head = await lockHead(tx, id);
+      if (await postedByLoans(tx, head)) {
         throw new ConflictException(`Loan entries post to "${head.name}"; it cannot be deleted`);
       }
       await tx.accountHead.delete({ where: { id } });

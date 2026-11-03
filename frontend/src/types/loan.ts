@@ -51,7 +51,8 @@ export interface LoanView {
   disbursedOn: string;
   disbursal: LoanDisbursal;
   disbursalAccountId: string | null;
-  assetLedgerName: string | null;
+  /** PAID_TO_SELLER: a general ledger under Fixed Assets. */
+  assetLedgerId: string | null;
   paidBefore: number;
   openingOutstanding: number | null;
   tenureMonths: number | null;
@@ -62,9 +63,16 @@ export interface LoanView {
   maturityDate: string | null;
   repaymentAccountId: string;
   repaymentAccountName: string;
-  interestLedgerName: string | null;
+  /** The expense head (taken) or income head (given) interest posts to; null: the default ledger. */
+  interestHeadId: string | null;
+  /** Where interest posts: the head, else Interest on Loan / Interest Received. */
+  interestLedger: Pick<VoucherLineView, "ledger" | "group">;
   tdsRatePct: number | null;
-  tdsLedgerName: string | null;
+  /** Null: TDS Payable on Interest / TDS Receivable. */
+  tdsLedgerId: string | null;
+  /** Where TDS posts, and the asset ledger (PAID_TO_SELLER). */
+  tdsLedger: Pick<VoucherLineView, "ledger" | "group">;
+  assetLedger: Pick<VoucherLineView, "ledger" | "group"> | null;
   reminderDays: number;
   notes: string | null;
   isArchived: boolean;

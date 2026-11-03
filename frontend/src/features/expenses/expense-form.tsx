@@ -11,10 +11,12 @@ import { FilterGroup } from "@/components/ui/filter-group";
 import { FormMessage } from "@/components/ui/form-message";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { SelectField, type SelectOption } from "@/components/ui/select-field";
+import { LoadNotice } from "@/components/ui/load-notice";
 import { StatusChip } from "@/components/ui/status-chip";
 import { TextField } from "@/components/ui/text-field";
+import { expenseHeadsOf } from "@/features/masters/account-head-rules";
 import { ALLOCATIONS } from "@/features/masters/expense-heads-master";
-import type { ExpenseHead } from "@/features/masters/types";
+import { useAccountHeads } from "@/features/masters/use-account-heads";
 import { formatRate } from "@/lib/format";
 import { useToday } from "@/lib/use-today";
 import { expenseGst, expenseTotal } from "./expense-rules";
@@ -28,7 +30,6 @@ export interface AllocationTarget {
 }
 
 interface ExpenseFormProps {
-  heads: ExpenseHead[];
   vendors: SelectOption[];
   accounts: SelectOption[];
   targets: AllocationTarget[];
@@ -36,12 +37,14 @@ interface ExpenseFormProps {
 }
 
 const NOT_PAID = "unpaid";
-const RATES = [0, 5, 12, 18, 28];
+const RATES = [0, 5, 12, 18, 28, 40];
 
 // One expense: what it was, who was paid and from where, and whose profit it
 // reduces. The head fills in GST and allocation; both can be changed.
-export function ExpenseForm({ heads, vendors, accounts, targets, suggestedNumber }: ExpenseFormProps) {
+export function ExpenseForm({ vendors, accounts, targets, suggestedNumber }: ExpenseFormProps) {
   const today = useToday();
+  const { heads: allHeads, error: headsError } = useAccountHeads();
+  const heads = expenseHeadsOf(allHeads ?? []);
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const {
@@ -82,7 +85,7 @@ export function ExpenseForm({ heads, vendors, accounts, targets, suggestedNumber
     setValue("headId", id, { shouldValidate: true });
     if (!picked) return;
     setValue("gstRatePct", String(picked.gst === "own-rate" ? (picked.gstRatePct ?? 0) : picked.gst === "none" ? 0 : 18));
-    setValue("allocationKind", picked.allocation);
+    setValue("allocationKind", picked.allocation ?? "overhead");
     setValue("targetId", "");
   };
 
@@ -91,6 +94,8 @@ export function ExpenseForm({ heads, vendors, accounts, targets, suggestedNumber
     () => setResult({ tone: "error", text: "Some fields need attention. See the ones marked in red above." }),
   );
   const errorText = (message?: string) => message && <p className="text-xs font-semibold text-danger-strong">{message}</p>;
+
+  if (!allHeads) return <LoadNotice error={headsError} what="expense heads" />;
 
   return (
     <form onSubmit={onSubmit} noValidate className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -104,7 +109,7 @@ export function ExpenseForm({ heads, vendors, accounts, targets, suggestedNumber
             <div className="flex flex-col gap-1.5">
               <SelectField
                 label="Expense head"
-                options={heads.filter((candidate) => !candidate.archived).map((candidate) => ({ value: candidate.id, label: candidate.name }))}
+                options={heads.map((candidate) => ({ value: candidate.id, label: candidate.name }))}
                 value={headId || undefined}
                 onValueChange={pickHead}
               />

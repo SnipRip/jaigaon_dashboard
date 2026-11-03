@@ -94,10 +94,10 @@ export class UpdateLoanDto {
   @IsUUID()
   disbursalAccountId?: string | null;
 
-  @Transform(trimToNull)
+  /** PAID_TO_SELLER: the general ledger under Fixed Assets the loan paid for. */
   @IsOptional()
-  @Matches(LEDGER_NAME_PATTERN, { message: `Asset ledger: ${LEDGER_NAME_MESSAGE}` })
-  assetLedgerName?: string | null;
+  @IsUUID()
+  assetLedgerId?: string | null;
 
   @ValidateIf(sent)
   @IsInt()
@@ -141,10 +141,13 @@ export class UpdateLoanDto {
   @IsUUID()
   repaymentAccountId?: string;
 
-  @Transform(trimToNull)
+  /**
+   * The expense head (taken) or income head (given) interest posts to. Left
+   * out or null: "Interest on Loan" (taken) or "Interest Received" (given).
+   */
   @IsOptional()
-  @Matches(LEDGER_NAME_PATTERN, { message: `Interest ledger: ${LEDGER_NAME_MESSAGE}` })
-  interestLedgerName?: string | null;
+  @IsUUID()
+  interestHeadId?: string | null;
 
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -152,10 +155,10 @@ export class UpdateLoanDto {
   @Max(30)
   tdsRatePct?: number | null;
 
-  @Transform(trimToNull)
+  /** A general ledger: under Duties & Taxes (taken) or Current Assets (given). Null: TDS Payable on Interest / TDS Receivable. */
   @IsOptional()
-  @Matches(LEDGER_NAME_PATTERN, { message: `TDS ledger: ${LEDGER_NAME_MESSAGE}` })
-  tdsLedgerName?: string | null;
+  @IsUUID()
+  tdsLedgerId?: string | null;
 
   @ValidateIf(sent)
   @IsInt()

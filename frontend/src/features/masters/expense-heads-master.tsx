@@ -7,6 +7,7 @@ import { StatusChip } from "@/components/ui/status-chip";
 import { apiGet } from "@/lib/api-client";
 import { formatQuantity } from "@/lib/format";
 import type { AccountHeadView } from "@/types/account-head";
+import { isExpenseHead } from "./account-head-rules";
 import { ACCOUNT_HEADS_PATH, accountHeadPersistence, toAccountHead, withArchived } from "./masters-api";
 import { RecordMaster } from "./record-master";
 import type { AccountHead, HeadAllocation, HeadGst, HeadNature } from "./types";
@@ -32,7 +33,6 @@ const NATURES: { value: HeadNature; group: string; label: string }[] = [
   { value: "indirect-income", group: "Indirect Incomes", label: "Indirect income: interest, commission, discount received" },
 ];
 const EXPENSES = { key: "nature", values: ["direct-expense", "indirect-expense"] };
-const isExpense = (head: AccountHead) => EXPENSES.values.includes(head.nature);
 
 /** The GST slabs the backend accepts for a head with its own rate. */
 const GST_RATES = ["5", "12", "18", "28", "40"];
@@ -79,7 +79,7 @@ export function ExpenseHeadsMaster() {
             </span>
           ),
         },
-        { label: "GST", render: (head) => (isExpense(head) ? gstLabel(head) : "–") },
+        { label: "GST", render: (head) => (isExpenseHead(head) ? gstLabel(head) : "–") },
         {
           label: "Cost lands on",
           render: (head) =>
@@ -94,8 +94,8 @@ export function ExpenseHeadsMaster() {
       ]}
       stats={(records) => [
         { label: "Heads", value: formatQuantity(records.length) },
-        { label: "Expense heads", value: formatQuantity(records.filter(isExpense).length) },
-        { label: "Income heads", value: formatQuantity(records.filter((head) => !isExpense(head)).length) },
+        { label: "Expense heads", value: formatQuantity(records.filter(isExpenseHead).length) },
+        { label: "Income heads", value: formatQuantity(records.filter((head) => !isExpenseHead(head)).length) },
         { label: "Land on item cost", value: formatQuantity(records.filter((head) => head.allocation === "item-cost").length) },
       ]}
       importMaster="account-heads"

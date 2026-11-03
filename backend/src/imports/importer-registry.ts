@@ -6,6 +6,7 @@ import { PrismaService } from '../database/prisma.service.js';
 import { GodownsService } from '../godowns/godowns.service.js';
 import { HsnCodesService } from '../hsn-codes/hsn-codes.service.js';
 import { ItemsService } from '../items/items.service.js';
+import { LedgersService } from '../ledgers/ledgers.service.js';
 import { LoansService } from '../loans/loans.service.js';
 import { PartiesService } from '../parties/parties.service.js';
 import { PriceLevelsService } from '../pricing/price-levels.service.js';
@@ -13,6 +14,7 @@ import { QuantitySlabsService } from '../pricing/quantity-slabs.service.js';
 import { SpecialRatesService } from '../pricing/special-rates.service.js';
 import { UnitsService } from '../units/units.service.js';
 import { hsnImporter, itemsImporter } from './importers/catalog.importers.js';
+import { ledgersImporter } from './importers/ledgers.importer.js';
 import { loansImporter } from './importers/loans.importer.js';
 import { customersImporter, vendorsImporter } from './importers/parties.importers.js';
 import { priceLevelsImporter, quantitySlabsImporter, specialRatesImporter } from './importers/pricing.importers.js';
@@ -45,6 +47,7 @@ export class ImporterRegistry {
     rates: SpecialRatesService,
     slabs: QuantitySlabsService,
     loans: LoansService,
+    ledgers: LedgersService,
   ) {
     const all = [
       unitsImporter(units, prisma),
@@ -60,6 +63,7 @@ export class ImporterRegistry {
       specialRatesImporter(rates, prisma),
       quantitySlabsImporter(slabs, prisma),
       loansImporter(loans, prisma),
+      ledgersImporter(ledgers, prisma),
     ] as unknown as MasterImporter[];
     this.importers = new Map(all.map((importer) => [importer.key, importer]));
   }

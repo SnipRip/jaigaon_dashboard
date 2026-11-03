@@ -21,6 +21,8 @@ import { ImportsModule } from './imports/imports.module.js';
 import { ItemCategoriesModule } from './item-categories/item-categories.module.js';
 import { ItemGroupsModule } from './item-groups/item-groups.module.js';
 import { ItemsModule } from './items/items.module.js';
+import { LedgersModule } from './ledgers/ledgers.module.js';
+import { BooksModule } from './books/books.module.js';
 import { LoansModule } from './loans/loans.module.js';
 import { LutsModule } from './luts/luts.module.js';
 import { NumberSeriesModule } from './number-series/number-series.module.js';
@@ -55,6 +57,8 @@ import { WhatsappOptInsModule } from './whatsapp-optins/whatsapp-optins.module.j
     BankCashAccountsModule,
     AccountHeadsModule,
     LoansModule,
+    LedgersModule,
+    BooksModule,
     ImportsModule,
     WhatsappOptInsModule,
     HealthModule,

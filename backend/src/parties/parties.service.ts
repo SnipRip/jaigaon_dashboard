@@ -9,6 +9,7 @@ import { toNumber } from '../common/decimal.js';
 import { canAccess } from '../common/guards/access.guard.js';
 import type { AuthContext } from '../common/types/authenticated-request.js';
 import type { ModuleAction } from '../common/types/module-permissions.js';
+import { assertLedgerNameFree } from '../common/tally/ledger-names.js';
 import { PrismaService } from '../database/prisma.service.js';
 import type { Party } from '../generated/prisma/client.js';
 import type { CreatePartyDto } from './dto/create-party.dto.js';
@@ -95,6 +96,8 @@ export class PartiesService {
     );
     check(party);
     await this.assertLevel(party.priceLevelId);
+    // The display name is the party's Tally ledger.
+    await assertLedgerNameFree(this.prisma, party.displayName);
     return toPartyView(await this.prisma.party.create({ data: party }));
   }
 
@@ -126,6 +129,9 @@ export class PartiesService {
     check(party);
     if (party.priceLevelId !== current.priceLevelId) {
       await this.assertLevel(party.priceLevelId);
+    }
+    if (party.displayName && party.displayName !== current.displayName) {
+      await assertLedgerNameFree(this.prisma, party.displayName, { owner: 'party', id });
     }
     return toPartyView(
       await this.prisma.party.update({ where: { id }, data: party }),

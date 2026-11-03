@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { interestLedger, loanGroup, tdsLedger, voucherTypeOf } from './loan-kinds.js';
 import { entryVoucher, firstEntry, type EntryAmounts } from './loan-postings.js';
-import { entryProblem, loanProblem, settleLoan, type EntryShape, type LoanFacts } from './loan-rules.js';
+import { entryProblem, interestHeadProblem, linkedLedgerProblem, loanProblem, settleLoan, type EntryShape, type LoanFacts } from './loan-rules.js';
 
 const truck: LoanFacts = {
   direction: 'TAKEN',
@@ -14,7 +14,7 @@ const truck: LoanFacts = {
   disbursedOn: '2026-10-10',
   disbursal: 'PAID_TO_SELLER',
   disbursalAccountId: null,
-  assetLedgerName: 'Truck WB73E1234',
+  assetLedgerId: 'ledger-truck',
   paidBefore: 0,
   openingOutstanding: null,
   tenureMonths: 48,
@@ -35,7 +35,7 @@ const ownerLoan: LoanFacts = {
   interestRatePct: 10,
   disbursal: 'THROUGH_BANK',
   disbursalAccountId: 'bank-1',
-  assetLedgerName: null,
+  assetLedgerId: null,
   tenureMonths: null,
   emiAmount: null,
   firstEmiDate: null,
@@ -63,7 +63,7 @@ describe('loanProblem', () => {
   it('fits the kind and disbursal to the direction', () => {
     expect(loanProblem({ ...truck, kind: 'STAFF' })).toBe('That kind is for a loan we give');
     expect(loanProblem({ ...deposit, kind: 'GOLD' })).toBe('That kind is for a loan we take');
-    expect(loanProblem({ ...deposit, disbursal: 'PAID_TO_SELLER', disbursalAccountId: null, assetLedgerName: 'X' })).toMatch(/goes out through our bank/);
+    expect(loanProblem({ ...deposit, disbursal: 'PAID_TO_SELLER', disbursalAccountId: null, assetLedgerId: 'X' })).toMatch(/goes out through our bank/);
   });
 
   it('needs the terms of its repayment style and none of the other', () => {
@@ -76,13 +76,13 @@ describe('loanProblem', () => {
   });
 
   it('needs the field of its disbursal kind', () => {
-    expect(loanProblem({ ...truck, assetLedgerName: null })).toMatch(/Name the asset/);
+    expect(loanProblem({ ...truck, assetLedgerId: null })).toMatch(/Pick the asset/);
     expect(loanProblem({ ...ownerLoan, disbursalAccountId: null })).toMatch(/Pick the bank account/);
-    expect(loanProblem({ ...truck, disbursal: 'BEFORE_BOOKS', assetLedgerName: null })).toMatch(/what was owed/);
+    expect(loanProblem({ ...truck, disbursal: 'BEFORE_BOOKS', assetLedgerId: null })).toMatch(/what was owed/);
   });
 
   it('checks a running loan against its terms', () => {
-    const running = { ...truck, disbursal: 'BEFORE_BOOKS' as const, assetLedgerName: null, paidBefore: 12 };
+    const running = { ...truck, disbursal: 'BEFORE_BOOKS' as const, assetLedgerId: null, paidBefore: 12 };
     expect(loanProblem({ ...running, openingOutstanding: 1_400_000 })).toBeNull();
     expect(loanProblem({ ...running, openingOutstanding: 2_000_000 })).toMatch(/more than the loan amount/);
     expect(loanProblem({ ...running, openingOutstanding: 1_400_000, paidBefore: 48 })).toMatch(/fewer than the tenure/);
@@ -102,7 +102,7 @@ describe('loanProblem', () => {
 describe('settleLoan', () => {
   it('clears the old disbursal fields when the kind changes', () => {
     const settled = settleLoan(truck, { disbursal: 'THROUGH_BANK', disbursalAccountId: 'bank-1' });
-    expect(settled).toMatchObject({ assetLedgerName: null, disbursalAccountId: 'bank-1' });
+    expect(settled).toMatchObject({ assetLedgerId: null, disbursalAccountId: 'bank-1' });
     expect(loanProblem(settled)).toBeNull();
   });
 
@@ -127,10 +127,17 @@ describe('Tally groups and ledgers', () => {
   });
 
   it('uses the direction’s interest and TDS ledgers', () => {
-    expect(interestLedger({ direction: 'TAKEN', interestLedgerName: null })).toEqual({ ledger: 'Interest on Loan', group: 'Indirect Expenses' });
-    expect(interestLedger({ direction: 'GIVEN', interestLedgerName: null })).toEqual({ ledger: 'Interest Received', group: 'Indirect Incomes' });
-    expect(tdsLedger({ direction: 'TAKEN', tdsLedgerName: null }).group).toBe('Duties & Taxes');
-    expect(tdsLedger({ direction: 'GIVEN', tdsLedgerName: null }).group).toBe('Loans & Advances (Asset)');
+    expect(interestLedger({ direction: 'TAKEN', interestHead: null })).toEqual({ ledger: 'Interest on Loan', group: 'Indirect Expenses' });
+    expect(interestLedger({ direction: 'GIVEN', interestHead: null })).toEqual({ ledger: 'Interest Received', group: 'Indirect Incomes' });
+    expect(tdsLedger({ direction: 'TAKEN', tdsLedger: null }).group).toBe('Duties & Taxes');
+    expect(tdsLedger({ direction: 'GIVEN', tdsLedger: null }).group).toBe('Loans & Advances (Asset)');
+  });
+
+  it('posts interest to the loan’s head, under that head’s group', () => {
+    const head = { name: 'Interest on Vehicle Loans', nature: 'DIRECT_EXPENSE' as const, isArchived: false };
+    expect(interestLedger({ direction: 'TAKEN', interestHead: head })).toEqual({ ledger: 'Interest on Vehicle Loans', group: 'Direct Expenses' });
+    const income = { name: 'Interest on Staff Advances', nature: 'INDIRECT_INCOME' as const, isArchived: false };
+    expect(interestLedger({ direction: 'GIVEN', interestHead: income })).toEqual({ ledger: 'Interest on Staff Advances', group: 'Indirect Incomes' });
   });
 
   it('picks the voucher by which way the money moves', () => {
@@ -184,8 +191,8 @@ describe('Tally vouchers', () => {
       date: '2026-11-10',
       voucherNumber: 'V/1',
       loanLedger,
-      interestLedger: interestLedger({ direction, interestLedgerName: null }),
-      tdsLedger: tdsLedger({ direction, tdsLedgerName: null }),
+      interestLedger: interestLedger({ direction, interestHead: null }),
+      tdsLedger: tdsLedger({ direction, tdsLedger: null }),
       bank: kind === 'INTEREST_ADDED' ? null : bank,
     });
 
@@ -241,5 +248,51 @@ describe('Tally vouchers', () => {
   it('draws more on a loan taken, lends more on a loan given', () => {
     expect(lines(voucher('TAKEN', 'DRAWDOWN', { principal: 100 }))).toEqual([['SBI Current A/c', 100, 0], ['HDFC Truck Loan', 0, 100]]);
     expect(lines(voucher('GIVEN', 'DRAWDOWN', { principal: 100 }))).toEqual([['HDFC Truck Loan', 100, 0], ['SBI Current A/c', 0, 100]]);
+  });
+});
+
+describe('interest head', () => {
+  const head = (nature: 'DIRECT_EXPENSE' | 'INDIRECT_EXPENSE' | 'DIRECT_INCOME' | 'INDIRECT_INCOME', isArchived = false) => ({
+    name: 'Some Head',
+    nature,
+    isArchived,
+  });
+
+  it('takes an expense head for a loan we take and an income head for one we give', () => {
+    expect(interestHeadProblem('TAKEN', head('INDIRECT_EXPENSE'))).toBeNull();
+    expect(interestHeadProblem('TAKEN', head('DIRECT_EXPENSE'))).toBeNull();
+    expect(interestHeadProblem('GIVEN', head('INDIRECT_INCOME'))).toBeNull();
+    expect(interestHeadProblem('GIVEN', head('DIRECT_INCOME'))).toBeNull();
+  });
+
+  it('refuses the wrong side, an archived head and a missing one', () => {
+    expect(interestHeadProblem('TAKEN', head('INDIRECT_INCOME'))).toMatch(/income head/);
+    expect(interestHeadProblem('GIVEN', head('INDIRECT_EXPENSE'))).toMatch(/expense head/);
+    expect(interestHeadProblem('TAKEN', head('INDIRECT_EXPENSE', true))).toMatch(/archived/);
+    expect(interestHeadProblem('GIVEN', null)).toMatch(/pick a head/);
+  });
+
+  it('goes back to the default ledger when the loan changes direction', () => {
+    const stored = { ...ownerLoan, interestHeadId: 'head-1' };
+    expect(settleLoan(stored, { direction: 'GIVEN', kind: 'BUSINESS' }).interestHeadId).toBeNull();
+    expect(settleLoan(stored, { direction: 'GIVEN', kind: 'BUSINESS', interestHeadId: 'head-2' }).interestHeadId).toBe('head-2');
+    expect(settleLoan(stored, { principal: 1 }).interestHeadId).toBe('head-1');
+  });
+});
+
+describe('ledgers a loan points at', () => {
+  const ledger = (path: string[], isArchived = false) => ({ name: 'Some Ledger', isArchived, path });
+
+  it('takes an asset under Fixed Assets, TDS under Duties & Taxes (taken) or Current Assets (given)', () => {
+    expect(linkedLedgerProblem('asset', 'TAKEN', ledger(['Fixed Assets', 'Vehicles']))).toBeNull();
+    expect(linkedLedgerProblem('tds', 'TAKEN', ledger(['Current Liabilities', 'Duties & Taxes']))).toBeNull();
+    expect(linkedLedgerProblem('tds', 'GIVEN', ledger(['Current Assets', 'Loans & Advances (Asset)']))).toBeNull();
+  });
+
+  it('refuses the wrong group, an archived ledger and a missing one', () => {
+    expect(linkedLedgerProblem('asset', 'TAKEN', ledger(['Current Assets']))).toMatch(/not under Fixed Assets/);
+    expect(linkedLedgerProblem('tds', 'GIVEN', ledger(['Current Liabilities', 'Duties & Taxes']))).toMatch(/not under Current Assets/);
+    expect(linkedLedgerProblem('tds', 'TAKEN', ledger(['Current Liabilities', 'Duties & Taxes'], true))).toMatch(/archived/);
+    expect(linkedLedgerProblem('asset', 'TAKEN', null)).toMatch(/pick a ledger/);
   });
 });

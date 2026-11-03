@@ -786,7 +786,9 @@ model Loan {
   disbursal          LoanDisbursal
   disbursalAccountId String?            @db.Uuid
   disbursalAccount   BankCashAccount?   @relation("LoanDisbursedThrough", fields: [disbursalAccountId], references: [id], onDelete: Restrict)
-  assetLedgerName    String?
+  // PAID_TO_SELLER only: the Fixed Assets ledger the loan paid for.
+  assetLedgerId      String?            @db.Uuid
+  assetLedger        Ledger?            @relation("LoanAssetLedger", fields: [assetLedgerId], references: [id], onDelete: Restrict)
   // BEFORE_BOOKS only: EMIs already paid (EMI loans), and what was owed after them.
   paidBefore         Int                @default(0)
   openingOutstanding Decimal?           @db.Decimal(14, 2)
@@ -801,11 +803,15 @@ model Loan {
   // The account EMIs, interest and repayments go through.
   repaymentAccountId String             @db.Uuid
   repaymentAccount   BankCashAccount    @relation("LoanRepaidThrough", fields: [repaymentAccountId], references: [id], onDelete: Restrict)
-  // Null: the direction's default ledger (src/common/tally/tally-groups.ts).
-  interestLedgerName String?
+  // The expense head (taken) or income head (given) interest posts to. Null:
+  // the direction's default ledger (src/common/tally/tally-groups.ts).
+  interestHeadId     String?            @db.Uuid
+  interestHead       AccountHead?       @relation(fields: [interestHeadId], references: [id], onDelete: Restrict)
   // TDS on interest (non-bank lenders and borrowers); null: none.
   tdsRatePct         Decimal?           @db.Decimal(5, 2)
-  tdsLedgerName      String?
+  // Null: TDS Payable on Interest (taken) or TDS Receivable (given).
+  tdsLedgerId        String?            @db.Uuid
+  tdsLedger          Ledger?            @relation("LoanTdsLedger", fields: [tdsLedgerId], references: [id], onDelete: Restrict)
   // Days before a due date that it shows as due soon.
   reminderDays       Int                @default(3)
   notes              String?
@@ -814,6 +820,10 @@ model Loan {
   updatedAt          DateTime           @updatedAt
 
   entries LoanEntry[]
+
+  @@index([interestHeadId])
+  @@index([assetLedgerId])
+  @@index([tdsLedgerId])
 }
 
 // What an entry does to a loan; its voucher depends on the loan's direction
@@ -905,6 +915,9 @@ model AccountHead {
   isArchived  Boolean         @default(false)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
+
+  // Loans whose interest posts to this head.
+  loans Loan[]
 }
 
 // ---------------------------------------------------------------------------
@@ -959,4 +972,116 @@ model ImportSkippedRow {
   reason    String
 
   @@unique([jobId, rowNumber])
+}
+
+// ---------------------------------------------------------------------------
+// Chart of accounts (agent/accounts-plan.md, "Our chart of accounts"). The 28
+// Tally groups are seeded as they are in Tally; users add sub-groups. A
+// general ledger is any ledger no other master owns (capital, sales,
+// purchase, GST, TDS, round off, fixed assets…). Ledger and group names are
+// unique across every master, ignoring case (common/tally/ledger-names.ts).
+// ---------------------------------------------------------------------------
+
+// Where a primary group's balances appear: Balance Sheet (assets,
+// liabilities) or Profit & Loss (income, expenses).
+enum GroupNature {
+  ASSET
+  LIABILITY
+  INCOME
+  EXPENSE
+}
+
+model LedgerGroup {
+  id                 String        @id @default(uuid()) @db.Uuid
+  name               String        @unique
+  // Null: a primary group.
+  parentId           String?       @db.Uuid
+  parent             LedgerGroup?  @relation("GroupTree", fields: [parentId], references: [id], onDelete: Restrict)
+  // Primary groups only; a sub-group takes its parent's (CHECK).
+  nature             GroupNature?
+  // Primary income and expense groups only: Sales, Purchase, Direct.
+  affectsGrossProfit Boolean       @default(false)
+  // The 28 Tally groups: never renamed, moved or deleted.
+  isPredefined       Boolean       @default(false)
+  // Its ledgers stay folded in reports (Sundry Debtors, Sundry Creditors).
+  behavesAsSubLedger Boolean       @default(false)
+  // Show the net of debit and credit in reports.
+  nettBalances       Boolean       @default(false)
+  // Order among its siblings in reports (Tally's position index).
+  position           Int           @default(0)
+  notes              String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  children LedgerGroup[] @relation("GroupTree")
+  ledgers  Ledger[]
+
+  @@index([parentId])
+}
+
+enum DrCr {
+  DR
+  CR
+}
+
+// Ledgers the app posts to by role (agent/accounts-plan.md, "System ledgers").
+enum LedgerRole {
+  PROFIT_AND_LOSS
+  CAPITAL
+  DRAWINGS
+  SALES_LOCAL
+  SALES_INTERSTATE
+  SALES_EXPORT_LUT
+  SALES_EXPORT_IGST
+  PURCHASE_LOCAL
+  PURCHASE_INTERSTATE
+  PURCHASE_NO_ITC
+  OUTPUT_CGST
+  OUTPUT_SGST
+  OUTPUT_IGST
+  INPUT_CGST
+  INPUT_SGST
+  INPUT_IGST
+  RCM_CGST
+  RCM_SGST
+  RCM_IGST
+  TDS_PAYABLE
+  TDS_RECEIVABLE
+  IGST_REFUND
+  ROUND_OFF
+}
+
+// Duties & Taxes ledgers: which tax they hold (Tally's type of duty / tax).
+enum TaxKind {
+  CGST
+  SGST
+  IGST
+  CESS
+  TDS
+  TCS
+  OTHER
+}
+
+model Ledger {
+  id             String       @id @default(uuid()) @db.Uuid
+  // The Tally ledger name.
+  name           String       @unique
+  // Null only for Profit & Loss A/c, which Tally keeps under Primary (CHECK).
+  groupId        String?      @db.Uuid
+  group          LedgerGroup? @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  openingBalance Decimal      @default(0) @db.Decimal(14, 2)
+  openingSide    DrCr         @default(DR)
+  // Seeded ledgers the app posts to: never deleted, renamed or archived.
+  systemRole     LedgerRole?  @unique
+  // Ledgers under Duties & Taxes only.
+  taxKind        TaxKind?
+  notes          String?
+  isArchived     Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  loansAsAsset Loan[] @relation("LoanAssetLedger")
+  loansAsTds   Loan[] @relation("LoanTdsLedger")
+
+  @@index([groupId])
 }

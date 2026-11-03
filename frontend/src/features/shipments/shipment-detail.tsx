@@ -13,6 +13,8 @@ import { TextField } from "@/components/ui/text-field";
 import type { Expense } from "@/features/expenses/types";
 import { documentsFor, documentType } from "@/features/invoices/dispatch-documents";
 import type { Invoice } from "@/features/invoices/types";
+import { headName } from "@/features/masters/account-head-rules";
+import { useAccountHeads } from "@/features/masters/use-account-heads";
 import type { Profit } from "@/features/profit/profit-rules";
 import { formatDate, formatInr, formatPercent, formatQuantity } from "@/lib/format";
 import { useToday } from "@/lib/use-today";
@@ -26,14 +28,14 @@ interface ShipmentDetailProps {
   customerName: string;
   transporterName?: string;
   expenses: Expense[];
-  expenseHeadNames: Record<string, string>;
   profit: Profit;
 }
 
 // One truck: where it is, what is stopping it moving to the next stage, the
 // papers on each of its invoices, its expenses and what it earned.
-export function ShipmentDetail({ initialShipment, invoices, customerName, transporterName, expenses, expenseHeadNames, profit }: ShipmentDetailProps) {
+export function ShipmentDetail({ initialShipment, invoices, customerName, transporterName, expenses, profit }: ShipmentDetailProps) {
   const today = useToday();
+  const { heads } = useAccountHeads();
   const [shipment, setShipment] = useState(initialShipment);
   const [note, setNote] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
@@ -142,7 +144,7 @@ export function ShipmentDetail({ initialShipment, invoices, customerName, transp
               {expenses.map((expense) => (
                 <li key={expense.id} className="glass-inset flex flex-wrap justify-between gap-2 rounded-(--radius-tile) px-4 py-2.5">
                   <span>
-                    <span className="font-semibold">{expenseHeadNames[expense.headId]}</span>
+                    <span className="font-semibold">{headName(heads ?? [], expense.head)}</span>
                     <span className="font-semibold text-ink-soft"> · {expense.description}</span>
                     <span className="block text-xs font-semibold text-muted">
                       {expense.number} · {formatDate(expense.date)}

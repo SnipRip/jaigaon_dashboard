@@ -10,6 +10,7 @@ import { FilterChip } from "@/components/ui/filter-chip";
 import { FilterGroup } from "@/components/ui/filter-group";
 import { FormMessage } from "@/components/ui/form-message";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
+import { LoadNotice } from "@/components/ui/load-notice";
 import { SelectField } from "@/components/ui/select-field";
 import { StatusChip } from "@/components/ui/status-chip";
 import { TextField } from "@/components/ui/text-field";
@@ -17,6 +18,9 @@ import { describeComponents, treatmentLabel } from "@/features/gst/gst-rules";
 import { INDIAN_STATES } from "@/features/gst/indian-states";
 import { lineTotals } from "@/features/invoices/invoice-rules";
 import { resolveItemDefaults, type ItemCatalog } from "@/features/items/item-rules";
+import { expenseHeadsOf, findHead } from "@/features/masters/account-head-rules";
+import { allocationLabel } from "@/features/masters/expense-heads-master";
+import { useAccountHeads } from "@/features/masters/use-account-heads";
 import { placeOf } from "@/features/parties/party-rules";
 import type { Party } from "@/features/parties/types";
 import { formatRate } from "@/lib/format";
@@ -28,13 +32,14 @@ import {
   billDueDate,
   billTax,
   billTotals,
-  CHARGE_HEADS,
+  CHARGE_RATES,
   chargeRateRule,
   isMsme,
+  landsOnItems,
   MSME_PAYMENT_DAYS,
   splitRegime,
 } from "./purchase-rules";
-import type { BillCharge, BillKind, BillLine } from "./types";
+import type { BillCharge, BillKind, BillLine, ChargeHead } from "./types";
 
 interface BillFormProps {
   vendors: Party[];
@@ -58,7 +63,7 @@ const KIND_TEXT: Record<BillKind, { label: string; hint: string }> = {
 };
 
 const emptyLine = { itemId: "", quantity: "", rate: "", discountPct: "", itc: "eligible" as const };
-const emptyCharge = (head: BillCharge["head"]) => ({ head, description: "", amount: "", gstRatePct: "18" });
+const emptyCharge = { head: "", description: "", amount: "", gstRatePct: "18" };
 
 // A vendor bill, entered from the vendor's paper the way Zoho Books does it.
 // GST is never picked: the vendor's treatment and the source of supply decide
@@ -66,6 +71,7 @@ const emptyCharge = (head: BillCharge["head"]) => ({ head, description: "", amou
 // rate; a separate charges bill is tagged to the purchase for landed cost.
 export function BillForm({ vendors, catalog, purchases, companyState, suggestedReference, initialKind, initialFor }: BillFormProps) {
   const today = useToday();
+  const { heads, error: headsError } = useAccountHeads();
   const [result, setResult] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
   const {
@@ -90,7 +96,7 @@ export function BillForm({ vendors, catalog, purchases, companyState, suggestedR
       vehicleNumber: "",
       notes: "",
       lines: [emptyLine],
-      charges: initialKind === "charges" ? [emptyCharge("freight")] : [],
+      charges: initialKind === "charges" ? [emptyCharge] : [],
     },
   });
   const lineFields = useFieldArray({ control, name: "lines" });
@@ -110,7 +116,20 @@ export function BillForm({ vendors, catalog, purchases, companyState, suggestedR
   const vendor = vendors.find((candidate) => candidate.id === vendorId);
   const tax = vendor ? billTax(companyState, vendor, sourceOfSupply) : undefined;
   const split = tax ? splitRegime(tax, companyState, sourceOfSupply || vendor?.placeOfSupply) : "no-gst";
-  const rateRule = tax ? chargeRateRule(tax) : undefined;
+  // Charges are booked under the live expense heads; each head brings its GST behaviour and where its cost lands.
+  const chargeHeads: ChargeHead[] = expenseHeadsOf(heads ?? []);
+  const headOf = (ref?: string) => (ref ? findHead(chargeHeads, ref) : undefined);
+  const rateRuleFor = (ref?: string) => (tax ? chargeRateRule(tax, headOf(ref)) : undefined);
+  // A charges bill adds to a purchase's items only through heads that land on
+  // item cost; until a head is picked the tag (say from ?for=) stays.
+  const pickedHeads = (charges ?? []).map((charge) => headOf(charge.head)).filter((head) => head !== undefined);
+  const landsOnPurchase = pickedHeads.length === 0 || pickedHeads.some(landsOnItems);
+  const vendorRule = tax ? chargeRateRule(tax) : undefined;
+
+  // A charge's tag to a purchase goes when no charge lands on item cost any more.
+  useEffect(() => {
+    if (!landsOnPurchase && getValues("landedCostFor")) setValue("landedCostFor", "");
+  }, [landsOnPurchase, getValues, setValue]);
 
   const setDueDate = (date: string, picked = vendor) => {
     if (picked && /^\d{4}-\d{2}-\d{2}$/.test(date)) setValue("dueDate", billDueDate(date, picked));
@@ -127,7 +146,14 @@ export function BillForm({ vendors, catalog, purchases, companyState, suggestedR
   const pickKind = (next: BillKind) => {
     setValue("kind", next);
     if (vendor && next === "goods" && vendor.isGta) setValue("vendorId", "");
-    if (next === "charges" && getValues("charges").length === 0) chargeFields.append(emptyCharge("freight"));
+    if (next === "charges" && getValues("charges").length === 0) chargeFields.append(emptyCharge);
+  };
+
+  // A head with its own rate (or none) sets the charge's rate; one that follows the bill keeps what was picked.
+  const pickHead = (index: number, id: string) => {
+    setValue(`charges.${index}.head`, id, { shouldValidate: true });
+    const rule = rateRuleFor(id);
+    if (rule?.fixed !== undefined) setValue(`charges.${index}.gstRatePct`, String(rule.fixed));
   };
 
   const pickItem = (index: number, itemId: string) => {
@@ -156,7 +182,7 @@ export function BillForm({ vendors, catalog, purchases, companyState, suggestedR
   const billCharges: BillCharge[] = (charges ?? []).map((charge) => ({
     head: charge.head,
     amount: Number(charge.amount) || 0,
-    gstRatePct: isGoods ? undefined : (rateRule?.fixed ?? Number(charge.gstRatePct)),
+    gstRatePct: isGoods ? undefined : (rateRuleFor(charge.head)?.fixed ?? Number(charge.gstRatePct)),
   }));
   const totals = tax ? billTotals({ kind, lines: billLines, charges: billCharges }, tax, split) : undefined;
   const goodsRate = billChargeRate(billLines);
@@ -172,6 +198,8 @@ export function BillForm({ vendors, catalog, purchases, companyState, suggestedR
 
   const itemOptions = catalog.items.map((item) => ({ value: item.id, label: `${item.name} · ${item.sku}` }));
   const errorText = (message?: string) => message && <p className="text-xs font-semibold text-danger-strong">{message}</p>;
+
+  if (!heads) return <LoadNotice error={headsError} what="expense heads" />;
 
   return (
     <form onSubmit={onSubmit} noValidate className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -333,73 +361,93 @@ export function BillForm({ vendors, catalog, purchases, companyState, suggestedR
           <p className="-mt-2 text-sm font-medium text-muted">
             {isGoods
               ? `Only what the vendor printed on this bill. They take the bill's GST rate${billLines.length ? ` (${goodsRate}%)` : ""}. A transporter's own bill is a separate freight bill.`
-              : rateRule?.fixed !== undefined
+              : vendorRule?.fixed !== undefined
                 ? tax?.regime === "reverse-charge"
-                  ? `Reverse charge: the transporter charges no GST; we pay ${rateRule.fixed}% and claim it back.`
+                  ? `Reverse charge: the transporter charges no GST; we pay ${vendorRule.fixed}% and claim it back.`
                   : "No GST bill: the amount is the cost."
-                : "Enter the GST rate printed on the vendor's bill."}
+                : "Each head brings its GST: none, its own rate, or the rate printed on the vendor's bill."}
           </p>
           {errorText(errors.charges?.root?.message ?? errors.charges?.message)}
-          {chargeFields.fields.map((field, index) => (
-            <div key={field.id} className="glass-inset grid items-start gap-2.5 rounded-(--radius-tile) p-3 @2xl:grid-cols-[1.2fr_2fr_1fr_1fr_auto]">
-              <Controller
-                control={control}
-                name={`charges.${index}.head`}
-                render={({ field: headField }) => (
-                  <SelectField label="Charge" options={CHARGE_HEADS} value={headField.value} onValueChange={headField.onChange} />
+          {chargeFields.fields.map((field, index) => {
+            const head = headOf(charges?.[index]?.head);
+            const rule = rateRuleFor(charges?.[index]?.head);
+            return (
+              <div key={field.id} className="glass-inset grid items-start gap-2.5 rounded-(--radius-tile) p-3 @2xl:grid-cols-[1.2fr_2fr_1fr_1fr_auto]">
+                <div className="flex flex-col gap-1.5">
+                  <Controller
+                    control={control}
+                    name={`charges.${index}.head`}
+                    render={({ field: headField }) => (
+                      <SelectField
+                        label="Charge"
+                        options={chargeHeads.map((option) => ({ value: option.id, label: option.name }))}
+                        value={headOf(headField.value)?.id}
+                        onValueChange={(id) => pickHead(index, id)}
+                      />
+                    )}
+                  />
+                  {errorText(errors.charges?.[index]?.head?.message)}
+                  {head?.allocation && <p className="text-xs font-semibold text-muted">{allocationLabel(head.allocation)}</p>}
+                </div>
+                <TextField label="Details" placeholder="Route, truck, men" {...register(`charges.${index}.description`)} />
+                <TextField label="Amount (₹)" inputMode="decimal" error={errors.charges?.[index]?.amount?.message} {...register(`charges.${index}.amount`)} />
+                {isGoods ? (
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-xs font-medium text-muted">GST</span>
+                    <span className="flex h-[34px] items-center text-[13px] font-semibold">{tax?.itc === false ? "None" : `${goodsRate}%, as the bill`}</span>
+                  </div>
+                ) : rule?.fixed !== undefined ? (
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-xs font-medium text-muted">GST</span>
+                    <span className="flex h-[34px] items-center text-[13px] font-semibold">
+                      {rule.fixed}%{vendorRule?.fixed === undefined && head ? ", from the head" : ""}
+                    </span>
+                  </div>
+                ) : (
+                  <Controller
+                    control={control}
+                    name={`charges.${index}.gstRatePct`}
+                    render={({ field: rateField }) => (
+                      <SelectField
+                        label="GST on the bill"
+                        options={(rule?.options ?? CHARGE_RATES).map((rate) => ({ value: String(rate), label: `${rate}%` }))}
+                        value={rateField.value}
+                        onValueChange={rateField.onChange}
+                        disabled={!vendor}
+                      />
+                    )}
+                  />
                 )}
-              />
-              <TextField label="Details" placeholder="Route, truck, men" {...register(`charges.${index}.description`)} />
-              <TextField label="Amount (₹)" inputMode="decimal" error={errors.charges?.[index]?.amount?.message} {...register(`charges.${index}.amount`)} />
-              {isGoods ? (
-                <div className="flex flex-col gap-1.5">
-                  <span className="text-xs font-medium text-muted">GST</span>
-                  <span className="flex h-[34px] items-center text-[13px] font-semibold">{tax?.itc === false ? "None" : `${goodsRate}%, as the bill`}</span>
-                </div>
-              ) : rateRule?.fixed !== undefined ? (
-                <div className="flex flex-col gap-1.5">
-                  <span className="text-xs font-medium text-muted">GST</span>
-                  <span className="flex h-[34px] items-center text-[13px] font-semibold">{rateRule.fixed}%</span>
-                </div>
-              ) : (
-                <Controller
-                  control={control}
-                  name={`charges.${index}.gstRatePct`}
-                  render={({ field: rateField }) => (
-                    <SelectField
-                      label="GST on the bill"
-                      options={(rateRule?.options ?? [5, 12, 18]).map((rate) => ({ value: String(rate), label: `${rate}%` }))}
-                      value={rateField.value}
-                      onValueChange={rateField.onChange}
-                      disabled={!vendor}
-                    />
-                  )}
-                />
-              )}
-              <Button
-                variant="neutral"
-                aria-label="Remove this charge"
-                disabled={!isGoods && chargeFields.fields.length === 1}
-                onClick={() => chargeFields.remove(index)}
-                className="w-11 px-0 @2xl:mt-[22px]"
-              >
-                <Trash2 aria-hidden="true" className="size-[18px]" />
-              </Button>
-            </div>
-          ))}
-          <Button variant="outline" onClick={() => chargeFields.append(emptyCharge(isGoods ? "freight" : "unloading"))} className="self-start">
+                <Button
+                  variant="neutral"
+                  aria-label="Remove this charge"
+                  disabled={!isGoods && chargeFields.fields.length === 1}
+                  onClick={() => chargeFields.remove(index)}
+                  className="w-11 px-0 @2xl:mt-[22px]"
+                >
+                  <Trash2 aria-hidden="true" className="size-[18px]" />
+                </Button>
+              </div>
+            );
+          })}
+          <Button variant="outline" onClick={() => chargeFields.append(emptyCharge)} className="self-start">
             <Plus aria-hidden="true" className="size-[18px]" />
             Add a charge
           </Button>
 
-          {!isGoods && (
-            <SelectField
-              label="Add this cost to the items of"
-              options={[{ value: NOT_TAGGED, label: "No purchase: a general expense" }, ...purchases.map((purchase) => ({ value: purchase.id, label: purchase.label }))]}
-              value={landedCostFor || NOT_TAGGED}
-              onValueChange={(value) => setValue("landedCostFor", value === NOT_TAGGED ? "" : value)}
-            />
-          )}
+          {!isGoods &&
+            (landsOnPurchase ? (
+              <SelectField
+                label="Add this cost to the items of"
+                options={[{ value: NOT_TAGGED, label: "No purchase: a general expense" }, ...purchases.map((purchase) => ({ value: purchase.id, label: purchase.label }))]}
+                value={landedCostFor || NOT_TAGGED}
+                onValueChange={(value) => setValue("landedCostFor", value === NOT_TAGGED ? "" : value)}
+              />
+            ) : (
+              <p className="text-xs font-semibold text-muted">
+                Only charges under a head that lands on item cost (freight inward, unloading, labour) can be added to a purchase&rsquo;s items.
+              </p>
+            ))}
         </GlassCard>
 
         {isGoods && (

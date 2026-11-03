@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { archivedFilter } from '../common/dto/archivable.js';
 import { dateOnly } from '../common/dates.js';
 import { definedFields } from '../common/dto/defined-fields.js';
+import { assertLedgerNameFree } from '../common/tally/ledger-names.js';
 import { PrismaService } from '../database/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { toBankCashAccountView, type BankCashAccountView } from './bank-cash-account-view.js';
@@ -70,6 +71,7 @@ export class BankCashAccountsService {
       isArchived: false,
     });
     return this.prisma.$transaction(async (tx) => {
+      await assertLedgerNameFree(tx, data.tallyLedgerName ?? data.name);
       if (data.showOnInvoice) await clearOtherInvoiceAccount(tx);
       return toBankCashAccountView(await tx.bankCashAccount.create({ data }));
     });
@@ -82,6 +84,11 @@ export class BankCashAccountsService {
       );
       // Fields left out keep their stored value (definedFields).
       const data = toRow(settleAccount<BankCashAccountView>(stored, definedFields(dto)));
+      // The ledger is the Tally name when there is one, else the account name.
+      const ledgerName = data.tallyLedgerName ?? data.name;
+      if (ledgerName !== (stored.tallyLedgerName ?? stored.name)) {
+        await assertLedgerNameFree(tx, ledgerName, { owner: 'bankCash', id });
+      }
       if (data.showOnInvoice) await clearOtherInvoiceAccount(tx, id);
       return toBankCashAccountView(await tx.bankCashAccount.update({ where: { id }, data }));
     });

@@ -120,8 +120,17 @@ export function LoanDetailScreen({ loanId }: { loanId: string }) {
           )}
           <FactTile label="Goes through">{loan.repaymentAccountName}</FactTile>
           <FactTile label="How the money moved">{DISBURSALS.find((option) => option.value === loan.disbursal)?.label}</FactTile>
-          <FactTile label="Interest ledger">{loan.interestLedgerName ?? (taken ? "Interest on Loan" : "Interest Received")}</FactTile>
-          <FactTile label="TDS on interest">{loan.tdsRatePct ? `${loan.tdsRatePct}%` : "None"}</FactTile>
+          <FactTile label="Interest ledger">
+            {loan.interestLedger.ledger} · {loan.interestLedger.group}
+          </FactTile>
+          <FactTile label="TDS on interest">
+            {loan.tdsRatePct ? `${loan.tdsRatePct}% · ${loan.tdsLedger.ledger}` : "None"}
+          </FactTile>
+          {loan.assetLedger && (
+            <FactTile label="Asset bought">
+              {loan.assetLedger.ledger} · {loan.assetLedger.group}
+            </FactTile>
+          )}
           <FactTile label="Reminder">{loan.reminderDays} days before</FactTile>
           {loan.notes && <FactTile label="Notes">{loan.notes}</FactTile>}
         </dl>
