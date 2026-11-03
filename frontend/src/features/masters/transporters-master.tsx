@@ -58,7 +58,6 @@ export function TransportersMaster({ transporters, vendors, vehicleCounts }: Tra
         { label: "Linked to a vendor", value: formatQuantity(records.filter((transporter) => transporter.vendorId).length) },
         { label: "Vehicles on record", value: formatQuantity(Object.values(vehicleCounts).reduce((sum, count) => sum + count, 0)) },
       ]}
-      importColumns={["Name", "Transporter ID", "Phone", "GTA (Y/N)", "Notes"]}
       footnote="Picked on shipments and e-way bills. Link the vendor record so freight bills land on the right ledger."
     />
   );

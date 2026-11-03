@@ -122,7 +122,7 @@ export function RatesWorkspace({ items, categories, units, customers, book, onCh
             rowActions={[{ label: (level) => `Category discounts of ${level.name}`, icon: <Layers aria-hidden="true" className="size-4" />, onClick: setDiscountsOf }]}
             searchText={(level) => `${level.name} ${level.description ?? ""}`}
             usage={(level) => level.customerCount ?? 0}
-            importColumns={["Name", "Discount %", "Who it is for"]}
+            importMaster="price-levels"
             footnote="Each customer is put on one level on the customer form. A level is taken off MRP; an item without MRP gets its selling price. Used in = customers on the level."
           />
         )}
@@ -182,7 +182,7 @@ export function RatesWorkspace({ items, categories, units, customers, book, onCh
               { label: "Expired", value: formatQuantity(today ? records.filter((rate) => rate.validTill && rate.validTill < today).length : 0), tone: "warning" },
               { label: "In force today", value: formatQuantity(today ? records.filter((rate) => specialRateInForce(rate, today)).length : 0) },
             ]}
-            importColumns={["Customer", "Item SKU or category", "Net rate or discount", "Value", "Valid from", "Valid till"]}
+            importMaster="special-rates"
             footnote="A special rate beats the price level, and one on the item beats one on its category. Rates for the same customer and item may not overlap in dates; an expired one stops applying on its own."
           />
         )}
@@ -204,7 +204,7 @@ export function RatesWorkspace({ items, categories, units, customers, book, onCh
               { label: "Extra discount", render: (slab) => `${slab.discountPct}%`, align: "right" },
             ]}
             searchText={(slab) => slab.title}
-            importColumns={["Item SKU or category", "From quantity", "Extra discount %"]}
+            importMaster="quantity-slabs"
             footnote="The largest slab reached applies, on top of the customer's rate, never below the minimum price. A slab on the item beats one on its category."
           />
         )}

@@ -69,10 +69,7 @@ export function PartiesWorkspace({ role, parties, companyState }: PartiesWorkspa
         <ListToolbar
           actions={
             <>
-              <ImportDialog
-                what={text.many}
-                columns={["Name", "Legal name", "GST treatment", "GSTIN", "State code", "Phone", "Email", "Address", "City", "PIN", "Credit days", "Opening balance"]}
-              />
+              <ImportDialog what={text.many} master={`${role}s`} />
               <Link href={`${text.path}/new`} className={buttonClasses("primary", undefined, "lg")}>
                 <Plus aria-hidden="true" />
                 New {text.one}

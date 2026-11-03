@@ -72,7 +72,6 @@ export function VehiclesMaster({ vehicles, transporters }: VehiclesMasterProps) 
         { label: "Hired", value: formatQuantity(records.filter((vehicle) => vehicle.ownership === "hired").length) },
         { label: "Total capacity", value: `${formatQuantity(records.reduce((sum, vehicle) => sum + vehicle.capacityTons, 0))} t` },
       ]}
-      importColumns={["Vehicle number", "Type", "Capacity (tons)", "Own / hired", "Transporter", "Driver", "Driver's phone"]}
       footnote="Picked on invoices, e-way bills and shipments; global search finds documents by vehicle number."
     />
   );

@@ -23,7 +23,7 @@ export class PrismaExceptionFilter
   }
 }
 
-function toHttpException(
+export function toHttpException(
   error: Prisma.PrismaClientKnownRequestError,
 ): HttpException | null {
   switch (error.code) {

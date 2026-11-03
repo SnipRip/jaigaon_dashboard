@@ -50,7 +50,7 @@ export function GodownsMaster() {
         { label: "Yards", value: formatQuantity(records.filter((godown) => godown.kind === "yard").length) },
         { label: "Default", value: records.find((godown) => godown.isDefault)?.name ?? "None" },
       ]}
-      importColumns={["Name", "Kind", "Address", "In charge", "Phone"]}
+      importMaster="godowns"
       footnote="Stock is held per godown once stock moves are recorded; until then items show one total."
     />
   );

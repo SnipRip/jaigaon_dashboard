@@ -5,5 +5,7 @@ import { GodownsService } from './godowns.service.js';
 @Module({
   controllers: [GodownsController],
   providers: [GodownsService],
+  // The importer (src/imports) saves rows through it.
+  exports: [GodownsService],
 })
 export class GodownsModule {}

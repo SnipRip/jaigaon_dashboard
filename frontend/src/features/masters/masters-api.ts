@@ -1,15 +1,18 @@
-// Calls for the units, brands, godowns and bank & cash masters, and the conversion
+// Calls for the units, brands, godowns, bank & cash and expense & income heads
+// masters, and the conversion
 // between the backend's shapes and the ones RecordMaster edits.
 import { apiRequest } from "@/lib/api-client";
+import type { AccountHeadView } from "@/types/account-head";
 import type { BankCashAccountView } from "@/types/bank-cash";
 import type { BrandView, GodownView, UnitView } from "@/types/item-master";
 import type { MasterRecord, RecordPersistence } from "./record-master";
-import type { Brand, Godown, MoneyAccount, MoneyAccountKind, Unit, UnitKind } from "./types";
+import type { AccountHead, Brand, Godown, HeadAllocation, HeadGst, HeadNature, MoneyAccount, MoneyAccountKind, Unit, UnitKind } from "./types";
 
 export const UNITS_PATH = "/units";
 export const BRANDS_PATH = "/brands";
 export const GODOWNS_PATH = "/godowns";
 export const BANK_CASH_PATH = "/bank-cash-accounts";
+export const ACCOUNT_HEADS_PATH = "/account-heads";
 
 /** The list RecordMaster shows: archived records too, behind its Archived filter. */
 export const withArchived = (path: string) => `${path}?includeArchived=true`;
@@ -63,6 +66,22 @@ export const toMoneyAccount = (account: BankCashAccountView): MoneyAccount => ({
   archived: account.isArchived,
 });
 
+// DIRECT_EXPENSE ↔ "direct-expense": the values the screens already use.
+const fromEnum = <T extends string>(value: string) => value.toLowerCase().replace(/_/g, "-") as T;
+const toEnum = (value: unknown) => String(value).toUpperCase().replace(/-/g, "_");
+
+export const toAccountHead = (head: AccountHeadView): AccountHead => ({
+  id: head.id,
+  name: head.name,
+  nature: fromEnum<HeadNature>(head.nature),
+  gst: head.gst ? fromEnum<HeadGst>(head.gst) : undefined,
+  gstRatePct: head.gstRatePct ?? undefined,
+  allocation: head.allocation ? fromEnum<HeadAllocation>(head.allocation) : undefined,
+  notes: head.notes ?? undefined,
+  tallyGroup: head.tallyGroup,
+  archived: head.isArchived,
+});
+
 // Form values (blanks left out) → request bodies. A blank optional field is
 // sent as null so an edit can clear it.
 export type Changes = Record<string, unknown>;
@@ -107,6 +126,17 @@ const bankCashBody = (changes: Changes) => ({
   tallyLedgerName: changes.tallyLedgerName ?? null,
 });
 
+// An income head's GST and allocation fields are hidden on the form, so they
+// arrive blank and go as null: the backend refuses them on income heads.
+const accountHeadBody = (changes: Changes) => ({
+  name: changes.name,
+  nature: toEnum(changes.nature),
+  gst: changes.gst ? toEnum(changes.gst) : null,
+  gstRatePct: changes.gstRatePct ? Number(changes.gstRatePct) : null,
+  allocation: changes.allocation ? toEnum(changes.allocation) : null,
+  notes: changes.notes ?? null,
+});
+
 /**
  * Create, update, archive and delete through one route. `onSaved` runs after
  * each change, to reload the list (making one godown the default changes
@@ -136,3 +166,4 @@ export const unitPersistence = (onSaved: () => void) => persistence(UNITS_PATH, 
 export const brandPersistence = (onSaved: () => void) => persistence(BRANDS_PATH, toBrand, brandBody, onSaved);
 export const godownPersistence = (onSaved: () => void) => persistence(GODOWNS_PATH, toGodown, godownBody, onSaved);
 export const bankCashPersistence = (onSaved: () => void) => persistence(BANK_CASH_PATH, toMoneyAccount, bankCashBody, onSaved);
+export const accountHeadPersistence = (onSaved: () => void) => persistence(ACCOUNT_HEADS_PATH, toAccountHead, accountHeadBody, onSaved);

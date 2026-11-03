@@ -52,7 +52,7 @@ export function BrandsMaster() {
         { label: "Not on any item", value: formatQuantity(records.filter((brand) => !brand.itemCount).length) },
       ]}
       usage={(brand) => brand.itemCount ?? 0}
-      importColumns={["Brand name", "Category", "Authorised (Y/N)", "Notes"]}
+      importMaster="brands"
       footnote="Brands are picked on the item form and searched on Rate enquiry. Used in = items carrying the brand."
     />
   );

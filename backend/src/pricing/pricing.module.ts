@@ -22,5 +22,7 @@ import { SpecialRatesService } from './special-rates.service.js';
     QuantitySlabsService,
     RateQuoteService,
   ],
+  // The importer (src/imports) saves rows through them.
+  exports: [PriceLevelsService, SpecialRatesService, QuantitySlabsService],
 })
 export class PricingModule {}

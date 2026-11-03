@@ -94,7 +94,7 @@ export function BankCashMaster() {
         { label: "Overdraft drawn", value: formatInr(Math.abs(sum(records.filter((account) => account.kind === "overdraft" && account.openingBalance < 0)))), tone: "warning" },
         { label: "Opening cash", value: formatInr(sum(records.filter((account) => account.kind === "cash"))) },
       ]}
-      importColumns={["Account name", "Kind", "Bank", "Branch", "Account number", "IFSC", "UPI ID", "Opening balance", "Balance as of", "Tally ledger name"]}
+      importMaster="bank-cash"
       footnote="Receipts and payments will go through these accounts. Each is a Tally ledger under the group shown; balances are opening balances until postings exist."
     />
   );

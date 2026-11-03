@@ -5,5 +5,7 @@ import { HsnCodesService } from './hsn-codes.service.js';
 @Module({
   controllers: [HsnCodesController],
   providers: [HsnCodesService],
+  // The importer (src/imports) saves rows through it.
+  exports: [HsnCodesService],
 })
 export class HsnCodesModule {}

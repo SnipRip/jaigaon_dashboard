@@ -1,6 +1,7 @@
 // Shapes of the smaller masters (masters-plan.md, sections A, C, F). Each is
-// edited through RecordMaster. Brands, units and godowns are saved through
-// the backend (masters-api.ts); the rest are still sample data.
+// edited through RecordMaster. Brands, units, godowns, bank & cash and
+// expense & income heads are saved through the backend (masters-api.ts); the
+// rest are still sample data.
 import type { MasterRecord } from "./record-master";
 
 export interface Brand extends MasterRecord {
@@ -82,13 +83,35 @@ export interface Vehicle extends MasterRecord {
   driverPhone?: string;
 }
 
+/** follows-bill: takes the goods bill's rate; own-rate: the head's own rate; none: no GST. */
+export type HeadGst = "follows-bill" | "own-rate" | "none";
+/** Where an expense's cost lands for actual profit (SOW 14). */
+export type HeadAllocation = "item-cost" | "invoice" | "shipment" | "overhead";
+/** The Tally group the head's ledger goes under. */
+export type HeadNature = "direct-expense" | "indirect-expense" | "direct-income" | "indirect-income";
+
+/** An expense or income head: a Tally ledger (masters-plan.md rows 23 and 24). */
+export interface AccountHead extends MasterRecord {
+  /** The Tally ledger name. */
+  name: string;
+  nature: HeadNature;
+  /** Expense heads only. */
+  gst?: HeadGst;
+  /** Own-rate heads only. */
+  gstRatePct?: number;
+  /** Expense heads only. */
+  allocation?: HeadAllocation;
+  notes?: string;
+  /** Tally group the ledger goes under (from the backend). */
+  tallyGroup?: string;
+}
+
+/** The sample expense heads the sample expense, shipment and report screens still read. */
 export interface ExpenseHead extends MasterRecord {
   name: string;
   kind: "direct" | "indirect";
-  /** follows-bill: takes the goods bill's rate; own-rate: the rate below; none: no GST. */
-  gst: "follows-bill" | "own-rate" | "none";
+  gst: HeadGst;
   gstRatePct?: number;
-  /** Where the cost lands for actual profit (SOW 14). */
-  allocation: "item-cost" | "invoice" | "shipment" | "overhead";
+  allocation: HeadAllocation;
   notes?: string;
 }

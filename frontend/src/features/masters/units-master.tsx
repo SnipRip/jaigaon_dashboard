@@ -65,7 +65,7 @@ export function UnitsMaster() {
         { label: "In use on items", value: formatQuantity(records.filter((unit) => unit.itemCount).length) },
       ]}
       usage={(unit) => unit.itemCount ?? 0}
-      importColumns={["Symbol", "Name", "Measures", "Decimals", "UQC"]}
+      importMaster="units"
       footnote="Conversions such as 1 bundle = 25 kg are set on each item. Used in = items that set this as their own base unit."
     />
   );

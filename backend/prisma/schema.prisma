@@ -50,6 +50,7 @@ model User {
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
   sessions           Session[]
+  importJobs         ImportJob[]
 
   @@index([accessRoleId])
 }
@@ -857,4 +858,105 @@ model LoanEntry {
   createdAt      DateTime         @default(now())
 
   @@index([loanId, entryDate])
+}
+
+// ---------------------------------------------------------------------------
+// Expense and income heads (masters-plan.md, rows 23 and 24). Each is a Tally
+// ledger whose group follows its nature (account-head-rules.ts): Direct or
+// Indirect Expenses, Direct or Indirect Incomes. The name is the ledger name.
+// ---------------------------------------------------------------------------
+
+enum HeadNature {
+  DIRECT_EXPENSE
+  INDIRECT_EXPENSE
+  DIRECT_INCOME
+  INDIRECT_INCOME
+}
+
+// How an expense head's bills carry GST.
+enum HeadGst {
+  // Takes the goods bill's rate (freight and loading on a goods bill).
+  FOLLOWS_BILL
+  OWN_RATE
+  NONE
+}
+
+// Where an expense head's cost lands for actual profit (SOW 14).
+enum HeadAllocation {
+  // Landed cost, spread over the items of a purchase.
+  ITEM_COST
+  INVOICE
+  SHIPMENT
+  OVERHEAD
+}
+
+// GST and allocation belong to expense heads only, a rate to OWN_RATE only,
+// and an indirect expense is always an overhead: CHECK constraints in
+// migration 20261103072017_account_heads keep that true.
+model AccountHead {
+  id          String          @id @default(uuid()) @db.Uuid
+  // The Tally ledger name.
+  name        String          @unique
+  nature      HeadNature
+  gst         HeadGst?
+  gstRatePct  Decimal?        @db.Decimal(5, 2)
+  allocation  HeadAllocation?
+  notes       String?
+  isArchived  Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Master imports from Excel (src/imports). A job remembers the next row to
+// read, so uploading the same rows again after a failure carries on from
+// there instead of starting over. Rows that cannot be saved are kept with
+// the reason, for the "skipped rows" sheet.
+// ---------------------------------------------------------------------------
+
+enum ImportStatus {
+  RUNNING
+  // Stopped part way (server restart, error); the same file resumes it.
+  STOPPED
+  DONE
+}
+
+model ImportJob {
+  id          String             @id @default(uuid()) @db.Uuid
+  // Importer key: "units", "customers" … (src/imports/importers).
+  master      String
+  fileName    String
+  // SHA-256 of the master, headings and cell values: the same rows saved
+  // again in Excel still match.
+  fingerprint String
+  // The uploaded headings, for the skipped-rows sheet.
+  headers     Json
+  totalRows   Int
+  // Index of the next data row to read (0 = the row under the headings).
+  nextRow     Int                @default(0)
+  created     Int                @default(0)
+  updated     Int                @default(0)
+  skipped     Int                @default(0)
+  status      ImportStatus       @default(RUNNING)
+  error       String?
+  userId      String             @db.Uuid
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  skippedRows ImportSkippedRow[]
+
+  @@index([master, fingerprint])
+}
+
+model ImportSkippedRow {
+  id        String    @id @default(uuid()) @db.Uuid
+  jobId     String    @db.Uuid
+  job       ImportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  // The row number as Excel shows it (headings are row 1).
+  rowNumber Int
+  // The row's cells as uploaded, in heading order.
+  cells     Json
+  reason    String
+
+  @@unique([jobId, rowNumber])
 }

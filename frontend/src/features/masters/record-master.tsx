@@ -63,8 +63,8 @@ interface RecordMasterProps<T extends MasterRecord> {
   usage?: (record: T) => number;
   /** Defaults for a new record. */
   blank?: Partial<T>;
-  /** Spreadsheet columns for the import dialog. */
-  importColumns: string[];
+  /** The backend importer for the Import dialog (backend/src/imports); left out while the master is sample data. */
+  importMaster?: string;
   /** A line under the list, e.g. where these records are picked. */
   footnote?: string;
   persist?: RecordPersistence<T>;
@@ -90,7 +90,7 @@ export function RecordMaster<T extends MasterRecord>({
   stats,
   usage,
   blank,
-  importColumns,
+  importMaster,
   footnote,
   persist,
   createOnlyFields = [],
@@ -191,7 +191,7 @@ export function RecordMaster<T extends MasterRecord>({
         <ListToolbar
           actions={
             <>
-              <ImportDialog what={many} columns={importColumns} />
+              <ImportDialog what={many} master={importMaster} />
               <Button size="lg" onClick={() => setEditing("new")}>
                 <Plus aria-hidden="true" />
                 New {one}

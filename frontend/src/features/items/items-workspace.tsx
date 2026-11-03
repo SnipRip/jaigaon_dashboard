@@ -116,7 +116,7 @@ export function ItemsWorkspace({ catalog }: { catalog: ItemCatalog }) {
                   <FolderTree aria-hidden="true" />
                   Categories
                 </Link>
-                <ImportDialog what="items" columns={["Name", "SKU", "Category", "Sub-category", "Brand", "HSN", "Unit", "MRP", "Selling price", "Cost price", "Opening stock", "Reorder level"]} />
+                <ImportDialog what="items" master="items" />
                 <Link href="/items/groups/new" className={buttonClasses("neutral")}>
                   <Layers aria-hidden="true" />
                   New item group

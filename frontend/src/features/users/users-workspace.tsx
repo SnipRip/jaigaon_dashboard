@@ -137,7 +137,6 @@ export function UsersWorkspace({ activity, modules }: UsersWorkspaceProps) {
               { label: "Password not chosen yet", value: formatQuantity(records.filter((user) => user.status === "invited").length) },
               { label: "Roles", value: formatQuantity(roles.length) },
             ]}
-            importColumns={["Name", "Email", "Phone", "Role"]}
             footnote="A new account signs in with the temporary password and must choose its own before using the app. Your own profile and password are under Settings."
           />
           {resetNotice && <FormMessage tone="success">{resetNotice}</FormMessage>}

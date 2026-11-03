@@ -178,7 +178,7 @@ export function LoansMaster() {
         },
       ]}
       rowActions={[{ label: (loan) => `Schedule and entries of ${loan.name}`, icon: <CalendarClock aria-hidden="true" className="size-4" />, onClick: (loan) => router.push(loanHref(loan.id)) }]}
-      importColumns={["Loan name", "Direction", "Kind", "Lender or borrower", "Loan account number", "Amount", "Interest rate", "Repayment", "Tenure", "EMI", "First EMI on", "Repay by"]}
+      importMaster="loans"
       footnote="Each loan is a Tally ledger: Secured or Unsecured Loans when we owe it, Loans & Advances or Deposits when it is owed to us. Every entry is a Payment, Receipt or Journal voucher."
     />
   );

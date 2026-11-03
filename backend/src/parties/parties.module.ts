@@ -5,5 +5,7 @@ import { PartiesService } from './parties.service.js';
 @Module({
   controllers: [PartiesController],
   providers: [PartiesService],
+  // The importer (src/imports) saves rows through it.
+  exports: [PartiesService],
 })
 export class PartiesModule {}

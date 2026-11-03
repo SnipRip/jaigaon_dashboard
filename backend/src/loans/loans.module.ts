@@ -7,5 +7,7 @@ import { LoansService } from './loans.service.js';
   imports: [NumberSeriesModule],
   controllers: [LoansController],
   providers: [LoansService],
+  // The importer (src/imports) saves rows through it.
+  exports: [LoansService],
 })
 export class LoansModule {}

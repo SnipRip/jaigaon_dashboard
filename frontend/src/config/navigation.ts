@@ -111,7 +111,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/masters/hsn", label: "HSN / SAC codes", icon: Hash, summary: "Goods and service codes with their GST rate and rate history" },
       { href: "/masters/tax-export", label: "GST & export setup", icon: Globe, summary: "Company GST state, LUT register, IEC, AD code and the export document checklist" },
       { href: "/masters/bank-cash", label: "Bank & cash", icon: Landmark, summary: "Bank accounts and cash books that receipts and payments go through" },
-      { href: "/masters/expense-heads", label: "Expense heads", icon: Wallet, summary: "Freight, labour, customs and other heads, with GST behaviour and where each cost lands" },
+      { href: "/masters/expense-heads", label: "Expense & income heads", icon: Wallet, summary: "Expense and other-income heads: each a Tally ledger under Direct or Indirect Expenses or Incomes, with GST behaviour and where each cost lands" },
       { href: "/masters/number-series", label: "Number series", icon: ListOrdered, summary: "How every document and code is numbered, and its Tally voucher type" },
     ],
   },

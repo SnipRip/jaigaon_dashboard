@@ -10,6 +10,7 @@ import { FormMessage } from "@/components/ui/form-message";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { GlassModal } from "@/components/ui/glass-modal";
 import { GlassTable } from "@/components/ui/glass-table";
+import { ImportDialog } from "@/components/ui/import-dialog";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { SearchField } from "@/components/ui/search-field";
 import { StatusChip } from "@/components/ui/status-chip";
@@ -72,10 +73,13 @@ export function HsnWorkspace({ codes, gstRates, onChanged }: HsnWorkspaceProps) 
       <GlassCard className="flex flex-col gap-3.5">
         <ListToolbar
           actions={
-            <Button size="lg" onClick={() => setAdding(true)}>
-              <Plus aria-hidden="true" />
-              New code
-            </Button>
+            <>
+              <ImportDialog what="HSN / SAC codes" master="hsn-codes" />
+              <Button size="lg" onClick={() => setAdding(true)}>
+                <Plus aria-hidden="true" />
+                New code
+              </Button>
+            </>
           }
         >
           <CardTitle>Codes · {codes.length}</CardTitle>

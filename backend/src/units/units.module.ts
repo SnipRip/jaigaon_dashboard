@@ -5,5 +5,7 @@ import { UnitsService } from './units.service.js';
 @Module({
   controllers: [UnitsController],
   providers: [UnitsService],
+  // The importer (src/imports) saves rows through it.
+  exports: [UnitsService],
 })
 export class UnitsModule {}
