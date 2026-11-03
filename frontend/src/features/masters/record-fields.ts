@@ -10,12 +10,14 @@ interface FieldBase {
   hint?: string;
   /** Takes the full row of the form. */
   wide?: boolean;
+  /** Shown, checked and saved only while another field has one of these values (a cash account has no bank fields). */
+  showWhen?: { key: string; values: string[] };
 }
 
 export type FieldSpec = FieldBase &
   (
     | { kind: "text"; placeholder?: string; required?: boolean; pattern?: RegExp; message?: string; maxLength?: number; upperCase?: boolean }
-    | { kind: "number"; placeholder?: string; required?: boolean; decimals?: number }
+    | { kind: "number"; placeholder?: string; required?: boolean; decimals?: number; /** Allows a minus sign (an overdraft's balance). */ signed?: boolean }
     | { kind: "select"; options: SelectOption[]; required?: boolean }
     | { kind: "toggle"; onLabel: string; offLabel: string }
     | { kind: "date"; required?: boolean }
@@ -25,17 +27,27 @@ export type FieldSpec = FieldBase &
 export type FormValues = Record<string, string | boolean>;
 type StoredValue = string | number | boolean | undefined;
 
-const decimalPattern = (decimals: number) => new RegExp(decimals ? `^\\d+(\\.\\d{1,${decimals}})?$` : "^\\d+$");
+const decimalPattern = (decimals: number, signed = false) =>
+  new RegExp(`^${signed ? "-?" : ""}\\d+${decimals ? `(\\.\\d{1,${decimals}})?` : ""}$`);
+
+/** Whether a field is in play for these values (see `showWhen`). */
+export const isShown = (field: FieldSpec, values: Record<string, unknown>) =>
+  !field.showWhen || field.showWhen.values.includes(String(values[field.showWhen.key] ?? ""));
+
+const isRequired = (field: FieldSpec) => "required" in field && Boolean(field.required);
 
 export function schemaFor(fields: FieldSpec[]): z.ZodType<FormValues, FormValues> {
   const shape: Record<string, z.ZodType> = {};
-  for (const field of fields) {
+  for (const spec of fields) {
+    // A conditional field may be missing (the form drops it while hidden); its
+    // "required" is checked below, only while it shows.
+    const field = spec.showWhen && isRequired(spec) ? ({ ...spec, required: false } as FieldSpec) : spec;
     switch (field.kind) {
       case "toggle":
         shape[field.key] = z.boolean();
         break;
       case "number": {
-        const number = z.string().trim().regex(decimalPattern(field.decimals ?? 2), "Enter a number");
+        const number = z.string().trim().regex(decimalPattern(field.decimals ?? 2, field.signed), "Enter a number");
         shape[field.key] = field.required ? number : z.union([z.literal(""), number]);
         break;
       }
@@ -54,9 +66,18 @@ export function schemaFor(fields: FieldSpec[]): z.ZodType<FormValues, FormValues
         shape[field.key] = required ? text.min(1, `Enter the ${field.label.toLowerCase()}`) : z.union([z.literal(""), text]);
       }
     }
+    if (spec.showWhen) shape[spec.key] = shape[spec.key].optional();
   }
+  const requiredWhenShown = fields.filter((field) => field.showWhen && isRequired(field));
+  const schema = z.object(shape).superRefine((values, context) => {
+    for (const field of requiredWhenShown) {
+      if (isShown(field, values) && !String(values[field.key] ?? "").trim()) {
+        context.addIssue({ code: "custom", path: [field.key], message: `Enter the ${field.label.toLowerCase()}` });
+      }
+    }
+  });
   // The shape is built at run time, so zod cannot infer it; every value is a string or a boolean.
-  return z.object(shape) as unknown as z.ZodType<FormValues, FormValues>;
+  return schema as unknown as z.ZodType<FormValues, FormValues>;
 }
 
 export function toFormValues(fields: FieldSpec[], record?: Record<string, unknown>): FormValues {
@@ -73,6 +94,7 @@ export function fromFormValues(fields: FieldSpec[], values: FormValues): Record<
   return Object.fromEntries(
     fields.map((field): [string, StoredValue] => {
       const value = values[field.key];
+      if (!isShown(field, values)) return [field.key, undefined];
       if (field.kind === "toggle") return [field.key, Boolean(value)];
       const text = String(value ?? "").trim();
       if (!text) return [field.key, undefined];

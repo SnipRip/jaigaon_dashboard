@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { FilterGroup } from "@/components/ui/filter-group";
@@ -9,7 +9,7 @@ import { FormMessage } from "@/components/ui/form-message";
 import { SelectField } from "@/components/ui/select-field";
 import { TextArea } from "@/components/ui/text-area";
 import { TextField } from "@/components/ui/text-field";
-import { schemaFor, toFormValues, type FieldSpec, type FormValues } from "./record-fields";
+import { isShown, schemaFor, toFormValues, type FieldSpec, type FormValues } from "./record-fields";
 
 interface RecordFormProps {
   fields: FieldSpec[];
@@ -28,13 +28,15 @@ export function RecordForm({ fields, initial, submitLabel, onSubmit, onCancel, e
     control,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>({ resolver: zodResolver(schemaFor(fields)), defaultValues: toFormValues(fields, initial) });
+    // A hidden field (showWhen) leaves the values, so it is neither checked nor saved.
+  } = useForm<FormValues>({ resolver: zodResolver(schemaFor(fields)), defaultValues: toFormValues(fields, initial), shouldUnregister: true });
+  const values = useWatch({ control });
   const errorOf = (key: string) => errors[key]?.message as string | undefined;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-3.5">
       <div className="grid gap-3.5 sm:grid-cols-2">
-        {fields.map((field) => {
+        {fields.filter((field) => isShown(field, values)).map((field) => {
           const span = field.wide || field.kind === "textarea" ? "sm:col-span-2" : undefined;
           switch (field.kind) {
             case "select":

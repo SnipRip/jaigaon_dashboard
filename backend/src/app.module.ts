@@ -4,6 +4,7 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AccessRolesModule } from './access-roles/access-roles.module.js';
 import { AuthModule } from './auth/auth.module.js';
+import { BankCashAccountsModule } from './bank-cash-accounts/bank-cash-accounts.module.js';
 import { BrandsModule } from './brands/brands.module.js';
 import { CompanyProfileModule } from './company-profile/company-profile.module.js';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter.js';
@@ -18,6 +19,7 @@ import { HsnCodesModule } from './hsn-codes/hsn-codes.module.js';
 import { ItemCategoriesModule } from './item-categories/item-categories.module.js';
 import { ItemGroupsModule } from './item-groups/item-groups.module.js';
 import { ItemsModule } from './items/items.module.js';
+import { LoansModule } from './loans/loans.module.js';
 import { LutsModule } from './luts/luts.module.js';
 import { NumberSeriesModule } from './number-series/number-series.module.js';
 import { PartiesModule } from './parties/parties.module.js';
@@ -48,6 +50,8 @@ import { WhatsappOptInsModule } from './whatsapp-optins/whatsapp-optins.module.j
     CompanyProfileModule,
     LutsModule,
     NumberSeriesModule,
+    BankCashAccountsModule,
+    LoansModule,
     WhatsappOptInsModule,
     HealthModule,
   ],

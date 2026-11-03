@@ -64,6 +64,8 @@ export const KIND_RULES: Record<NumberedKind, KindRules> = {
   PAYMENT: { label: 'payment', ...GST_DOCUMENT, scope: 'PAYMENT' },
   CREDIT_NOTE: { label: 'credit note', ...GST_DOCUMENT, scope: 'CREDIT_NOTE' },
   DEBIT_NOTE: { label: 'debit note', ...GST_DOCUMENT, scope: 'DEBIT_NOTE' },
+  // Entries where no money moves, such as interest credited to a loan.
+  JOURNAL: { label: 'journal', ...OTHER_DOCUMENT, scope: 'JOURNAL' },
   STOCK_JOURNAL: {
     label: 'stock journal',
     ...OTHER_DOCUMENT,

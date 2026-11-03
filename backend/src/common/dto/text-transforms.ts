@@ -20,5 +20,12 @@ export const codeOrNull = ({ value }: { value: unknown }) => {
   return code === '' ? null : code;
 };
 
+/** Trimmed, lower case, blank → null: a UPI ID. */
+export const lowerCaseOrNull = ({ value }: { value: unknown }) => {
+  if (typeof value !== 'string') return value;
+  const text = value.trim().toLowerCase();
+  return text === '' ? null : text;
+};
+
 export const lowerCaseEmail = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim().toLowerCase() : value;

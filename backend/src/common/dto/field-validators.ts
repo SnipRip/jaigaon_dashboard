@@ -10,6 +10,10 @@ import { ISO_DATE_PATTERN } from '../dates.js';
 export const IsAmount = () =>
   applyDecorators(IsNumber({ maxDecimalPlaces: 2 }), Min(0), Max(9_999_999_999));
 
+/** Rupees that may be below zero, such as an overdraft's opening balance. */
+export const IsSignedAmount = () =>
+  applyDecorators(IsNumber({ maxDecimalPlaces: 2 }), Min(-9_999_999_999), Max(9_999_999_999));
+
 /** A stock or conversion quantity, up to 3 decimals. */
 export const IsQuantity = (decimals = 3) =>
   applyDecorators(IsNumber({ maxDecimalPlaces: decimals }), Min(0), Max(9_999_999_999));

@@ -1,5 +1,7 @@
 // SAMPLE DATA for the smaller masters. Brand names are from the brochure;
 // bank accounts, transporters, vehicles and phone numbers are invented.
+// Bank & cash is real since 3 Nov 2026: `moneyAccounts` is no longer shown
+// there, but the sample expense and payment screens still read it.
 import type { Brand, ExpenseHead, Godown, MoneyAccount, Transporter, Unit, Vehicle } from "./types";
 
 export const brands: Brand[] = [
@@ -33,9 +35,9 @@ export const godowns: Godown[] = [
 ];
 
 export const moneyAccounts: MoneyAccount[] = [
-  { id: "sbi-current", name: "SBI current account", kind: "bank", bankName: "State Bank of India (sample)", accountNumber: "00000000000101", ifsc: "SBIN0000001", branch: "Jaigaon", openingBalance: 450000, balance: 1286400, onInvoice: true },
-  { id: "hdfc-od", name: "HDFC OD account", kind: "bank", bankName: "HDFC Bank (sample)", accountNumber: "00000000000202", ifsc: "HDFC0000002", branch: "Siliguri", openingBalance: -150000, balance: -312000, onInvoice: false },
-  { id: "cash", name: "Cash in hand", kind: "cash", openingBalance: 25000, balance: 41850, onInvoice: false },
+  { id: "sbi-current", name: "SBI current account", kind: "bank", bankName: "State Bank of India (sample)", accountNumber: "00000000000101", ifsc: "SBIN0000001", branch: "Jaigaon", openingBalance: 450000, openingDate: "2026-04-01", showOnInvoice: true },
+  { id: "hdfc-od", name: "HDFC OD account", kind: "overdraft", bankName: "HDFC Bank (sample)", accountNumber: "00000000000202", ifsc: "HDFC0000002", branch: "Siliguri", openingBalance: -150000, openingDate: "2026-04-01", showOnInvoice: false },
+  { id: "cash", name: "Cash in hand", kind: "cash", openingBalance: 25000, openingDate: "2026-04-01", showOnInvoice: false },
 ];
 
 export const transporters: Transporter[] = [

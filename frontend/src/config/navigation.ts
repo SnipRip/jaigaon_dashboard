@@ -12,6 +12,7 @@ import {
   FileText,
   FolderOpen,
   Globe,
+  HandCoins,
   Hash,
   LayoutDashboard,
   MessageCircle,
@@ -89,6 +90,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Accounts",
     items: [
       { href: "/payments", label: "Payments & outstanding", icon: CreditCard, summary: "Receipts, vendor payments, what is owed, ageing, ledgers and the MSME 45-day rule" },
+      { href: "/loans", label: "Loans & advances", icon: HandCoins, summary: "Loans we owe and loans or deposits owed to us: schedules, reminders and the Tally voucher for every entry" },
       { href: "/profit", label: "Actual profit", icon: TrendingUp, summary: "Sales value less purchase cost and allocated expenses, by invoice, shipment, customer and item" },
       { href: "/reports", label: "Reports & MIS", icon: ChartColumn, summary: "Sales, purchase, GST, stock, money and export reports" },
     ],

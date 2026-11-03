@@ -1,12 +1,13 @@
-import { BadgeCheck, Building2, Container, Globe, Hash, Landmark, ListOrdered, MessageCircle, Package, Ruler, Tag, Truck, Users, Wallet, Warehouse } from "lucide-react";
+import { BadgeCheck, Building2, Container, Globe, HandCoins, Hash, Landmark, ListOrdered, MessageCircle, Package, Ruler, Tag, Truck, Users, Wallet, Warehouse } from "lucide-react";
 import type { Metadata } from "next";
 import { SampleDataNotice } from "@/components/ui/sample-data-notice";
 import { HSN_CODES_PATH } from "@/features/hsn/hsn-api";
 import { ITEM_GROUPS_PATH, ITEMS_PATH } from "@/features/items/item-paths";
+import { LOANS_PATH } from "@/features/loans/loans-api";
 import { LiveCount } from "@/features/masters/live-count";
-import { BRANDS_PATH, GODOWNS_PATH, UNITS_PATH } from "@/features/masters/masters-api";
+import { BANK_CASH_PATH, BRANDS_PATH, GODOWNS_PATH, UNITS_PATH } from "@/features/masters/masters-api";
 import { MastersHub } from "@/features/masters/masters-hub";
-import { expenseHeads, moneyAccounts, transporters, vehicles } from "@/features/masters/sample-data";
+import { expenseHeads, transporters, vehicles } from "@/features/masters/sample-data";
 import { CONFIGURED_SERIES_PATH } from "@/features/number-series/number-series-api";
 import { PARTIES_PATH } from "@/features/parties/parties-api";
 import { PRICE_LEVELS_PATH, SPECIAL_RATES_PATH } from "@/features/rates/rates-api";
@@ -20,7 +21,7 @@ const live = <T extends { archived?: boolean }>(records: T[]) => records.filter(
 export default function MastersPage() {
   return (
     <>
-      <SampleDataNotice>Customers, vendors, items, brands, units, godowns, HSN codes, price levels, special rates, the LUT register and number series are live. The other counts are still sample data.</SampleDataNotice>
+      <SampleDataNotice>Customers, vendors, items, brands, units, godowns, HSN codes, price levels, special rates, the LUT register, number series, bank & cash accounts and loans are live. The other counts are still sample data.</SampleDataNotice>
       <MastersHub
         groups={[
           {
@@ -68,7 +69,8 @@ export default function MastersPage() {
           {
             label: "Money and numbering",
             cards: [
-              { href: "/masters/bank-cash", title: "Bank & cash", icon: Landmark, description: "Bank accounts and cash books that receipts and payments go through.", count: `${live(moneyAccounts)} accounts` },
+              { href: "/masters/bank-cash", title: "Bank & cash", icon: Landmark, description: "Bank accounts and cash books that receipts and payments go through.", count: <LiveCount path={BANK_CASH_PATH} noun={["account", "accounts"]} /> },
+              { href: "/loans", title: "Loans", icon: HandCoins, description: "Loans we owe and loans, advances and deposits owed to us, with schedules and reminders.", count: <LiveCount path={LOANS_PATH} noun={["loan", "loans"]} /> },
               { href: "/masters/expense-heads", title: "Expense heads", icon: Wallet, description: "Freight, labour, customs and overheads, with GST behaviour and where each cost lands.", count: `${live(expenseHeads)} heads` },
               { href: "/masters/number-series", title: "Number series", icon: ListOrdered, description: "How every document and code is numbered: pattern, restart, Tally voucher type.", count: <LiveCount path={CONFIGURED_SERIES_PATH} noun={["set up", "set up"]} /> },
             ],

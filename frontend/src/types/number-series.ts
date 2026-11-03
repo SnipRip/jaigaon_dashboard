@@ -10,6 +10,7 @@ export type NumberedKind =
   | "PAYMENT"
   | "CREDIT_NOTE"
   | "DEBIT_NOTE"
+  | "JOURNAL"
   | "STOCK_JOURNAL"
   | "SHIPMENT"
   | "EXPENSE"

@@ -3,6 +3,7 @@ import { SampleDataNotice } from "@/components/ui/sample-data-notice";
 import { AttentionList } from "@/features/dashboard/attention-list";
 import { attentionItems, datedAlerts, kpis, pendingQuotations, shipmentCounts, shipmentRows, tradingWeeks } from "@/features/dashboard/dashboard-data";
 import { KpiCards } from "@/features/dashboard/kpi-cards";
+import { LoanRemindersCard } from "@/features/loans/loan-reminders-card";
 import { PendingQuotationsTable } from "@/features/dashboard/pending-quotations-table";
 import { ShipmentsCard } from "@/features/dashboard/shipments-card";
 import { TradingChart } from "@/features/dashboard/trading-chart";
@@ -17,6 +18,8 @@ export default function DashboardPage() {
     <>
       <SampleDataNotice />
       <KpiCards kpis={kpis} />
+      {/* Real data, for those who may see loans; hidden for everyone else. */}
+      <LoanRemindersCard />
       <div className={SPLIT_ROW}>
         <TradingChart data={tradingWeeks} />
         <AttentionList items={attentionItems} dated={datedAlerts} />

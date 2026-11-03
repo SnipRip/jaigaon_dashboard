@@ -37,18 +37,27 @@ export interface Godown extends MasterRecord {
   phone?: string;
 }
 
+export type MoneyAccountKind = "bank" | "overdraft" | "cash";
+
 export interface MoneyAccount extends MasterRecord {
   name: string;
-  kind: "bank" | "cash";
+  /** Overdraft covers cash credit too: the only kind that may open below zero. */
+  kind: MoneyAccountKind;
   bankName?: string;
   accountNumber?: string;
   ifsc?: string;
   branch?: string;
+  upiId?: string;
+  /** Negative: overdraft already drawn. */
   openingBalance: number;
-  /** Sample running balance until postings exist. */
-  balance: number;
-  /** Bank details printed on invoices for payment. */
-  onInvoice: boolean;
+  /** YYYY-MM-DD the opening balance is as of. */
+  openingDate: string;
+  /** The one account whose bank details print on invoices for payment. */
+  showOnInvoice: boolean;
+  /** Blank: the Tally ledger carries the account name. */
+  tallyLedgerName?: string;
+  /** Tally group the ledger goes under (from the backend). */
+  tallyGroup?: string;
 }
 
 export interface Transporter extends MasterRecord {

@@ -562,6 +562,8 @@ enum NumberedKind {
   PAYMENT
   CREDIT_NOTE
   DEBIT_NOTE
+  // Entries where no money moves (interest credited to a loan).
+  JOURNAL
   STOCK_JOURNAL
   SHIPMENT
   EXPENSE
@@ -660,4 +662,199 @@ model IssuedNumber {
 
   @@unique([scope, uniqueWithin, number])
   @@index([kind, uniqueWithin])
+}
+
+// ---------------------------------------------------------------------------
+// Bank and cash accounts (masters-plan.md, row 22). Each is a Tally ledger
+// under Bank Accounts, Bank OD A/c or Cash-in-Hand (bank-cash-rules.ts).
+// ---------------------------------------------------------------------------
+
+enum BankCashKind {
+  BANK
+  // Overdraft or cash credit: the only kind that may open below zero.
+  OVERDRAFT
+  CASH
+}
+
+// A cash account has no bank fields, and only a bank kind needs all of bank
+// name, account number and IFSC: CHECK constraints in migration
+// 20261103051950_bank_cash_accounts keep that true.
+model BankCashAccount {
+  id              String       @id @default(uuid()) @db.Uuid
+  name            String       @unique
+  kind            BankCashKind
+  bankName        String?
+  branch          String?
+  accountNumber   String?
+  ifsc            String?
+  upiId           String?
+  // Positive is money we hold; negative is overdraft used (OVERDRAFT only).
+  openingBalance  Decimal      @default(0) @db.Decimal(14, 2)
+  openingDate     DateTime     @db.Date
+  // At most one account prints its bank details on invoices; the service
+  // keeps it that way, as for the default godown.
+  showOnInvoice   Boolean      @default(false)
+  // Null: the Tally ledger carries the account name.
+  tallyLedgerName String?      @unique
+  isArchived      Boolean      @default(false)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  loansDisbursed  Loan[]        @relation("LoanDisbursedThrough")
+  loansRepaid     Loan[]        @relation("LoanRepaidThrough")
+  loanEntries     LoanEntry[]
+
+  @@unique([ifsc, accountNumber])
+}
+
+// ---------------------------------------------------------------------------
+// Loans we take and loans we give, with a fixed EMI or flexible repayment
+// (agent/accounts-plan.md). Each loan is a Tally ledger: Secured or
+// Unsecured Loans when taken; Loans & Advances (Asset) or Deposits (Asset)
+// when given. Each entry is a Payment, Receipt or Journal voucher. Schedules
+// are worked out, not stored (src/loans/loan-schedule.ts).
+// ---------------------------------------------------------------------------
+
+enum LoanDirection {
+  // We owe it.
+  TAKEN
+  // It is owed to us.
+  GIVEN
+}
+
+// Which kinds fit which direction is in src/loans/loan-kinds.ts.
+enum LoanKind {
+  VEHICLE
+  EQUIPMENT
+  PROPERTY
+  BUSINESS
+  GOLD
+  // From owners, directors, partners or their relatives.
+  OWNER
+  // Salary advance to a staff member.
+  STAFF
+  // Security deposit we give (rent, electricity, tender).
+  DEPOSIT
+  OTHER
+}
+
+enum LoanRepayment {
+  EMI
+  // No EMI: principal whenever, interest on its own dates.
+  FLEXIBLE
+}
+
+// How often a flexible loan's interest falls due.
+enum InterestFrequency {
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  YEARLY
+  AT_MATURITY
+}
+
+// How the loan's first entry goes to Tally.
+enum LoanDisbursal {
+  // Already running when these books start: an opening balance.
+  BEFORE_BOOKS
+  // Through our bank: a Receipt (taken) or Payment (given).
+  THROUGH_BANK
+  // Taken only: a Journal, Dr the asset bought (Fixed Assets), Cr the loan.
+  PAID_TO_SELLER
+}
+
+// CHECK constraints in migration 20261103070000_loan_kinds keep each
+// direction, repayment style and disbursal with its own fields.
+model Loan {
+  id                 String             @id @default(uuid()) @db.Uuid
+  // The Tally ledger name.
+  name               String             @unique
+  direction          LoanDirection
+  kind               LoanKind
+  repayment          LoanRepayment
+  // The lender (taken) or the borrower (given).
+  partyName          String
+  loanAccountNumber  String?
+  isSecured          Boolean
+  // What secures it: "Truck WB73E1234 hypothecated".
+  security           String?
+  // The first amount; later amounts are DRAWDOWN entries.
+  principal          Decimal            @db.Decimal(14, 2)
+  interestRatePct    Decimal            @db.Decimal(5, 2)
+  disbursedOn        DateTime           @db.Date
+  disbursal          LoanDisbursal
+  disbursalAccountId String?            @db.Uuid
+  disbursalAccount   BankCashAccount?   @relation("LoanDisbursedThrough", fields: [disbursalAccountId], references: [id], onDelete: Restrict)
+  assetLedgerName    String?
+  // BEFORE_BOOKS only: EMIs already paid (EMI loans), and what was owed after them.
+  paidBefore         Int                @default(0)
+  openingOutstanding Decimal?           @db.Decimal(14, 2)
+  // EMI loans.
+  tenureMonths       Int?
+  emiAmount          Decimal?           @db.Decimal(14, 2)
+  firstEmiDate       DateTime?          @db.Date
+  // Flexible loans.
+  interestFrequency  InterestFrequency?
+  firstInterestDate  DateTime?          @db.Date
+  maturityDate       DateTime?          @db.Date
+  // The account EMIs, interest and repayments go through.
+  repaymentAccountId String             @db.Uuid
+  repaymentAccount   BankCashAccount    @relation("LoanRepaidThrough", fields: [repaymentAccountId], references: [id], onDelete: Restrict)
+  // Null: the direction's default ledger (src/common/tally/tally-groups.ts).
+  interestLedgerName String?
+  // TDS on interest (non-bank lenders and borrowers); null: none.
+  tdsRatePct         Decimal?           @db.Decimal(5, 2)
+  tdsLedgerName      String?
+  // Days before a due date that it shows as due soon.
+  reminderDays       Int                @default(3)
+  notes              String?
+  isArchived         Boolean            @default(false)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  entries LoanEntry[]
+}
+
+// What an entry does to a loan; its voucher depends on the loan's direction
+// (agent/accounts-plan.md, "Entries").
+enum LoanEntryKind {
+  // An instalment of an EMI loan: principal and interest.
+  EMI
+  // Principal repaid (a repayment or prepayment).
+  PRINCIPAL
+  // Interest paid or received.
+  INTEREST
+  // Interest credited to the loan; no money moves (Journal).
+  INTEREST_ADDED
+  // More borrowed or lent.
+  DRAWDOWN
+}
+
+// One voucher against a loan. A mistaken one is cancelled, never deleted,
+// and its voucher number stays cancelled in the number register.
+model LoanEntry {
+  id             String           @id @default(uuid()) @db.Uuid
+  loanId         String           @db.Uuid
+  loan           Loan             @relation(fields: [loanId], references: [id], onDelete: Restrict)
+  kind           LoanEntryKind
+  // The schedule row it settles: an EMI, or a flexible loan's interest date.
+  instalmentNo   Int?
+  entryDate      DateTime         @db.Date
+  principal      Decimal          @default(0) @db.Decimal(14, 2)
+  // Gross interest, before TDS.
+  interest       Decimal          @default(0) @db.Decimal(14, 2)
+  tds            Decimal          @default(0) @db.Decimal(14, 2)
+  // Bounce, penal or processing charges on a loan taken, to Bank Charges.
+  charges        Decimal          @default(0) @db.Decimal(14, 2)
+  // Null only for INTEREST_ADDED.
+  bankAccountId  String?          @db.Uuid
+  bankAccount    BankCashAccount? @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+  // UTR, NACH or cheque reference.
+  reference      String?
+  voucherNumber  String
+  issuedNumberId String           @unique @db.Uuid
+  cancelledAt    DateTime?
+  createdAt      DateTime         @default(now())
+
+  @@index([loanId, entryDate])
 }
