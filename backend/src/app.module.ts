@@ -19,6 +19,7 @@ import { ItemCategoriesModule } from './item-categories/item-categories.module.j
 import { ItemGroupsModule } from './item-groups/item-groups.module.js';
 import { ItemsModule } from './items/items.module.js';
 import { LutsModule } from './luts/luts.module.js';
+import { NumberSeriesModule } from './number-series/number-series.module.js';
 import { PartiesModule } from './parties/parties.module.js';
 import { PricingModule } from './pricing/pricing.module.js';
 import { StaffModule } from './staff/staff.module.js';
@@ -46,6 +47,7 @@ import { WhatsappOptInsModule } from './whatsapp-optins/whatsapp-optins.module.j
     PricingModule,
     CompanyProfileModule,
     LutsModule,
+    NumberSeriesModule,
     WhatsappOptInsModule,
     HealthModule,
   ],

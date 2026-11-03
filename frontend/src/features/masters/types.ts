@@ -1,6 +1,8 @@
 // Shapes of the smaller masters (masters-plan.md, sections A, C, F). Each is
 // edited through RecordMaster. Brands, units and godowns are saved through
-// the backend (masters-api.ts); the rest are still sample data.
+// the backend (masters-api.ts), number series too (number-series-api.ts); the
+// rest are still sample data.
+import type { SeriesDocument } from "@/types/number-series";
 import type { MasterRecord } from "./record-master";
 
 export interface Brand extends MasterRecord {
@@ -73,19 +75,6 @@ export interface Vehicle extends MasterRecord {
   driverPhone?: string;
 }
 
-export type SeriesDocument =
-  | "quotation"
-  | "invoice"
-  | "export-invoice"
-  | "bill"
-  | "receipt"
-  | "payment"
-  | "credit-note"
-  | "debit-note"
-  | "shipment"
-  | "expense"
-  | "stock-journal";
-
 export interface NumberSeries extends MasterRecord {
   document: SeriesDocument;
   prefix: string;
@@ -93,6 +82,10 @@ export interface NumberSeries extends MasterRecord {
   nextNumber: number;
   /** Digits the number is padded to. */
   padding: number;
+  /** The last number a document took; 0 before the first. */
+  lastIssued: number;
+  /** The number the next document takes: "INV/2627/0009". */
+  preview: string;
 }
 
 export interface ExpenseHead extends MasterRecord {

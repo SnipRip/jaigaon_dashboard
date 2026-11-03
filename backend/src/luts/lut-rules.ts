@@ -1,12 +1,6 @@
 // How an LUT's dates fit together. The frontend checks the same in
 // features/tax-export/lut-schema.ts.
-
-/** Indian financial year of a YYYY-MM-DD date: "2026-27". */
-export function financialYearOf(isoDate: string): string {
-  const [year, month] = isoDate.split('-').map(Number);
-  const start = month >= 4 ? year : year - 1;
-  return `${start}-${String((start + 1) % 100).padStart(2, '0')}`;
-}
+import { financialYearOf } from '../common/financial-year.js';
 
 export interface LutDates {
   validFrom: string;

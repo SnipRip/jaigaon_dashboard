@@ -1,16 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { financialYearOf, lutProblem } from './lut-rules.js';
-
-describe('financialYearOf', () => {
-  it('starts the year on 1 April', () => {
-    expect(financialYearOf('2026-04-01')).toBe('2026-27');
-    expect(financialYearOf('2027-03-31')).toBe('2026-27');
-  });
-
-  it('pads the closing year across a century', () => {
-    expect(financialYearOf('2099-12-01')).toBe('2099-00');
-  });
-});
+import { lutProblem } from './lut-rules.js';
 
 describe('lutProblem', () => {
   it('accepts a full financial year', () => {

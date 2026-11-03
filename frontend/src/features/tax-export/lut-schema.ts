@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { financialYearOf } from "./lut-rules";
+import { financialYearOf } from "@/lib/financial-year";
 
 // The same checks as the backend (backend/src/luts): a 15-character ARN, an
 // optional AD code, and dates inside one financial year.

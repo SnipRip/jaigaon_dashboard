@@ -548,3 +548,40 @@ model Lut {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
+
+// Every numbered document. Each has its own series per financial year.
+enum SeriesDocument {
+  QUOTATION
+  SALES_INVOICE
+  EXPORT_INVOICE
+  PURCHASE
+  RECEIPT
+  PAYMENT
+  CREDIT_NOTE
+  DEBIT_NOTE
+  STOCK_JOURNAL
+  SHIPMENT
+  EXPENSE
+}
+
+// How one document type is numbered in one financial year: prefix, then the
+// number padded to `padding` digits ("INV/2627/" + 0009). A document claims
+// its number inside its own save transaction (NumberSeriesService.claimNext),
+// so a failed save gives the number back and two saves never share one.
+// CHECK constraints in migration 20261102184208_number_series.
+model NumberSeries {
+  id            String         @id @default(uuid()) @db.Uuid
+  document      SeriesDocument
+  // "2026-27".
+  financialYear String
+  prefix        String
+  nextNumber    Int            @default(1)
+  padding       Int            @default(4)
+  // The last number a document took; 0 before the first. The next number
+  // never goes back to or below it.
+  lastIssued    Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@unique([document, financialYear])
+}

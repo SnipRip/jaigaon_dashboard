@@ -1,6 +1,6 @@
 // SAMPLE DATA for the smaller masters. Brand names are from the brochure;
 // bank accounts, transporters, vehicles and phone numbers are invented.
-import type { Brand, ExpenseHead, Godown, MoneyAccount, NumberSeries, Transporter, Unit, Vehicle } from "./types";
+import type { Brand, ExpenseHead, Godown, MoneyAccount, Transporter, Unit, Vehicle } from "./types";
 
 export const brands: Brand[] = [
   { id: "hind-tmt", name: "Hind TMT", categoryId: "iron-steel", authorised: true, notes: "Hind Steel, Durgapur" },
@@ -49,20 +49,6 @@ export const vehicles: Vehicle[] = [
   { id: "wb37c4410", number: "WB37C4410", type: "trailer", capacityTons: 25, ownership: "hired", transporterId: "royal-transport", driverName: "Driver 2", driverPhone: "+919800000202" },
   { id: "wb73e1234", number: "WB73E1234", type: "truck-6", capacityTons: 9, ownership: "own", driverName: "Driver 3", driverPhone: "+919800000203" },
   { id: "wb74p0088", number: "WB74P0088", type: "pickup", capacityTons: 1.5, ownership: "own", driverName: "Driver 4", driverPhone: "+919800000204" },
-];
-
-export const numberSeries: NumberSeries[] = [
-  { id: "quotation", document: "quotation", prefix: "QT/2627/", financialYear: "2026-27", nextNumber: 47, padding: 4 },
-  { id: "invoice", document: "invoice", prefix: "INV/2627/", financialYear: "2026-27", nextNumber: 9, padding: 4 },
-  { id: "export-invoice", document: "export-invoice", prefix: "EXP/2627/", financialYear: "2026-27", nextNumber: 5, padding: 4 },
-  { id: "bill", document: "bill", prefix: "PUR/2627/", financialYear: "2026-27", nextNumber: 20, padding: 4 },
-  { id: "receipt", document: "receipt", prefix: "RCT/2627/", financialYear: "2026-27", nextNumber: 31, padding: 4 },
-  { id: "payment", document: "payment", prefix: "PAY/2627/", financialYear: "2026-27", nextNumber: 24, padding: 4 },
-  { id: "shipment", document: "shipment", prefix: "SHP/2627/", financialYear: "2026-27", nextNumber: 6, padding: 4 },
-  { id: "expense", document: "expense", prefix: "EXPN/2627/", financialYear: "2026-27", nextNumber: 58, padding: 4 },
-  { id: "credit-note", document: "credit-note", prefix: "CN/2627/", financialYear: "2026-27", nextNumber: 2, padding: 4 },
-  { id: "debit-note", document: "debit-note", prefix: "DN/2627/", financialYear: "2026-27", nextNumber: 1, padding: 4 },
-  { id: "stock-journal", document: "stock-journal", prefix: "SJ/2627/", financialYear: "2026-27", nextNumber: 4, padding: 4 },
 ];
 
 export const expenseHeads: ExpenseHead[] = [

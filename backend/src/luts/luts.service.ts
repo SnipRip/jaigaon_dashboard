@@ -4,12 +4,13 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { dateOnly } from '../common/dates.js';
+import { financialYearOf } from '../common/financial-year.js';
 import { definedFields } from '../common/dto/defined-fields.js';
 import { PrismaService } from '../database/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import type { CreateLutDto } from './dto/create-lut.dto.js';
 import type { UpdateLutDto } from './dto/update-lut.dto.js';
-import { financialYearOf, lutProblem } from './lut-rules.js';
+import { lutProblem } from './lut-rules.js';
 import { toLutView, type LutView } from './lut-view.js';
 
 type LutFields = Omit<LutView, 'id' | 'financialYear'>;
