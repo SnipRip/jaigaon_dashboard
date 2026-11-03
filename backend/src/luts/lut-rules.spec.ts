@@ -24,8 +24,8 @@ describe('lutProblem', () => {
     expect(lutProblem({ validFrom: '2026-04-01', validTo: '2027-04-01' })).toBe(
       'An LUT covers one financial year: valid to must be on or before 31 March 2027',
     );
-    expect(lutProblem({ validFrom: '2027-02-01', validTo: '2027-06-30' })).toMatch(
-      /31 March 2027$/,
-    );
+    expect(
+      lutProblem({ validFrom: '2027-02-01', validTo: '2027-06-30' }),
+    ).toMatch(/31 March 2027$/);
   });
 });

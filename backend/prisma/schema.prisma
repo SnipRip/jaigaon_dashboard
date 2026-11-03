@@ -549,8 +549,11 @@ model Lut {
   updatedAt     DateTime @updatedAt
 }
 
-// Every numbered document. Each has its own series per financial year.
-enum SeriesDocument {
+// Everything the client numbers: documents and master codes. Each kind has
+// one series (rows seeded by migration 20261103045732_numbering). What each
+// kind must obey (GST rules, unique per year or for ever, Tally voucher
+// type) is in src/number-series/numbered-kinds.ts.
+enum NumberedKind {
   QUOTATION
   SALES_INVOICE
   EXPORT_INVOICE
@@ -562,26 +565,99 @@ enum SeriesDocument {
   STOCK_JOURNAL
   SHIPMENT
   EXPENSE
+  CUSTOMER_CODE
+  VENDOR_CODE
+  ITEM_SKU
 }
 
-// How one document type is numbered in one financial year: prefix, then the
-// number padded to `padding` digits ("INV/2627/" + 0009). A document claims
-// its number inside its own save transaction (NumberSeriesService.claimNext),
-// so a failed save gives the number back and two saves never share one.
-// CHECK constraints in migration 20261102184208_number_series.
-model NumberSeries {
-  id            String         @id @default(uuid()) @db.Uuid
-  document      SeriesDocument
-  // "2026-27".
-  financialYear String
-  prefix        String
-  nextNumber    Int            @default(1)
-  padding       Int            @default(4)
-  // The last number a document took; 0 before the first. The next number
-  // never goes back to or below it.
-  lastIssued    Int            @default(0)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+// Tally's voucher numbering methods. Automatic: the number is always taken
+// from the series. Manual override: taken from the series unless the person
+// types one. Manual: always typed. Duplicates are always refused.
+enum NumberingMethod {
+  AUTOMATIC
+  AUTOMATIC_MANUAL_OVERRIDE
+  MANUAL
+}
 
-  @@unique([document, financialYear])
+// When the running number starts again (Tally's "restart numbering").
+enum NumberReset {
+  YEARLY
+  MONTHLY
+  NEVER
+}
+
+enum IssuedNumberStatus {
+  ISSUED
+  CANCELLED
+}
+
+// One kind's numbering: the method, the Tally voucher type its documents
+// sync to, and its formats over time.
+model NumberSeries {
+  id               String          @id @default(uuid()) @db.Uuid
+  kind             NumberedKind    @unique
+  method           NumberingMethod @default(AUTOMATIC)
+  // Voucher type name in Tally ("Sales"); null for kinds Tally has no voucher for.
+  tallyVoucherType String?
+  formats          NumberFormat[]
+  updatedAt        DateTime        @updatedAt
+}
+
+// A pattern in force from a date, like Tally's prefix and suffix
+// "applicable from". "INV/{FY}/{SEQ:4}" → INV/2627/0001. A document uses the
+// latest format starting on or before its date. A format that has issued a
+// number is locked; a change of format is a new format from a later date,
+// with its own counter.
+model NumberFormat {
+  id             String          @id @default(uuid()) @db.Uuid
+  seriesId       String          @db.Uuid
+  series         NumberSeries    @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  applicableFrom DateTime        @db.Date
+  pattern        String
+  // First number of the format's first period; later periods start at 1.
+  startNumber    Int             @default(1)
+  reset          NumberReset     @default(YEARLY)
+  counters       NumberCounter[]
+  issued         IssuedNumber[]
+  createdAt      DateTime        @default(now())
+
+  @@unique([seriesId, applicableFrom])
+}
+
+// The next running number of a format in one period ("2026-27", "2026-11",
+// or "ALL" when it never resets). Incremented in place, so claims never
+// share a number.
+model NumberCounter {
+  formatId   String       @db.Uuid
+  format     NumberFormat @relation(fields: [formatId], references: [id], onDelete: Restrict)
+  period     String
+  nextNumber Int
+
+  @@id([formatId, period])
+}
+
+// Every number given out, automatic or typed. The unique index keeps a full
+// number unique within its scope (sales and export invoices share one, as
+// the e-invoice portal checks them together) and its financial year, or for
+// ever for master codes ("ALL"). A cancelled number stays: GSTR-1 table 13
+// reports it, and it is never reused.
+model IssuedNumber {
+  id           String             @id @default(uuid()) @db.Uuid
+  kind         NumberedKind
+  scope        String
+  uniqueWithin String
+  number       String
+  // Null for a typed number.
+  formatId     String?            @db.Uuid
+  format       NumberFormat?      @relation(fields: [formatId], references: [id], onDelete: Restrict)
+  sequence     Int?
+  documentDate DateTime           @db.Date
+  // The document or master record carrying it, once those are built.
+  documentId   String?            @db.Uuid
+  status       IssuedNumberStatus @default(ISSUED)
+  cancelledAt  DateTime?
+  createdAt    DateTime           @default(now())
+
+  @@unique([scope, uniqueWithin, number])
+  @@index([kind, uniqueWithin])
 }

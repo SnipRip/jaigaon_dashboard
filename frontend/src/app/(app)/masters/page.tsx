@@ -6,8 +6,8 @@ import { ITEM_GROUPS_PATH, ITEMS_PATH } from "@/features/items/item-paths";
 import { LiveCount } from "@/features/masters/live-count";
 import { BRANDS_PATH, GODOWNS_PATH, UNITS_PATH } from "@/features/masters/masters-api";
 import { MastersHub } from "@/features/masters/masters-hub";
-import { NUMBER_SERIES_PATH } from "@/features/masters/number-series-api";
 import { expenseHeads, moneyAccounts, transporters, vehicles } from "@/features/masters/sample-data";
+import { CONFIGURED_SERIES_PATH } from "@/features/number-series/number-series-api";
 import { PARTIES_PATH } from "@/features/parties/parties-api";
 import { PRICE_LEVELS_PATH, SPECIAL_RATES_PATH } from "@/features/rates/rates-api";
 import { LUTS_PATH } from "@/features/tax-export/luts-api";
@@ -70,7 +70,7 @@ export default function MastersPage() {
             cards: [
               { href: "/masters/bank-cash", title: "Bank & cash", icon: Landmark, description: "Bank accounts and cash books that receipts and payments go through.", count: `${live(moneyAccounts)} accounts` },
               { href: "/masters/expense-heads", title: "Expense heads", icon: Wallet, description: "Freight, labour, customs and overheads, with GST behaviour and where each cost lands.", count: `${live(expenseHeads)} heads` },
-              { href: "/masters/number-series", title: "Number series", icon: ListOrdered, description: "Prefix and next number for every document, per financial year.", count: <LiveCount path={NUMBER_SERIES_PATH} noun={["series", "series"]} /> },
+              { href: "/masters/number-series", title: "Number series", icon: ListOrdered, description: "How every document and code is numbered: pattern, restart, Tally voucher type.", count: <LiveCount path={CONFIGURED_SERIES_PATH} noun={["set up", "set up"]} /> },
             ],
           },
           {

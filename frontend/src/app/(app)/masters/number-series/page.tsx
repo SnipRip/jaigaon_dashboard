@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { NumberSeriesMaster } from "@/features/masters/number-series-master";
+import { NumberSeriesScreen } from "@/features/number-series/number-series-screen";
 
 export const metadata: Metadata = { title: "Number series" };
 
 export default function NumberSeriesPage() {
-  return <NumberSeriesMaster />;
+  return <NumberSeriesScreen />;
 }
