@@ -1,6 +1,5 @@
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { archivedFilter } from '../common/dto/archivable.js';
-import { toNumber } from '../common/decimal.js';
 import { PrismaService } from '../database/prisma.service.js';
 import { Prisma } from '../generated/prisma/client.js';
 import type { CreateItemDto } from './dto/create-item.dto.js';
@@ -11,7 +10,6 @@ import { loadPlacement } from './item-placement.js';
 import {
   checkAlternateUnits,
   checkOpeningStock,
-  checkPrices,
   checkVariantValues,
   inherited,
   openingValue,
@@ -20,13 +18,11 @@ import {
 import { itemRowInclude, toItemView, type ItemView } from './item-view.js';
 
 /** The fields the checks need, after an update is merged onto the stored item. */
-type ItemFacts = Pick<CreateItemDto, 'categoryId' | 'sellingPrice' | 'costPrice'> & {
+type ItemFacts = Pick<CreateItemDto, 'categoryId'> & {
   subCategoryId?: string | null;
   groupId?: string | null;
   attributeValues?: Record<string, string> | null;
   unitId?: string | null;
-  mrp?: number | null;
-  minSellingPrice?: number | null;
 };
 
 const fail = (message: string | null) => {
@@ -68,7 +64,7 @@ export class ItemsService {
           ...fields,
           attributeValues: jsonOrNull(fields.attributeValues),
           alternateUnits: { create: alternateUnits },
-          openingStock: { create: openingRows(openingStock, dto.costPrice) },
+          openingStock: { create: openingRows(openingStock) },
         },
         include: itemRowInclude,
       });
@@ -89,11 +85,6 @@ export class ItemsService {
             ? (current.attributeValues as Record<string, string> | null)
             : dto.attributeValues,
         unitId: dto.unitId === undefined ? current.unitId : dto.unitId,
-        sellingPrice: dto.sellingPrice ?? toNumber(current.sellingPrice),
-        costPrice: dto.costPrice ?? toNumber(current.costPrice),
-        mrp: dto.mrp === undefined ? toNumber(current.mrp) : dto.mrp,
-        minSellingPrice:
-          dto.minSellingPrice === undefined ? toNumber(current.minSellingPrice) : dto.minSellingPrice,
       };
       const baseUnitId = await this.check(tx, merged, id);
       const unitIds = (alternateUnits ?? current.alternateUnits).map((row) => row.unitId);
@@ -112,9 +103,7 @@ export class ItemsService {
           ...fields,
           attributeValues: jsonOrNull(fields.attributeValues),
           alternateUnits: alternateUnits ? { create: alternateUnits } : undefined,
-          openingStock: openingStock
-            ? { create: openingRows(openingStock, merged.costPrice) }
-            : undefined,
+          openingStock: openingStock ? { create: openingRows(openingStock) } : undefined,
         },
         include: itemRowInclude,
       });
@@ -126,11 +115,10 @@ export class ItemsService {
     await this.prisma.item.delete({ where: { id } });
   }
 
-  // Checks placement, group attribute values and prices, and returns the
+  // Checks placement and group attribute values, and returns the
   // base unit the item ends up with (its own or inherited).
   private async check(tx: Prisma.TransactionClient, facts: ItemFacts, itemId?: string) {
     const { category, subCategory, group } = await loadPlacement(tx, facts);
-    fail(checkPrices(facts));
 
     if (group) {
       const attributes = readAttributes(group.attributes);
@@ -161,11 +149,11 @@ export class ItemsService {
   }
 }
 
-const openingRows = (rows: OpeningStockDto[], costPrice: number) =>
+const openingRows = (rows: OpeningStockDto[]) =>
   rows.map((row) => ({
     godownId: row.godownId,
     quantity: row.quantity,
-    value: openingValue(row.quantity, costPrice, row.value),
+    value: openingValue(row.quantity, row.rate, row.value),
   }));
 
 // A null clears a JSON column only through Prisma's DbNull marker.

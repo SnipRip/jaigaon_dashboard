@@ -59,7 +59,7 @@ export function hsnImporter(codes: HsnCodesService, prisma: PrismaService): Mast
 
 const ITEM_FIELDS = [
   'name', 'sku', 'brandId', 'description', 'hsn', 'gstRatePct', 'unitId', 'weightKg',
-  'mrp', 'sellingPrice', 'minSellingPrice', 'costPrice', 'preferredSupplier', 'reorderLevel',
+  'mrp', 'preferredSupplier', 'reorderLevel',
 ];
 
 /** Category and sub-category names → ids; a sub-category is looked up under its category. */
@@ -92,9 +92,6 @@ export function itemsImporter(items: ItemsService, prisma: PrismaService): Maste
     { header: 'Unit', field: 'unitId', kind: 'ref', ref: 'unit', hint: 'Unit symbol (kg, pcs, bag). Blank: from the category.', value: (item, refs) => refs.nameOf('unit', item.unitId) },
     { header: 'Weight (kg)', field: 'weightKg', kind: 'number', value: (item) => toNumber(item.weightKg) },
     { header: 'MRP', field: 'mrp', kind: 'number', value: (item) => toNumber(item.mrp) },
-    { header: 'Selling price', field: 'sellingPrice', kind: 'number', required: true, value: (item) => toNumber(item.sellingPrice) },
-    { header: 'Minimum selling price', field: 'minSellingPrice', kind: 'number', value: (item) => toNumber(item.minSellingPrice) },
-    { header: 'Cost price', field: 'costPrice', kind: 'number', required: true, value: (item) => toNumber(item.costPrice) },
     { header: 'Preferred supplier', field: 'preferredSupplier', kind: 'text', value: (item) => item.preferredSupplier },
     { header: 'Reorder level', field: 'reorderLevel', kind: 'number', keepIfBlank: true, value: (item) => toNumber(item.reorderLevel) },
   ];

@@ -41,9 +41,8 @@ function skuPrefixOf(variants: Item[]) {
 function rowFromItem(item: Item): VariantRow {
   return {
     sku: item.sku,
-    costPrice: text(item.costPrice),
-    sellingPrice: text(item.sellingPrice),
     openingStock: "",
+    openingRate: "",
     reorderLevel: text(item.reorderLevel),
   };
 }
@@ -58,7 +57,7 @@ export function ItemGroupForm({ catalog, group, brands, units, gstRates, onSave 
   const { overridden } = overrides;
   const [edits, setEdits] = useState<Record<string, Partial<VariantRow>>>({});
   const [rowErrors, setRowErrors] = useState<Record<string, VariantLine["errors"]>>({});
-  const [bulk, setBulk] = useState({ costPrice: "", sellingPrice: "", reorderLevel: "" });
+  const [bulk, setBulk] = useState({ openingRate: "", reorderLevel: "" });
   const [result, setResult] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
   const {
@@ -101,7 +100,7 @@ export function ItemGroupForm({ catalog, group, brands, units, gstRates, onSave 
     const existing = existingVariants.find((item) => variantKey(item.attributeValues ?? {}) === key);
     const base: VariantRow = existing
       ? rowFromItem(existing)
-      : { sku: variantSku(skuPrefix ?? "", values), costPrice: "", sellingPrice: "", openingStock: "", reorderLevel: "" };
+      : { sku: variantSku(skuPrefix ?? "", values), openingStock: "", openingRate: "", reorderLevel: "" };
     return { key, values, name: variantName(name ?? "", values), existing, row: { ...base, ...edits[key] }, errors: rowErrors[key] };
   });
 
@@ -324,13 +323,12 @@ export function ItemGroupForm({ catalog, group, brands, units, gstRates, onSave 
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="flex flex-col gap-1">
             <CardTitle>Variants · {lines.length}</CardTitle>
-            <p className="text-sm font-medium text-muted">Prices are per {unit}, before GST. Every field can differ per variant.</p>
+            <p className="text-sm font-medium text-muted">Opening rates are per {unit}. Selling rates come from the rate sheet. Every field can differ per variant.</p>
           </div>
           <div className="flex flex-wrap items-end gap-2">
             {(
               [
-                ["costPrice", "Cost for all"],
-                ["sellingPrice", "Selling for all"],
+                ["openingRate", "Opening rate for all"],
                 ["reorderLevel", "Reorder for all"],
               ] as const
             ).map(([field, label]) => (

@@ -18,7 +18,7 @@ by Next.js to the backend, so the session cookie stays same-origin.
 - Collapsible sidebar listing every module in the Scope of Work
 - Recording WhatsApp opt-ins sent by the company website
 
-The Dashboard, Rate enquiry and OCR inbox screens are built but show **sample
+The Dashboard and Rate enquiry screens are built but show **sample
 data** (each says so on screen). The other modules open a "Not built yet" page.
 
 ## Run it locally

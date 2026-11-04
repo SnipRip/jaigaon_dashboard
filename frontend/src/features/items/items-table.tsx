@@ -8,6 +8,7 @@ import { GlassTable } from "@/components/ui/glass-table";
 import { StatusChip } from "@/components/ui/status-chip";
 import { formatQuantity, formatRate } from "@/lib/format";
 import { categoryPath, resolveItemDefaults, stockStatus, type ItemCatalog } from "./item-rules";
+import { ItemThumbnail } from "./item-thumbnail";
 import { StockCell } from "./stock-cell";
 import type { Item, ItemGroup } from "./types";
 
@@ -21,7 +22,9 @@ interface ItemsTableProps {
   onToggleGroup: (groupId: string) => void;
 }
 
-const range = (values: number[]) => {
+const range = (given: (number | undefined)[]) => {
+  const values = given.filter((value) => value !== undefined);
+  if (values.length === 0) return "—";
   const low = Math.min(...values);
   const high = Math.max(...values);
   return low === high ? formatRate(low) : `${formatRate(low)} – ${formatRate(high)}`;
@@ -39,14 +42,17 @@ export function ItemsTable({ catalog, rows, expandedGroups, onToggleGroup }: Ite
     return (
       <tr key={item.id} className={clsx(isVariant && "bg-white/25")}>
         <td className="text-left">
-          <div className={clsx(isVariant && "pl-11")}>
-            <Link href={`/items/${item.id}`} className="font-semibold hover:text-brand hover:underline">
-              {isVariant ? Object.values(item.attributeValues ?? {}).join(" · ") : item.name}
-            </Link>
-            <div className="text-xs text-muted">
-              {[item.sku, item.brand, isVariant ? undefined : categoryPath(catalog, item.categoryId, item.subCategoryId)]
-                .filter(Boolean)
-                .join(" · ")}
+          <div className={clsx("flex items-center gap-2.5", isVariant && "pl-11")}>
+            <ItemThumbnail src={item.pictureUrl} alt="" size={36} />
+            <div className="min-w-0">
+              <Link href={`/items/${item.id}`} className="font-semibold hover:text-brand hover:underline">
+                {isVariant ? Object.values(item.attributeValues ?? {}).join(" · ") : item.name}
+              </Link>
+              <div className="text-xs text-muted">
+                {[item.sku, item.brand, isVariant ? undefined : categoryPath(catalog, item.categoryId, item.subCategoryId)]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </div>
             </div>
           </div>
         </td>
@@ -57,11 +63,7 @@ export function ItemsTable({ catalog, rows, expandedGroups, onToggleGroup }: Ite
         <td>
           <StockCell item={item} unit={resolved.unit.value} />
         </td>
-        <td>{formatRate(item.costPrice)}</td>
-        <td className="font-semibold text-brand">
-          {formatRate(item.sellingPrice)}
-          <span className="text-xs font-semibold text-muted"> / {resolved.unit.value}</span>
-        </td>
+        <td>{item.lastLandedCost === undefined ? "—" : formatRate(item.lastLandedCost)}</td>
       </tr>
     );
   };
@@ -73,8 +75,7 @@ export function ItemsTable({ catalog, rows, expandedGroups, onToggleGroup }: Ite
           <th scope="col" className="text-left">Item</th>
           <th scope="col" className="text-left whitespace-nowrap">HSN · GST</th>
           <th scope="col">In stock</th>
-          <th scope="col">Cost</th>
-          <th scope="col">Selling price</th>
+          <th scope="col">Last landed cost</th>
         </tr>
       </thead>
       <tbody className="text-right font-semibold tabular-nums">
@@ -101,6 +102,7 @@ export function ItemsTable({ catalog, rows, expandedGroups, onToggleGroup }: Ite
                     >
                       <ChevronRight aria-hidden="true" className={clsx("size-4 transition-transform", isOpen && "rotate-90")} />
                     </button>
+                    <ItemThumbnail src={variants.find((variant) => variant.pictureUrl)?.pictureUrl} alt="" size={36} className="mr-1" />
                     <div className="min-w-0">
                       <Link href={`/items/groups/${group.id}`} className="font-semibold hover:text-brand hover:underline">
                         {group.name}
@@ -128,8 +130,7 @@ export function ItemsTable({ catalog, rows, expandedGroups, onToggleGroup }: Ite
                     `${formatQuantity(totalStock)} ${resolved.unit.value ?? ""}`
                   )}
                 </td>
-                <td>{range(variants.map((variant) => variant.costPrice))}</td>
-                <td className="font-semibold text-brand">{range(variants.map((variant) => variant.sellingPrice))}</td>
+                <td>{range(variants.map((variant) => variant.lastLandedCost))}</td>
               </tr>
               {isOpen && variants.map((variant) => itemRow(variant, true))}
             </Fragment>

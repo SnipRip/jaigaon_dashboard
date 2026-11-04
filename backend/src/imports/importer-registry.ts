@@ -9,15 +9,15 @@ import { ItemsService } from '../items/items.service.js';
 import { LedgersService } from '../ledgers/ledgers.service.js';
 import { LoansService } from '../loans/loans.service.js';
 import { PartiesService } from '../parties/parties.service.js';
-import { PriceLevelsService } from '../pricing/price-levels.service.js';
-import { QuantitySlabsService } from '../pricing/quantity-slabs.service.js';
+import { PriceListService } from '../price-list/price-list.service.js';
 import { SpecialRatesService } from '../pricing/special-rates.service.js';
 import { UnitsService } from '../units/units.service.js';
 import { hsnImporter, itemsImporter } from './importers/catalog.importers.js';
 import { ledgersImporter } from './importers/ledgers.importer.js';
 import { loansImporter } from './importers/loans.importer.js';
 import { customersImporter, vendorsImporter } from './importers/parties.importers.js';
-import { priceLevelsImporter, quantitySlabsImporter, specialRatesImporter } from './importers/pricing.importers.js';
+import { priceListImporter } from './importers/price-list.importer.js';
+import { specialRatesImporter } from './importers/pricing.importers.js';
 import {
   accountHeadsImporter,
   bankCashImporter,
@@ -43,9 +43,8 @@ export class ImporterRegistry {
     parties: PartiesService,
     hsn: HsnCodesService,
     items: ItemsService,
-    levels: PriceLevelsService,
     rates: SpecialRatesService,
-    slabs: QuantitySlabsService,
+    priceList: PriceListService,
     loans: LoansService,
     ledgers: LedgersService,
   ) {
@@ -59,9 +58,8 @@ export class ImporterRegistry {
       vendorsImporter(parties, prisma),
       hsnImporter(hsn, prisma),
       itemsImporter(items, prisma),
-      priceLevelsImporter(levels, prisma),
       specialRatesImporter(rates, prisma),
-      quantitySlabsImporter(slabs, prisma),
+      priceListImporter(priceList, prisma),
       loansImporter(loans, prisma),
       ledgersImporter(ledgers, prisma),
     ] as unknown as MasterImporter[];

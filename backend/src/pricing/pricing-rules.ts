@@ -1,12 +1,11 @@
-// Which rate a customer gets for an item (SOW 3 and 4), in this order: a
-// special rate in force for that customer, else their price level off MRP,
-// else the item's selling price. A quantity slab then takes its extra
-// discount, and nothing goes below the item's minimum selling price. The
-// frontend applies the same order in features/rates/rate-rules.ts.
+// Which rate a customer gets for an item (client, 4 Nov 2026), in order: a
+// special rate in force for that customer; else the rate-sheet price in force
+// on the date (src/price-list); else none, and the user types the rate. The
+// item master has no selling price: rates change every day. The frontend
+// applies the same order in features/rates/rate-rules.ts.
 //
-// A special rate, slab or level discount can be for one item or a whole
-// category / sub-category. The most specific one wins: item, then
-// sub-category, then category.
+// A special rate can be for one item or a whole category / sub-category. The
+// most specific one wins: item, then sub-category, then category.
 import type { SpecialRateKind } from '../generated/prisma/enums.js';
 
 /** What a rate is set on: one item or one category, never both. */
@@ -20,16 +19,6 @@ export interface PricedItem {
   categoryId: string;
   subCategoryId: string | null;
   mrp: number | null;
-  sellingPrice: number;
-  minSellingPrice: number | null;
-}
-
-export interface LevelFacts {
-  id: string;
-  name: string;
-  discountPct: number;
-  isArchived: boolean;
-  categoryDiscounts: { categoryId: string; discountPct: number }[];
 }
 
 export interface SpecialRateFacts extends RateTarget {
@@ -44,21 +33,25 @@ export interface SpecialRateFacts extends RateTarget {
   isArchived: boolean;
 }
 
-export interface SlabFacts extends RateTarget {
+export type RateSource = 'special' | 'price-list';
+
+/** The rate-sheet entry in force, with its MRP filled from the item. */
+export interface ListedPrice {
   id: string;
-  minQuantity: number;
-  discountPct: number;
-  isArchived: boolean;
+  validFrom: string;
+  validTill: string;
+  sellingPrice: number;
+  mrp: number | null;
+  minSellingPrice: number | null;
 }
 
-export type RateSource = 'special' | 'price-level' | 'standard' | 'minimum';
-
 export interface RateQuote {
-  rate: number;
-  source: RateSource;
+  /** Null: no special rate and no rate-sheet price; the user types one. */
+  rate: number | null;
+  source: RateSource | null;
   special?: SpecialRateFacts;
-  level?: { id: string; name: string; discountPct: number };
-  slab?: SlabFacts;
+  /** The day's rate-sheet entry, whenever one was in force (even if a special rate won). */
+  priceList?: Pick<ListedPrice, 'id' | 'validFrom' | 'validTill' | 'sellingPrice'>;
 }
 
 const money = (value: number) => Math.round(value * 100) / 100;
@@ -95,81 +88,52 @@ export const inForce = (
   rate.validFrom <= date &&
   (rate.validTill === null || rate.validTill >= date);
 
-/** A level's discount for the item: its sub-category's, else its category's, else the level's own. */
-export function levelDiscountFor(level: LevelFacts, item: PricedItem): number {
-  const forCategory = (id: string | null) =>
-    id
-      ? level.categoryDiscounts.find((row) => row.categoryId === id)
-          ?.discountPct
-      : undefined;
-  return (
-    forCategory(item.subCategoryId) ??
-    forCategory(item.categoryId) ??
-    level.discountPct
-  );
-}
-
+/**
+ * A DISCOUNT special rate is taken off the day's rate-sheet price, else off
+ * MRP; with neither it cannot give a rate and the rate sheet decides.
+ */
 export function resolveRate(
   item: PricedItem,
-  customer: { id: string; level?: LevelFacts } | undefined,
-  quantity: number,
+  partyId: string | undefined,
   date: string,
-  book: { specialRates: SpecialRateFacts[]; slabs: SlabFacts[] },
+  specialRates: SpecialRateFacts[],
+  listed?: ListedPrice,
 ): RateQuote {
-  const special = customer
+  const special = partyId
     ? mostSpecific(
-        book.specialRates.filter(
-          (rate) => rate.partyId === customer.id && inForce(rate, date),
+        specialRates.filter(
+          (rate) => rate.partyId === partyId && inForce(rate, date),
         ),
         item,
       )[0]
     : undefined;
-  const level =
-    customer?.level && !customer.level.isArchived ? customer.level : undefined;
-
-  let rate = item.sellingPrice;
-  let source: RateSource = 'standard';
-  let levelApplied: RateQuote['level'];
+  const priceList = listed && {
+    id: listed.id,
+    validFrom: listed.validFrom,
+    validTill: listed.validTill,
+    sellingPrice: listed.sellingPrice,
+  };
   if (special) {
-    rate =
-      special.kind === 'NET'
-        ? special.value
-        : (item.mrp ?? item.sellingPrice) * (1 - special.value / 100);
-    source = 'special';
-  } else if (level && item.mrp) {
-    const discountPct = levelDiscountFor(level, item);
-    rate = item.mrp * (1 - discountPct / 100);
-    source = 'price-level';
-    levelApplied = { id: level.id, name: level.name, discountPct };
+    const base = listed?.sellingPrice ?? item.mrp;
+    if (special.kind === 'NET')
+      return { rate: special.value, source: 'special', special, priceList };
+    if (base !== null)
+      return {
+        rate: money(base * (1 - special.value / 100)),
+        source: 'special',
+        special,
+        priceList,
+      };
   }
-
-  // The largest slab reached, among the most specific ones that fit.
-  const slab = mostSpecific(
-    book.slabs.filter(
-      (candidate) => !candidate.isArchived && quantity >= candidate.minQuantity,
-    ),
-    item,
-  ).sort((a, b) => b.minQuantity - a.minQuantity)[0];
-  if (slab) rate *= 1 - slab.discountPct / 100;
-
-  if (item.minSellingPrice !== null && rate < item.minSellingPrice) {
-    rate = item.minSellingPrice;
-    source = 'minimum';
-  }
-  return { rate: money(rate), source, special, level: levelApplied, slab };
+  return listed
+    ? { rate: listed.sellingPrice, source: 'price-list', priceList }
+    : { rate: null, source: null };
 }
 
 // ---------------------------------------------------------------------------
 // Checks before a save. Each returns null when the record is fine, else the
 // first problem in words a person can act on.
 // ---------------------------------------------------------------------------
-
-/** A level may give nothing off (Retail); it can never give the item away. */
-export function levelDiscountProblem(discountPct: number): string | null {
-  return discountPct >= 0 && discountPct < 100
-    ? null
-    : 'A price level discount is from 0 to under 100%';
-}
 
 export function targetProblem(target: RateTarget): string | null {
   if (target.itemId && target.categoryId)
@@ -231,30 +195,5 @@ export function overlappingRate<T extends SpecialRateFacts>(
       other.partyId === rate.partyId &&
       sameTarget(other, rate) &&
       rangesOverlap(other, rate),
-  );
-}
-
-export function slabProblem(
-  slab: Pick<SlabFacts, 'minQuantity' | 'discountPct'> & RateTarget,
-): string | null {
-  const target = targetProblem(slab);
-  if (target) return target;
-  if (slab.minQuantity <= 0) return 'A slab starts above 0';
-  if (slab.discountPct <= 0 || slab.discountPct >= 100)
-    return 'A slab discount is more than 0 and under 100%';
-  return null;
-}
-
-/** Two live slabs from the same quantity on the same target would be ambiguous. */
-export function duplicateSlab<T extends SlabFacts>(
-  slab: Omit<SlabFacts, 'id' | 'isArchived' | 'discountPct'> & { id?: string },
-  others: T[],
-): T | undefined {
-  return others.find(
-    (other) =>
-      other.id !== slab.id &&
-      !other.isArchived &&
-      sameTarget(other, slab) &&
-      other.minQuantity === slab.minQuantity,
   );
 }

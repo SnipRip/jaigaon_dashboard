@@ -68,7 +68,7 @@ const ROLES = [
     name: 'Store',
     description: 'Stock, shipments and documents at the yard',
     permissions: {
-      ...grant(WORK, ['/items', '/shipments', '/documents', '/ocr-inbox', '/masters/godowns', '/masters/units', '/masters/brands']),
+      ...grant(WORK, ['/items', '/shipments', '/documents', '/masters/godowns', '/masters/units', '/masters/brands']),
       ...grant(VIEW, ['/dashboard', '/purchases']),
     },
   },

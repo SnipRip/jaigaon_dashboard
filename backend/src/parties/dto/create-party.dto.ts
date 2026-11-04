@@ -6,7 +6,6 @@ import {
   IsInt,
   IsOptional,
   IsString,
-  IsUUID,
   Length,
   Matches,
   Max,
@@ -141,11 +140,6 @@ export class CreatePartyDto {
   @IsOptional()
   @IsAmount()
   creditLimit?: number | null;
-
-  /** Customers only; cleared for a vendor. */
-  @IsOptional()
-  @IsUUID()
-  priceLevelId?: string | null;
 
   @IsOptional()
   @IsAmount()

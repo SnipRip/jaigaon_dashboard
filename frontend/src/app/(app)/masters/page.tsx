@@ -11,7 +11,7 @@ import { MastersHub } from "@/features/masters/masters-hub";
 import { transporters, vehicles } from "@/features/masters/sample-data";
 import { CONFIGURED_SERIES_PATH } from "@/features/number-series/number-series-api";
 import { PARTIES_PATH } from "@/features/parties/parties-api";
-import { PRICE_LEVELS_PATH, SPECIAL_RATES_PATH } from "@/features/rates/rates-api";
+import { SPECIAL_RATES_PATH } from "@/features/rates/rates-api";
 import { LUTS_PATH } from "@/features/tax-export/luts-api";
 import { templates } from "@/features/whatsapp/sample-data";
 
@@ -22,13 +22,13 @@ const live = <T extends { archived?: boolean }>(records: T[]) => records.filter(
 export default function MastersPage() {
   return (
     <>
-      <SampleDataNotice>Customers, vendors, items, brands, units, godowns, HSN codes, price levels, special rates, the LUT register, number series, bank & cash accounts, loans and expense & income heads are live. The other counts are still sample data.</SampleDataNotice>
+      <SampleDataNotice>Customers, vendors, items, brands, units, godowns, HSN codes, special rates, the LUT register, number series, bank & cash accounts, loans and expense & income heads are live. The other counts are still sample data.</SampleDataNotice>
       <MastersHub
         groups={[
           {
             label: "Parties",
             cards: [
-              { href: "/customers", title: "Customers", icon: Users, description: "GST treatment, place of supply, Bhutan buyers with export route, credit and price level.", count: <LiveCount path={`${PARTIES_PATH}?role=customer`} noun={["customer", "customers"]} /> },
+              { href: "/customers", title: "Customers", icon: Users, description: "GST treatment, place of supply, Bhutan buyers with export route and credit.", count: <LiveCount path={`${PARTIES_PATH}?role=customer`} noun={["customer", "customers"]} /> },
               { href: "/vendors", title: "Vendors", icon: Building2, description: "Who gives a GST bill and who does not, composition and transporters, MSME and bank details.", count: <LiveCount path={`${PARTIES_PATH}?role=vendor`} noun={["vendor", "vendors"]} /> },
               { href: "/masters/transporters", title: "Transporters", icon: Truck, description: "Transporter ID for e-way bills, and whether they bill freight under reverse charge.", count: `${live(transporters)} transporters` },
               { href: "/masters/vehicles", title: "Vehicles", icon: Container, description: "Own and hired trucks with capacity and driver contact.", count: `${live(vehicles)} vehicles` },
@@ -58,10 +58,10 @@ export default function MastersPage() {
           {
             label: "Pricing",
             cards: [
-              { href: "/rates", title: "Price levels & special rates", icon: Tag, description: "Price levels by category, customer special rates with validity, and quantity slabs.",
+              { href: "/rates", title: "Special rates", icon: Tag, description: "Customer special rates with validity. They come before the day's rate on the rate sheet.",
                 count: (
                   <>
-                    <LiveCount path={PRICE_LEVELS_PATH} noun={["level", "levels"]} /> · <LiveCount path={SPECIAL_RATES_PATH} noun={["special rate", "special rates"]} />
+                    <LiveCount path={SPECIAL_RATES_PATH} noun={["special rate", "special rates"]} />
                   </>
                 ),
               },

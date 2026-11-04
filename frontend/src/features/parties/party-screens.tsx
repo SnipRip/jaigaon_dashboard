@@ -5,11 +5,8 @@ import { useMemo } from "react";
 import useSWR from "swr";
 import { LoadNotice } from "@/components/ui/load-notice";
 import { useCompanyProfile } from "@/features/company/use-company-profile";
-import { withArchived } from "@/features/masters/masters-api";
-import { PRICE_LEVELS_PATH } from "@/features/rates/rates-api";
 import { apiGet } from "@/lib/api-client";
 import type { PartyView } from "@/types/party";
-import type { PriceLevelView } from "@/types/pricing";
 import { PARTIES_LIST_PATH, saveParty, setPartyArchived, toParty } from "./parties-api";
 import { PartiesWorkspace } from "./parties-workspace";
 import { PartyForm } from "./party-form";
@@ -38,11 +35,9 @@ export function PartiesScreen({ role }: { role: PartyRole }) {
 export function PartyScreen({ role, partyId }: { role: PartyRole; partyId?: string }) {
   const router = useRouter();
   const { parties, error, reload } = useParties();
-  // Archived levels too, so a customer still on one keeps it in the picker.
-  const { data: levels, error: levelsError } = useSWR<PriceLevelView[]>(withArchived(PRICE_LEVELS_PATH), apiGet);
   const { profile, error: profileError } = useCompanyProfile();
   const text = ROLE_TEXT[role];
-  if (!parties || !levels || !profile) return <LoadNotice error={error ?? levelsError ?? profileError} what={`the ${text.one}`} />;
+  if (!parties || !profile) return <LoadNotice error={error ?? profileError} what={`the ${text.one}`} />;
 
   const party = partyId ? parties.find((candidate) => candidate.id === partyId) : undefined;
   if (partyId && !party) return <LoadNotice error={new Error(`This ${text.one} does not exist.`)} what={`the ${text.one}`} />;
@@ -57,9 +52,6 @@ export function PartyScreen({ role, partyId }: { role: PartyRole; partyId?: stri
       key={party?.id ?? "new"}
       role={role}
       party={party}
-      priceLevels={levels
-        .filter((level) => !level.isArchived || level.id === party?.priceLevelId)
-        .map((level) => ({ id: level.id, name: level.isArchived ? `${level.name} (archived)` : level.name }))}
       companyState={profile.stateCode}
       onSave={async (values) => {
         const saved = await saveParty(party, values);

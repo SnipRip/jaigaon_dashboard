@@ -64,12 +64,14 @@ export interface Item {
   /** Kilograms per base unit, for truck load and e-way bill weight. */
   weightKg?: number;
   mrp?: number;
-  sellingPrice: number;
-  minSellingPrice?: number;
-  costPrice: number;
+  /** Worked out from the batches (backend items/item-costs.ts); undefined before any stock. */
+  lastLandedCost?: number;
+  stockCost?: number;
   preferredSupplier?: string;
   stock: number;
   reorderLevel: number;
+  /** The item's picture, when it has one (backend items only). */
+  pictureUrl?: string;
 }
 
 /** An inherited value with where it came from, for "From sub-category" hints. */

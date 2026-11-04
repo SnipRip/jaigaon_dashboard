@@ -20,7 +20,7 @@ function costLine(itemId: string, quantity: number, rate?: number, itc: BillLine
     hsn: defaults.hsn.value ?? "",
     quantity,
     unit: defaults.unit.value ?? "",
-    rate: rate ?? item.costPrice,
+    rate: rate ?? item.lastLandedCost ?? 0,
     discountPct: 0,
     gstRatePct: defaults.gstRatePct.value ?? 0,
     itc,

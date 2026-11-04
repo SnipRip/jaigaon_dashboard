@@ -19,7 +19,6 @@ const base: PartyFacts = {
   exportRoute: null,
   isGta: false,
   creditLimit: null,
-  priceLevelId: null,
   openingBalanceSide: 'PAYABLE',
 };
 
@@ -42,15 +41,14 @@ describe('settleParty', () => {
     );
   });
 
-  it('keeps a price level for customers only', () => {
-    const onLevel = { ...base, priceLevelId: 'dealer', creditLimit: 5000 };
-    expect(settleParty(onLevel).priceLevelId).toBe('dealer');
+  it('keeps a credit limit for customers only', () => {
+    const customer = { ...base, creditLimit: 5000 };
+    expect(settleParty(customer).creditLimit).toBe(5000);
     const vendor = settleParty({
-      ...onLevel,
+      ...customer,
       isCustomer: false,
       isVendor: true,
     });
-    expect(vendor.priceLevelId).toBeNull();
     expect(vendor.creditLimit).toBeNull();
   });
 

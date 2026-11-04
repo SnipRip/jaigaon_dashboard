@@ -162,6 +162,24 @@ export function purchaseReference(financialYear: string, sequence: number) {
 export const ewayBillMissing = (bill: Pick<Bill, "kind" | "ewayBill">, payable: number) =>
   bill.kind === "goods" && payable > EWAY_BILL_LIMIT && !bill.ewayBill;
 
+/**
+ * The rate last printed on a goods bill for the item: from this vendor
+ * first, else from any vendor. Only a starting point for a new bill line:
+ * the rate differs by vendor and by load, and the user types what the
+ * vendor's paper says. Freight and unloading are added later as landed cost.
+ */
+export function lastPurchaseRate(
+  bills: Pick<Bill, "kind" | "status" | "date" | "vendorId" | "lines">[],
+  itemId: string,
+  vendorId?: string,
+): number | undefined {
+  const lines = bills
+    .filter((bill) => bill.kind === "goods" && bill.status !== "void")
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .flatMap((bill) => bill.lines.filter((line) => line.itemId === itemId).map((line) => ({ vendorId: bill.vendorId, rate: line.rate })));
+  return (lines.find((line) => line.vendorId === vendorId) ?? lines[0])?.rate;
+}
+
 /** Charges bills tagged to this goods bill. */
 export const chargeBillsFor = (bills: Bill[], billId: string) =>
   bills.filter((bill) => bill.kind === "charges" && bill.landedCostFor === billId && bill.status !== "void");

@@ -25,8 +25,8 @@ interface UploadDocumentDialogProps {
   owners: SelectOption[];
 }
 
-// Upload a scan and file it against its invoice or bill. The OCR inbox will
-// read the number and date from the scan; until then they are typed.
+// Upload a scan and file it against its invoice or bill. The number and date
+// are typed in.
 export function UploadDocumentDialog({ kinds, owners }: UploadDocumentDialogProps) {
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -60,7 +60,7 @@ export function UploadDocumentDialog({ kinds, owners }: UploadDocumentDialogProp
           )}
           className="flex flex-col gap-3.5"
         >
-          <FilePicker label="Scan or PDF" accept="application/pdf,image/*" file={file} onChange={setFile} hint="Phone photos are fine; the OCR inbox will read them once it is connected." />
+          <FilePicker label="Scan or PDF" accept="application/pdf,image/*" file={file} onChange={setFile} hint="Phone photos are fine." />
           <Controller
             control={control}
             name="kind"

@@ -8,6 +8,7 @@ import { ItemsModule } from '../items/items.module.js';
 import { LedgersModule } from '../ledgers/ledgers.module.js';
 import { LoansModule } from '../loans/loans.module.js';
 import { PartiesModule } from '../parties/parties.module.js';
+import { PriceListModule } from '../price-list/price-list.module.js';
 import { PricingModule } from '../pricing/pricing.module.js';
 import { UnitsModule } from '../units/units.module.js';
 import { ImporterRegistry } from './importer-registry.js';
@@ -26,6 +27,7 @@ import { ImportsService } from './imports.service.js';
     HsnCodesModule,
     ItemsModule,
     PricingModule,
+    PriceListModule,
     LoansModule,
     LedgersModule,
   ],

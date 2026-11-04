@@ -21,7 +21,7 @@ export function ItemActivity({ catalog, item, movements }: { catalog: ItemCatalo
           <Figure label="In stock">
             <StockCell item={item} unit={unit} />
           </Figure>
-          <Figure label="Stock value at cost">{formatInr(item.stock * item.costPrice)}</Figure>
+          <Figure label="Stock value at cost">{item.stockCost === undefined ? "—" : formatInr(item.stock * item.stockCost)}</Figure>
           <Figure label="Last purchase rate">{lastPurchase ? formatRate(lastPurchase.rate) : "—"}</Figure>
           <Figure label="Last sale rate">{lastSale ? formatRate(lastSale.rate) : "—"}</Figure>
         </dl>

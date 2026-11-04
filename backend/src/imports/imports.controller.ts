@@ -5,6 +5,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   StreamableFile,
   UploadedFile,
   UseInterceptors,
@@ -13,6 +14,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { CurrentAuth } from '../common/decorators/current-auth.decorator.js';
 import type { AuthContext } from '../common/types/authenticated-request.js';
+import { SheetQueryDto } from './dto/sheet-query.dto.js';
 import { MAX_FILE_BYTES, XLSX_TYPE } from './import-workbook.js';
 import { ImportsService, type ImportJobView } from './imports.service.js';
 
@@ -39,9 +41,10 @@ export class ImportsController {
     return file(await this.imports.skippedSheet(id, auth));
   }
 
+  /** `?date=YYYY-MM-DD`: the rows to fill in for that day, for masters that offer it (price list). */
   @Get(':master/sheet')
-  async sheet(@Param('master') master: string, @CurrentAuth() auth: AuthContext): Promise<StreamableFile> {
-    return file(await this.imports.download(checked(master), auth));
+  async sheet(@Param('master') master: string, @Query() query: SheetQueryDto, @CurrentAuth() auth: AuthContext): Promise<StreamableFile> {
+    return file(await this.imports.download(checked(master), auth, query.date));
   }
 
   @Get(':master/latest')

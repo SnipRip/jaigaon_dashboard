@@ -109,7 +109,7 @@ export function ProfitWorkspace({ rows, total, overheads }: ProfitWorkspaceProps
         <CardTitle>How this is worked out</CardTitle>
         <ul className="flex list-disc flex-col gap-1 pl-5 text-sm font-medium text-ink-soft">
           <li>Sales are the invoice value before GST; GST never counts as income or cost.</li>
-          <li>Purchase cost is each item&rsquo;s cost price today. Once stock moves are recorded it becomes the landed FIFO cost, with freight and labour from Purchases.</li>
+          <li>Purchase cost is each item&rsquo;s stock cost today. Once sales are recorded against batches it becomes the landed cost of the batches sold, first in, first out, with freight and unloading included.</li>
           <li>Expenses booked on a shipment are shared over its invoices by value; those on an invoice over its items the same way.</li>
           <li>Rent, salary and other overheads come off once, as net profit. Only issued invoices count.</li>
         </ul>

@@ -6,32 +6,28 @@ import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { FormMessage } from "@/components/ui/form-message";
 import { SelectField } from "@/components/ui/select-field";
 import { StatusChip } from "@/components/ui/status-chip";
-import { TextField } from "@/components/ui/text-field";
 import type { Item } from "@/features/items/types";
 import type { Party } from "@/features/parties/types";
-import { apiGet } from "@/lib/api-client";
-import { formatDate, formatPercent, formatQuantity, formatRate } from "@/lib/format";
+import { formatDate, formatPercent, formatRate } from "@/lib/format";
 import { useToday } from "@/lib/use-today";
-import type { RateQuoteView } from "@/types/pricing";
 import { marginPct, RATE_SOURCE_TEXT } from "./rate-rules";
-import { quotePath } from "./rates-api";
+import { fetchLineOptions, LINE_OPTIONS_PATH } from "./rates-api";
 
 const WALK_IN = "__walk-in";
 
-// "What rate does this customer get?", worked out by the backend from the
-// same rules a quotation uses (`GET /rates/quote`), with the reason shown.
+const sheetDates = ({ validFrom, validTill }: { validFrom: string; validTill: string }) =>
+  validFrom === validTill ? `for ${formatDate(validFrom)}` : `${formatDate(validFrom)} to ${formatDate(validTill)}`;
+
+// "What rate does this customer get today?", worked out by the backend from
+// the same rules a quotation line uses (POST /rates/line-options).
 export function RateCheckCard({ items, customers }: { items: Item[]; customers: Party[] }) {
   const today = useToday();
   const [customerId, setCustomerId] = useState(customers[0]?.id ?? WALK_IN);
   const [itemId, setItemId] = useState(items[0]?.id ?? "");
-  const [quantity, setQuantity] = useState("1");
-  const amount = Number(quantity);
-  const valid = Number.isFinite(amount) && amount >= 0 && /^\d+(\.\d{1,3})?$/.test(quantity.trim());
-  const path =
-    itemId && today && valid
-      ? quotePath({ itemId, partyId: customerId === WALK_IN ? undefined : customerId, quantity: amount, date: today })
-      : null;
-  const { data: quote, error } = useSWR<RateQuoteView>(path, apiGet, { keepPreviousData: true });
+  const partyId = customerId === WALK_IN ? undefined : customerId;
+  const key = itemId && today ? ([LINE_OPTIONS_PATH, partyId, today, [itemId]] as const) : null;
+  const { data, error } = useSWR(key, fetchLineOptions, { keepPreviousData: true });
+  const options = data?.[0];
 
   return (
     <GlassCard className="flex flex-col gap-3">
@@ -47,26 +43,30 @@ export function RateCheckCard({ items, customers }: { items: Item[]; customers: 
       ) : (
         <p className="text-[13px] text-muted">Add items first.</p>
       )}
-      <TextField label="Quantity" inputMode="decimal" value={quantity} error={valid ? undefined : "Enter a quantity"} onChange={(event) => setQuantity(event.target.value)} />
       {error && <FormMessage tone="error">{error instanceof Error ? error.message : "Could not work out the rate."}</FormMessage>}
-      {quote && path && (
+      {options && key && (
         <div className="glass-inset flex flex-col gap-1.5 rounded-(--radius-tile) px-4 py-3">
-          <span className="text-xl font-semibold tabular-nums">{formatRate(quote.rate)}</span>
+          {options.rate === null ? (
+            <span className="text-[15px] font-semibold">No rate today</span>
+          ) : (
+            <span className="text-xl font-semibold tabular-nums">{formatRate(options.rate)}</span>
+          )}
           <div className="flex flex-wrap gap-1.5">
-            <StatusChip tone={quote.source === "minimum" ? "warning" : quote.source === "standard" ? "neutral" : "brand"}>{RATE_SOURCE_TEXT[quote.source]}</StatusChip>
-            {quote.slab && (
-              <StatusChip tone="success">
-                Slab −{quote.slab.discountPct}% from {formatQuantity(quote.slab.minQuantity)}
-              </StatusChip>
+            {options.source && <StatusChip tone="brand">{RATE_SOURCE_TEXT[options.source]}</StatusChip>}
+            {options.rate !== null && options.marginCost !== null && (
+              <StatusChip tone="neutral">Margin {formatPercent(marginPct(options.rate, options.marginCost))}</StatusChip>
             )}
           </div>
           <p className="text-xs font-semibold text-muted">
-            {quote.special
-              ? `Special rate ${quote.special.validTill ? `till ${formatDate(quote.special.validTill)}` : "until withdrawn"}.`
-              : quote.level
-                ? `${quote.level.name}: ${quote.level.discountPct}% off MRP ${formatRate(quote.mrp ?? 0)}.`
-                : "No price level or special rate applies: selling price."}{" "}
-            Margin {formatPercent(marginPct(quote.rate, quote.costPrice))}.
+            {options.specialRate
+              ? `Special rate ${options.specialRate.validTill ? `till ${formatDate(options.specialRate.validTill)}` : "until withdrawn"}${options.todaysRate ? `; today's rate is ${formatRate(options.todaysRate.rate)}` : ""}.`
+              : options.todaysRate
+                ? `Rate sheet ${sheetDates(options.todaysRate)}.`
+                : options.previousSheetRate
+                  ? `Nothing on the rate sheet today. Last sheet rate ${formatRate(options.previousSheetRate.rate)}, ${sheetDates(options.previousSheetRate)}.`
+                  : "Nothing on the rate sheet for this item yet. The rate is typed on the quotation."}
+            {options.floor !== null && ` Minimum ${formatRate(options.floor)}.`}
+            {options.marginCost === null && " No stock yet, so no margin."}
           </p>
         </div>
       )}

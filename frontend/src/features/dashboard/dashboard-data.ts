@@ -10,7 +10,6 @@ import { sumAmount } from "@/features/expenses/expense-rules";
 import { invoices } from "@/features/invoices/sample-data";
 import { stockStatus } from "@/features/items/item-rules";
 import { items } from "@/features/items/sample-data";
-import { reviewQueue } from "@/features/ocr/sample-data";
 import { parties } from "@/features/parties/sample-data";
 import { payable, receivable } from "@/features/payments/payment-data";
 import { buildProfitReport } from "@/features/profit/profit-report";
@@ -100,14 +99,6 @@ const goodsWithoutCharges = goodsBills.filter((view) => chargeBillsFor(bills, vi
 const overheads = sumAmount(expenses.filter((expense) => expense.allocation.kind === "overhead"));
 
 const attentionCandidates: (AttentionItem | false)[] = [
-  reviewQueue.length > 0 && {
-    heading: `OCR · ${reviewQueue.length} documents waiting for review`,
-    detail: Object.entries(reviewQueue.reduce<Record<string, number>>((counts, document) => ({ ...counts, [document.detectedType]: (counts[document.detectedType] ?? 0) + 1 }), {}))
-      .map(([type, count]) => `${count} ${type}`)
-      .join(", "),
-    tone: "brand",
-    href: "/ocr-inbox",
-  },
   missing.length > 0 && {
     heading: `Documents · ${missing.length} required, not attached`,
     detail: missing

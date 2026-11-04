@@ -16,7 +16,7 @@ import { GST_TREATMENTS, needsGstin } from "@/features/gst/gst-rules";
 import { checkGstin, gstinPan, gstinStateCode } from "@/features/gst/gstin";
 import { INDIAN_STATES, stateName } from "@/features/gst/indian-states";
 import { ROLE_TEXT, taxProfileOf } from "./party-rules";
-import { NO_PRICE_LEVEL, partySchema, type PartyFormValues } from "./party-schema";
+import { partySchema, type PartyFormValues } from "./party-schema";
 import { PartyTaxPreview } from "./party-tax-preview";
 import type { Party, PartyRole } from "./types";
 
@@ -24,8 +24,6 @@ interface PartyFormProps {
   /** Which list the form was opened from; it is ticked for a new party. */
   role: PartyRole;
   party?: Party;
-  /** The levels a customer can be put on; the picker is hidden when there are none. */
-  priceLevels?: { id: string; name: string }[];
   companyState: string;
   /** Saves through the backend; throws an ApiError the form shows. */
   onSave: (values: PartyFormValues) => Promise<void>;
@@ -61,7 +59,6 @@ function toValues(role: PartyRole, party?: Party): PartyFormValues {
     pin: party?.billing.pin ?? "",
     creditDays: text(party?.creditDays ?? 0),
     creditLimit: text(party?.creditLimit),
-    priceLevelId: party?.priceLevelId ?? NO_PRICE_LEVEL,
     openingBalance: text(party?.openingBalance),
     openingBalanceSide: party?.balanceSide ?? (role === "vendor" ? "payable" : "receivable"),
     udyamNumber: party?.udyamNumber ?? "",
@@ -75,7 +72,7 @@ function toValues(role: PartyRole, party?: Party): PartyFormValues {
 // Zoho-style contact form for customers and vendors. GST treatment decides
 // which fields show: a GSTIN fills in the state and PAN, an overseas party
 // gets country, tax ID and export route instead of a place of supply.
-export function PartyForm({ role, party, priceLevels = [], companyState, onSave, onArchive }: PartyFormProps) {
+export function PartyForm({ role, party, companyState, onSave, onArchive }: PartyFormProps) {
   const [result, setResult] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const {
     register,
@@ -333,20 +330,6 @@ export function PartyForm({ role, party, priceLevels = [], companyState, onSave,
             {isCustomer && (
               <>
                 <TextField label="Credit limit (₹)" inputMode="decimal" error={errors.creditLimit?.message} {...register("creditLimit")} />
-                {priceLevels.length > 0 && (
-                  <Controller
-                    control={control}
-                    name="priceLevelId"
-                    render={({ field }) => (
-                      <SelectField
-                        label="Price level"
-                        options={[{ value: NO_PRICE_LEVEL, label: "Standard rates" }, ...priceLevels.map((level) => ({ value: level.id, label: level.name }))]}
-                        value={field.value}
-                        onValueChange={field.onChange}
-                      />
-                    )}
-                  />
-                )}
               </>
             )}
           </div>

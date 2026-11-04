@@ -4,7 +4,7 @@
 import type { PrismaService } from '../database/prisma.service.js';
 import { RowProblem } from './import-cells.js';
 
-export type RefKind = 'category' | 'brand' | 'unit' | 'priceLevel' | 'customer' | 'item' | 'bankAccount' | 'accountHead' | 'ledger' | 'ledgerGroup';
+export type RefKind = 'category' | 'brand' | 'unit' | 'customer' | 'item' | 'bankAccount' | 'accountHead' | 'ledger' | 'ledgerGroup';
 
 /** What a column needs to write a name for an id. */
 export interface RefNames {
@@ -15,7 +15,6 @@ const LABELS: Record<RefKind, string> = {
   category: 'category',
   brand: 'brand',
   unit: 'unit',
-  priceLevel: 'price level',
   customer: 'customer',
   item: 'item (by SKU)',
   bankAccount: 'bank or cash account',
@@ -98,8 +97,6 @@ export class RefBook implements RefNames {
             aliases: [unit.name],
           })),
         );
-      case 'priceLevel':
-        return this.set(kind, await db.priceLevel.findMany({ select: { id: true, name: true } }));
       case 'customer':
         return this.set(
           kind,

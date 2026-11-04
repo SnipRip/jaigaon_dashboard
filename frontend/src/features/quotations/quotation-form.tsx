@@ -19,8 +19,9 @@ import type { InvoiceLine } from "@/features/invoices/types";
 import { resolveItemDefaults, type ItemCatalog } from "@/features/items/item-rules";
 import type { Party } from "@/features/parties/types";
 import { lineCost, lineSales, profitOf } from "@/features/profit/profit-rules";
-import { marginPct, RATE_SOURCE_TEXT, rateFor, type PricingBook } from "@/features/rates/rate-rules";
-import { formatInr, formatPercent, formatRate } from "@/lib/format";
+import { lineRateOptions, type PricingSources } from "@/features/rates/line-rate-options";
+import { LineRatePicker } from "@/features/rates/line-rate-picker";
+import { formatDate, formatInr, formatPercent, formatRate } from "@/lib/format";
 import { addDays } from "@/lib/dates";
 import { useToday } from "@/lib/use-today";
 import { DEFAULT_TERMS, quotationTax } from "./quotation-rules";
@@ -49,7 +50,8 @@ type QuotationFormValues = z.infer<typeof schema>;
 interface QuotationFormProps {
   customers: Party[];
   catalog: ItemCatalog;
-  book: PricingBook;
+  /** Special rates, the rate sheet and past quotations and invoices. */
+  pricing: PricingSources;
   companyState: string;
   suggestedNumber: string;
   /** From Rate enquiry: customer and item quantities. Rates are worked out here. */
@@ -58,10 +60,11 @@ interface QuotationFormProps {
 
 const emptyLine = { itemId: "", quantity: "", rate: "", discountPct: "" };
 
-// A quotation. Each line's rate comes from Rate management: special rate,
-// else price level, else selling price, then quantity slab, never below the
-// minimum. The rate can be changed; going below the minimum is flagged.
-export function QuotationForm({ customers, catalog, book, companyState, suggestedNumber, initial }: QuotationFormProps) {
+// A quotation. Picking an item fills the customer's special rate, else
+// today's rate from the rate sheet; the line also offers the last rate
+// quoted and sold to this customer, each with its margin. Any rate can be
+// typed instead; going below the day's minimum is flagged.
+export function QuotationForm({ customers, catalog, pricing, companyState, suggestedNumber, initial }: QuotationFormProps) {
   const today = useToday();
   const [result, setResult] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const {
@@ -90,25 +93,33 @@ export function QuotationForm({ customers, catalog, book, companyState, suggeste
     if (!today || getValues("date")) return;
     setValue("date", today);
     setValue("validUntil", addDays(today, 7));
-    const party = customers.find((candidate) => candidate.id === getValues("partyId"));
+    const customerId = getValues("partyId") || undefined;
     getValues("lines").forEach((line, index) => {
       const item = catalog.items.find((candidate) => candidate.id === line.itemId);
-      if (item && !line.rate) setValue(`lines.${index}.rate`, String(rateFor(item, party, Number(line.quantity) || 0, today, book).rate));
+      const suggested = item && lineRateOptions(item, customerId, today, pricing, formatDate).suggested;
+      if (suggested && !line.rate) setValue(`lines.${index}.rate`, String(suggested.rate));
     });
-  }, [today, getValues, setValue, customers, catalog.items, book]);
+  }, [today, getValues, setValue, catalog.items, pricing]);
 
   const [partyId, date, lines] = useWatch({ control, name: ["partyId", "date", "lines"] });
   const party = customers.find((candidate) => candidate.id === partyId);
 
-  const quoted = (index: number, itemId = getValues(`lines.${index}.itemId`), quantity = getValues(`lines.${index}.quantity`)) => {
+  const optionsFor = (itemId: string | undefined, customerId = partyId || undefined) => {
     const item = catalog.items.find((candidate) => candidate.id === itemId);
-    return item && date ? rateFor(item, party, Number(quantity) || 0, date, book) : undefined;
+    return item && date ? lineRateOptions(item, customerId, date, pricing, formatDate) : undefined;
   };
-  const repriceAll = (nextParty?: Party) => {
-    getValues("lines").forEach((line, index) => {
-      const item = catalog.items.find((candidate) => candidate.id === line.itemId);
-      if (item && date) setValue(`lines.${index}.rate`, String(rateFor(item, nextParty, Number(line.quantity) || 0, date, book).rate));
-    });
+  /** Fills the suggested rate; with none, the rate is left for the user to type. */
+  const suggest = (index: number, itemId: string, customerId?: string) => {
+    const suggested = optionsFor(itemId, customerId)?.suggested;
+    setValue(`lines.${index}.rate`, suggested ? String(suggested.rate) : "");
+    setValue(`lines.${index}.discountPct`, "");
+  };
+  // A new customer brings their own special rates.
+  const repriceAll = (customerId: string) =>
+    getValues("lines").forEach((line, index) => line.itemId && suggest(index, line.itemId, customerId));
+  const pick = (index: number, rate: number) => {
+    setValue(`lines.${index}.rate`, String(rate), { shouldValidate: true });
+    setValue(`lines.${index}.discountPct`, "");
   };
 
   const toLine = (line?: QuotationFormValues["lines"][number]): InvoiceLine | undefined => {
@@ -163,11 +174,10 @@ export function QuotationForm({ customers, catalog, book, companyState, suggeste
                 value={partyId || undefined}
                 onValueChange={(id) => {
                   setValue("partyId", id, { shouldValidate: true });
-                  repriceAll(customers.find((candidate) => candidate.id === id));
+                  repriceAll(id);
                 }}
               />
               {errors.partyId && <p className="text-xs font-semibold text-danger-strong">{errors.partyId.message}</p>}
-              {party && <p className="text-xs font-semibold text-muted">{party.priceLevel ? `Price level: ${party.priceLevel}` : "No price level: standard rates"}</p>}
             </div>
             <TextField label="Date" type="date" error={errors.date?.message} {...register("date")} />
             <TextField label="Valid till" type="date" hint="A week by default" error={errors.validUntil?.message} {...register("validUntil")} />
@@ -179,10 +189,8 @@ export function QuotationForm({ customers, catalog, book, companyState, suggeste
           {lineFields.fields.map((field, index) => {
             const line = toLine(lines?.[index]);
             const item = catalog.items.find((candidate) => candidate.id === line?.itemId);
-            const suggestion = quoted(index, lines?.[index]?.itemId, lines?.[index]?.quantity);
-            const netRate = line ? line.rate * (1 - line.discountPct / 100) : 0;
-            const lineMargin = item ? Math.round(marginPct(netRate, item.costPrice) * 10) / 10 : undefined;
-            const belowMinimum = item?.minSellingPrice && line && netRate < item.minSellingPrice;
+            const options = optionsFor(line?.itemId);
+            const typedRate = lines?.[index]?.rate ? line && line.rate * (1 - line.discountPct / 100) : undefined;
             const lineErrors = errors.lines?.[index];
             return (
               <div key={field.id} className="glass-inset flex flex-col gap-2.5 rounded-(--radius-tile) p-3">
@@ -198,8 +206,7 @@ export function QuotationForm({ customers, catalog, book, companyState, suggeste
                           value={itemField.value || undefined}
                           onValueChange={(value) => {
                             setValue(`lines.${index}.itemId`, value, { shouldValidate: true });
-                            const next = quoted(index, value);
-                            if (next) setValue(`lines.${index}.rate`, String(next.rate));
+                            suggest(index, value);
                           }}
                         />
                       )}
@@ -210,12 +217,7 @@ export function QuotationForm({ customers, catalog, book, companyState, suggeste
                     label={`Quantity${line ? ` (${line.unit})` : ""}`}
                     inputMode="decimal"
                     error={lineErrors?.quantity?.message}
-                    {...register(`lines.${index}.quantity`, {
-                      onBlur: () => {
-                        const next = quoted(index);
-                        if (next) setValue(`lines.${index}.rate`, String(next.rate));
-                      },
-                    })}
+                    {...register(`lines.${index}.quantity`)}
                   />
                   <TextField label="Rate (₹)" inputMode="decimal" error={lineErrors?.rate?.message} {...register(`lines.${index}.rate`)} />
                   <TextField label="Discount %" inputMode="decimal" error={lineErrors?.discountPct?.message} {...register(`lines.${index}.discountPct`)} />
@@ -223,16 +225,15 @@ export function QuotationForm({ customers, catalog, book, companyState, suggeste
                     <Trash2 aria-hidden="true" className="size-[18px]" />
                   </Button>
                 </div>
-                {line && item && (
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs font-semibold text-muted">
-                    {suggestion && <StatusChip tone={suggestion.source === "standard" ? "neutral" : "brand"}>{RATE_SOURCE_TEXT[suggestion.source]}: {formatRate(suggestion.rate)}</StatusChip>}
-                    {suggestion?.slab && <StatusChip tone="success">Slab −{suggestion.slab.discountPct}%</StatusChip>}
-                    <span>Stock {item.stock}</span>
-                    <span>GST {line.gstRatePct}%{tax ? ` → ${describeComponents(line.gstRatePct, tax.regime)}` : ""}</span>
-                    <span className={lineMargin !== undefined && lineMargin < 8 ? "text-danger-strong" : undefined}>Margin {formatPercent(lineMargin ?? 0)}</span>
-                    <span className="ml-auto font-semibold text-ink tabular-nums">{formatRate(lineTotals(line, "no-gst").taxable)}</span>
-                    {belowMinimum && <span className="w-full font-semibold text-danger-strong">Below the minimum selling price of {formatRate(item.minSellingPrice!)}: needs approval.</span>}
-                  </div>
+                {line && item && options && (
+                  <>
+                    <LineRatePicker options={options} rate={typedRate} onPick={(rate) => pick(index, rate)} />
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs font-semibold text-muted">
+                      <span>Stock {item.stock}</span>
+                      <span>GST {line.gstRatePct}%{tax ? ` → ${describeComponents(line.gstRatePct, tax.regime)}` : ""}</span>
+                      <span className="ml-auto font-semibold text-ink tabular-nums">{formatRate(lineTotals(line, "no-gst").taxable)}</span>
+                    </div>
+                  </>
                 )}
               </div>
             );
@@ -288,7 +289,7 @@ export function QuotationForm({ customers, catalog, book, companyState, suggeste
           <span>Profit {formatInr(profit.profit)}</span>
           <span className={profit.marginPct < 8 ? "text-danger-strong" : "text-success-strong"}>{formatPercent(profit.marginPct)}</span>
         </div>
-        <p className="text-xs font-semibold text-muted">Profit is on cost price, before freight. Only you see it; it is not printed.</p>
+        <p className="text-xs font-semibold text-muted">Margin is on the last landed cost, freight and unloading included. Only you see it; it is not printed.</p>
       </GlassCard>
     </form>
   );

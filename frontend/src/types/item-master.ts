@@ -82,9 +82,10 @@ export interface ItemView {
   unitId: string | null;
   weightKg: number | null;
   mrp: number | null;
-  sellingPrice: number;
-  minSellingPrice: number | null;
-  costPrice: number;
+  /** Landed rate of the newest batch; null before any stock. */
+  lastLandedCost: number | null;
+  /** Stock value ÷ quantity on hand; null with nothing in stock. */
+  stockCost: number | null;
   preferredSupplier: string | null;
   reorderLevel: number;
   isArchived: boolean;
@@ -92,4 +93,6 @@ export interface ItemView {
   alternateUnits: { unitId: string; baseQuantity: number }[];
   openingStock: { godownId: string; quantity: number; value: number }[];
   stock: number;
+  /** When the picture last changed; null when the item has none. */
+  pictureVersion: string | null;
 }

@@ -1,19 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
-  duplicateSlab,
   inForce,
-  levelDiscountFor,
-  levelDiscountProblem,
   overlappingRate,
   rangesOverlap,
   resolveRate,
-  slabProblem,
   specialRatePartyProblem,
   specialRateProblem,
   targetRank,
-  type LevelFacts,
+  type ListedPrice,
   type PricedItem,
-  type SlabFacts,
   type SpecialRateFacts,
 } from './pricing-rules.js';
 
@@ -22,16 +17,6 @@ const item: PricedItem = {
   categoryId: 'iron',
   subCategoryId: 'tmt',
   mrp: 70,
-  sellingPrice: 64,
-  minSellingPrice: 55,
-};
-
-const level: LevelFacts = {
-  id: 'dealer',
-  name: 'Dealer',
-  discountPct: 10,
-  isArchived: false,
-  categoryDiscounts: [],
 };
 
 const special = (
@@ -49,17 +34,15 @@ const special = (
   ...overrides,
 });
 
-const slab = (overrides: Partial<SlabFacts> = {}): SlabFacts => ({
-  id: 'slab-1',
-  itemId: 'tmt-12',
-  categoryId: null,
-  minQuantity: 1000,
-  discountPct: 2,
-  isArchived: false,
-  ...overrides,
-});
+const listed: ListedPrice = {
+  id: 'pl-1',
+  validFrom: '2026-11-15',
+  validTill: '2026-11-15',
+  sellingPrice: 64,
+  mrp: 70,
+  minSellingPrice: 62,
+};
 
-const empty = { specialRates: [], slabs: [] };
 const day = '2026-11-15';
 
 describe('targetRank', () => {
@@ -86,164 +69,40 @@ describe('targetRank', () => {
 });
 
 describe('resolveRate', () => {
-  it('gives the selling price with no customer, level or special rate', () => {
-    expect(resolveRate(item, undefined, 1, day, empty)).toMatchObject({
-      rate: 64,
-      source: 'standard',
-    });
-    expect(resolveRate(item, { id: 'walk-in' }, 1, day, empty)).toMatchObject({
-      rate: 64,
-      source: 'standard',
-    });
+  it('has no rate without a special rate or a rate-sheet price', () => {
+    expect(resolveRate(item, undefined, day, [])).toEqual({ rate: null, source: null });
+    expect(resolveRate(item, 'tashi', day, [special({ isArchived: true })])).toEqual({ rate: null, source: null });
   });
 
-  it('takes the price level off MRP', () => {
-    const quote = resolveRate(item, { id: 'tashi', level }, 1, day, empty);
-    expect(quote).toMatchObject({ rate: 63, source: 'price-level' });
-    expect(quote.level).toEqual({
-      id: 'dealer',
-      name: 'Dealer',
-      discountPct: 10,
-    });
+  it('takes the rate sheet when no special rate applies', () => {
+    const quote = resolveRate(item, 'druk', day, [special()], listed);
+    expect(quote).toMatchObject({ rate: 64, source: 'price-list', priceList: { id: 'pl-1', sellingPrice: 64 } });
   });
 
-  it('uses the level discount of the sub-category, then the category, then the level', () => {
-    const byCategory = {
-      ...level,
-      categoryDiscounts: [{ categoryId: 'iron', discountPct: 5 }],
-    };
-    expect(levelDiscountFor(byCategory, item)).toBe(5);
-    const bySub = {
-      ...level,
-      categoryDiscounts: [
-        ...byCategory.categoryDiscounts,
-        { categoryId: 'tmt', discountPct: 8 },
-      ],
-    };
-    expect(levelDiscountFor(bySub, item)).toBe(8);
-    expect(
-      levelDiscountFor(bySub, {
-        ...item,
-        categoryId: 'cement',
-        subCategoryId: null,
-      }),
-    ).toBe(10);
+  it('puts the special rate first, even under the sheet minimum', () => {
+    const quote = resolveRate(item, 'tashi', day, [special()], listed);
+    expect(quote).toMatchObject({ rate: 60, source: 'special', priceList: { id: 'pl-1' } });
   });
 
-  it('skips an archived level, and a level when the item has no MRP', () => {
-    expect(
-      resolveRate(
-        item,
-        { id: 'tashi', level: { ...level, isArchived: true } },
-        1,
-        day,
-        empty,
-      ).source,
-    ).toBe('standard');
-    expect(
-      resolveRate({ ...item, mrp: null }, { id: 'tashi', level }, 1, day, empty)
-        .source,
-    ).toBe('standard');
+  it("takes a special discount off the day's rate, else off MRP", () => {
+    const discount = [special({ kind: 'DISCOUNT', value: 5 })];
+    expect(resolveRate(item, 'tashi', day, discount, listed).rate).toBe(60.8);
+    expect(resolveRate(item, 'tashi', day, discount).rate).toBe(66.5);
+    // Nothing to take it off: the rate sheet (none here) decides.
+    expect(resolveRate({ ...item, mrp: null }, 'tashi', day, discount)).toEqual({ rate: null, source: null });
   });
 
-  it('puts a special rate in force ahead of the price level', () => {
-    const quote = resolveRate(item, { id: 'tashi', level }, 1, day, {
-      specialRates: [special()],
-      slabs: [],
-    });
-    expect(quote).toMatchObject({ rate: 60, source: 'special' });
-    expect(quote.special?.id).toBe('sr-1');
-  });
-
-  it('ignores a special rate for another customer, out of its dates or archived', () => {
-    const book = (rate: SpecialRateFacts) => ({
-      specialRates: [rate],
-      slabs: [],
-    });
-    const level0 = { id: 'tashi', level };
-    expect(
-      resolveRate(item, level0, 1, day, book(special({ partyId: 'druk' })))
-        .source,
-    ).toBe('price-level');
-    expect(
-      resolveRate(item, level0, 1, '2026-12-01', book(special())).source,
-    ).toBe('price-level');
-    expect(
-      resolveRate(item, level0, 1, '2026-10-31', book(special())).source,
-    ).toBe('price-level');
-    expect(
-      resolveRate(item, level0, 1, day, book(special({ isArchived: true })))
-        .source,
-    ).toBe('price-level');
-  });
-
-  it('takes a discount special rate off MRP, or off the selling price without one', () => {
-    const book = {
-      specialRates: [special({ kind: 'DISCOUNT', value: 15 })],
-      slabs: [],
-    };
-    expect(resolveRate(item, { id: 'tashi' }, 1, day, book).rate).toBe(59.5);
-    const noMrp = { ...item, mrp: null, minSellingPrice: null };
-    expect(resolveRate(noMrp, { id: 'tashi' }, 1, day, book).rate).toBe(54.4);
-  });
-
-  it('prefers the item special rate over a category one', () => {
-    const category = special({
-      id: 'sr-cat',
-      itemId: null,
-      categoryId: 'iron',
-      value: 58,
-    });
-    const book = { specialRates: [category, special()], slabs: [] };
-    expect(resolveRate(item, { id: 'tashi' }, 1, day, book).special?.id).toBe(
-      'sr-1',
-    );
-    expect(
-      resolveRate(item, { id: 'tashi' }, 1, day, {
-        specialRates: [category],
-        slabs: [],
-      }).rate,
-    ).toBe(58);
-  });
-
-  it('takes the largest slab reached, most specific target first', () => {
-    const slabs = [
-      slab(),
-      slab({ id: 'slab-2', minQuantity: 5000, discountPct: 4 }),
-      slab({
-        id: 'slab-cat',
-        itemId: null,
-        categoryId: 'iron',
-        minQuantity: 10,
-        discountPct: 9,
-      }),
+  it('uses the most specific special rate', () => {
+    const rates = [
+      special({ id: 'cat', itemId: null, categoryId: 'iron', value: 58 }),
+      special({ id: 'sub', itemId: null, categoryId: 'tmt', value: 59 }),
     ];
-    expect(
-      resolveRate(item, undefined, 999, day, {
-        specialRates: [],
-        slabs: [slab()],
-      }).slab,
-    ).toBeUndefined();
-    expect(
-      resolveRate(item, undefined, 6000, day, { specialRates: [], slabs }).slab
-        ?.id,
-    ).toBe('slab-2');
-    expect(
-      resolveRate(item, undefined, 1200, day, { specialRates: [], slabs }),
-    ).toMatchObject({ rate: 62.72 });
-    // Below every item slab, the category slab is the only one reached.
-    expect(
-      resolveRate(item, undefined, 50, day, { specialRates: [], slabs }).slab
-        ?.id,
-    ).toBe('slab-cat');
+    expect(resolveRate(item, 'tashi', day, rates).special?.id).toBe('sub');
+    expect(resolveRate(item, 'tashi', day, [...rates, special()]).special?.id).toBe('sr-1');
   });
 
-  it('never goes below the minimum selling price', () => {
-    const book = { specialRates: [special({ value: 50 })], slabs: [] };
-    expect(resolveRate(item, { id: 'tashi' }, 1, day, book)).toMatchObject({
-      rate: 55,
-      source: 'minimum',
-    });
+  it('ignores a special rate out of its dates', () => {
+    expect(resolveRate(item, 'tashi', '2026-12-01', [special()], listed).source).toBe('price-list');
   });
 });
 
@@ -257,13 +116,6 @@ describe('inForce', () => {
 });
 
 describe('save checks', () => {
-  it('keeps level discounts from 0 to under 100%', () => {
-    expect(levelDiscountProblem(0)).toBeNull();
-    expect(levelDiscountProblem(99.99)).toBeNull();
-    expect(levelDiscountProblem(100)).not.toBeNull();
-    expect(levelDiscountProblem(-1)).not.toBeNull();
-  });
-
   it('needs exactly one target', () => {
     expect(specialRateProblem({ ...special(), categoryId: 'iron' })).toMatch(
       /not both/,
@@ -271,7 +123,6 @@ describe('save checks', () => {
     expect(specialRateProblem({ ...special(), itemId: null })).toMatch(
       /Pick the item/,
     );
-    expect(slabProblem({ ...slab(), itemId: null })).toMatch(/Pick the item/);
   });
 
   it('checks the rate value and the dates', () => {
@@ -299,12 +150,6 @@ describe('save checks', () => {
     expect(
       specialRatePartyProblem({ isCustomer: true, isArchived: true }),
     ).toMatch(/archived/);
-  });
-
-  it('checks slab quantity and discount', () => {
-    expect(slabProblem(slab())).toBeNull();
-    expect(slabProblem(slab({ minQuantity: 0 }))).not.toBeNull();
-    expect(slabProblem(slab({ discountPct: 100 }))).not.toBeNull();
   });
 });
 
@@ -351,18 +196,5 @@ describe('overlapping special rates', () => {
     ).toBeUndefined();
     // Editing a rate never clashes with itself.
     expect(overlappingRate({ ...special() }, existing)).toBeUndefined();
-  });
-
-  it('finds a second slab from the same quantity', () => {
-    expect(
-      duplicateSlab({ itemId: 'tmt-12', categoryId: null, minQuantity: 1000 }, [
-        slab(),
-      ])?.id,
-    ).toBe('slab-1');
-    expect(
-      duplicateSlab({ itemId: 'tmt-12', categoryId: null, minQuantity: 2000 }, [
-        slab(),
-      ]),
-    ).toBeUndefined();
   });
 });

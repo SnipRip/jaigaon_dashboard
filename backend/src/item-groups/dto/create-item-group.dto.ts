@@ -63,16 +63,15 @@ export class VariantDto {
   @IsHsn(ITEM_HSN_PATTERN)
   hsn?: string | null;
 
-  @IsAmount()
-  costPrice: number;
-
-  @IsAmount()
-  sellingPrice: number;
-
   /** Put in the default godown. */
   @IsOptional()
   @IsQuantity()
   openingStock?: number | null;
+
+  /** Landed cost per unit of the opening stock; needed with it. */
+  @IsOptional()
+  @IsAmount()
+  openingRate?: number | null;
 
   @IsOptional()
   @IsQuantity()

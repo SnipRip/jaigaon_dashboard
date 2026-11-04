@@ -1,13 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { archivedFilter } from '../common/dto/archivable.js';
 import { ITEM_HSN_PATTERN } from '../common/dto/field-validators.js';
-import { toNumber } from '../common/decimal.js';
 import { PrismaService } from '../database/prisma.service.js';
 import type { Godown, ItemCategory, ItemGroup, Prisma } from '../generated/prisma/client.js';
 import { loadPlacement } from '../items/item-placement.js';
 import {
   checkAttributes,
-  checkPrices,
   checkVariantValues,
   inherited,
   openingValue,
@@ -125,13 +123,6 @@ export class ItemGroupsService {
         if (!variant.id) continue;
         const item = current.items.find((candidate) => candidate.id === variant.id);
         if (!item) fail('That variant is not in this group');
-        fail(
-          checkPrices({
-            mrp: toNumber(item!.mrp),
-            minSellingPrice: toNumber(item!.minSellingPrice),
-            sellingPrice: variant.sellingPrice,
-          }),
-        );
         if (variant.hsn && !ITEM_HSN_PATTERN.test(variant.hsn)) fail(`HSN for ${variant.sku} is 4, 6 or 8 digits`);
         await tx.item.update({
           where: { id: item!.id },
@@ -139,8 +130,6 @@ export class ItemGroupsService {
             sku: variant.sku,
             name: variant.name ?? undefined,
             hsn: variant.hsn ?? undefined,
-            costPrice: variant.costPrice,
-            sellingPrice: variant.sellingPrice,
             reorderLevel: variant.reorderLevel ?? undefined,
           },
         });
@@ -176,6 +165,7 @@ async function createVariant(tx: Prisma.TransactionClient, context: VariantConte
   if (!hsn) fail(`Enter the HSN for ${variant.sku}`);
   if (!ITEM_HSN_PATTERN.test(hsn!)) fail(`HSN for ${variant.sku} is 4, 6 or 8 digits; set it on the group`);
   const quantity = variant.openingStock ?? 0;
+  if (quantity > 0 && variant.openingRate == null) fail(`Enter the opening rate for ${variant.sku}`);
   await tx.item.create({
     data: {
       name: variant.name ?? variantName(group.name, attributes, variant.attributeValues),
@@ -186,12 +176,10 @@ async function createVariant(tx: Prisma.TransactionClient, context: VariantConte
       attributeValues: variant.attributeValues,
       brandId: group.brandId,
       hsn: hsn!,
-      costPrice: variant.costPrice,
-      sellingPrice: variant.sellingPrice,
       reorderLevel: variant.reorderLevel ?? 0,
       openingStock:
         quantity > 0 && godown
-          ? { create: { godownId: godown.id, quantity, value: openingValue(quantity, variant.costPrice) } }
+          ? { create: { godownId: godown.id, quantity, value: openingValue(quantity, variant.openingRate!) } }
           : undefined,
     },
   });

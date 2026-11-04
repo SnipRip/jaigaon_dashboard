@@ -109,7 +109,6 @@ export function QuotationsWorkspace({ quotations, parties, items, companyState }
                 </td>
                 <td className="text-left">
                   <div className="font-semibold">{party.displayName}</div>
-                  {party.priceLevel && <div className="text-xs text-muted">{party.priceLevel}</div>}
                 </td>
                 <td className="font-semibold">{formatInr(totals.grandTotal)}</td>
                 <td className={profit.marginPct < 8 ? "text-danger-strong" : undefined}>{formatPercent(profit.marginPct)}</td>

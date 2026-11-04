@@ -141,15 +141,20 @@ export class ImportsService implements OnModuleInit {
     return importer;
   }
 
-  /** The master's records as a sheet: edit it, add rows, upload it back. */
-  async download(key: string, auth: AuthContext): Promise<{ fileName: string; content: Buffer }> {
+  /**
+   * The master's records as a sheet: edit it, add rows, upload it back. With
+   * a date, a master that has a template gives the rows to fill in for that
+   * day instead (no record IDs).
+   */
+  async download(key: string, auth: AuthContext, date?: string): Promise<{ fileName: string; content: Buffer }> {
     const importer = this.importerFor(key, auth, ['view']);
+    if (date && !importer.template) throw new BadRequestException(`There is no sheet for a date for ${importer.title}`);
     const context: ImportContext = { auth, refs: await new RefBook(this.prisma).load(importer.refs) };
     const columns = columnsOf(importer);
-    const records = (await importer.list(context)) as Archivable[];
-    const rows = records.map((record) => [...columns.map((column) => column.value(record, context.refs)), record.id]);
+    const records = (date && importer.template ? await importer.template(date, context) : await importer.list(context)) as Archivable[];
+    const rows = records.map((record) => [...columns.map((column) => column.value(record, context.refs)), record.id || null]);
     return {
-      fileName: `${importer.title.replace(/\s+/g, '-')}.xlsx`,
+      fileName: `${importer.title.replace(/\s+/g, '-')}${date ? `-${date}` : ''}.xlsx`,
       content: await writeSheet(importer.title, sheetHeaders(columns), columns, rows),
     };
   }

@@ -15,19 +15,6 @@ export function inherited<T>(...levels: (T | null | undefined)[]): T | null {
   return null;
 }
 
-export function checkPrices(prices: {
-  mrp?: number | null;
-  sellingPrice: number;
-  minSellingPrice?: number | null;
-}): string | null {
-  const { mrp, sellingPrice, minSellingPrice } = prices;
-  if (minSellingPrice != null && sellingPrice < minSellingPrice) {
-    return 'Selling price is below the minimum selling price';
-  }
-  if (mrp != null && sellingPrice > mrp) return 'Selling price is above the MRP';
-  return null;
-}
-
 /** Attributes as stored in ItemGroup.attributes; anything malformed reads as none. */
 export function readAttributes(stored: unknown): GroupAttribute[] {
   if (!Array.isArray(stored)) return [];
@@ -92,5 +79,5 @@ export function checkOpeningStock(godownIds: string[]): string | null {
 }
 
 /** Stock value at cost when none is given, rounded to paise. */
-export const openingValue = (quantity: number, costPrice: number, value?: number | null) =>
-  value ?? Math.round(quantity * costPrice * 100) / 100;
+export const openingValue = (quantity: number, rate: number, value?: number | null) =>
+  value ?? Math.round(quantity * rate * 100) / 100;

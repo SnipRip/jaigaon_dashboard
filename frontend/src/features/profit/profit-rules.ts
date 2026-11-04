@@ -1,6 +1,6 @@
 // Actual profit (SOW 15): sales value less purchase cost less the expenses
 // allocated to the sale. All figures before GST: GST never reaches profit
-// (context.md, gap 2). Purchase cost is the item's cost price today; it
+// (context.md, gap 2). Purchase cost is the item's stock cost today; it
 // becomes the FIFO landed rate once stock moves are recorded.
 import { expensesFor, sumAmount } from "@/features/expenses/expense-rules";
 import type { Expense } from "@/features/expenses/types";
@@ -33,8 +33,10 @@ export const addProfits = (profits: Profit[]) =>
 /** Value of an invoice line before GST. */
 export const lineSales = (line: Invoice["lines"][number]) => lineTotals(line, "no-gst").taxable;
 
+// Stock cost until invoices consume batches FIFO and keep the cost of the
+// batches they drew from.
 export const lineCost = (line: Invoice["lines"][number], items: Item[]) =>
-  money(line.quantity * (items.find((item) => item.id === line.itemId)?.costPrice ?? 0));
+  money(line.quantity * (items.find((item) => item.id === line.itemId)?.stockCost ?? 0));
 
 export function invoiceProfit(invoice: Invoice, items: Item[], expenses: Expense[]): Profit {
   return profitOf(

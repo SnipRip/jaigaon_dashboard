@@ -1,30 +1,22 @@
-// Which rate a customer gets for an item (SOW 3 and 4), in this order:
-// a special rate in force for that customer; else the customer's price level
-// off MRP; else the item's selling price. A quantity slab then takes its
-// extra discount. Nothing goes below the minimum selling price. A special
-// rate, slab or level discount set on the item beats one on its
-// sub-category, which beats one on its category.
+// Which rate a customer gets for an item (client, 4 Nov 2026), in order: a
+// special rate in force for that customer; else the rate-sheet price in force
+// on the date; else none, and the user types it. The item master has no
+// selling price. A special rate set on the item beats one on its
+// sub-category, which beats one on its category. A discount special rate is
+// taken off the day's rate, else off MRP.
 // No React. The backend applies the same rules (backend/src/pricing/
-// pricing-rules.ts, `GET /rates/quote`); this copy prices the screens that
-// are still on sample data.
+// pricing-rules.ts, POST /rates/line-options); this copy prices the screens
+// that are still on sample data.
 import type { Item } from "@/features/items/types";
-import type { PriceLevel, QuantitySlab, RateSource, RateTarget, SpecialRate } from "./types";
+import type { RateSource, RateTarget, SheetEntry, SpecialRate } from "./types";
 
 const money = (value: number) => Math.round(value * 100) / 100;
 
-export interface PricingBook {
-  levels: PriceLevel[];
-  specialRates: SpecialRate[];
-  slabs: QuantitySlab[];
-}
-
-type PricedItem = Pick<Item, "id" | "categoryId" | "subCategoryId" | "mrp" | "sellingPrice" | "minSellingPrice">;
+type PricedItem = Pick<Item, "id" | "categoryId" | "subCategoryId" | "mrp">;
 
 export const RATE_SOURCE_TEXT: Record<RateSource, string> = {
   special: "Special rate",
-  "price-level": "Price level",
-  standard: "Standard rate",
-  minimum: "Held at minimum price",
+  "price-list": "Today's rate",
 };
 
 export const specialRateInForce = (rate: SpecialRate, date: string) =>
@@ -44,40 +36,36 @@ function mostSpecific<T extends RateTarget>(entries: T[], item: PricedItem): T[]
   return ranked.filter((row) => row.rank === best).map((row) => row.entry);
 }
 
-export function levelDiscountFor(level: PriceLevel, item: PricedItem) {
-  const forCategory = (id?: string) => (id ? level.categoryDiscounts.find((row) => row.categoryId === id)?.discountPct : undefined);
-  return forCategory(item.subCategoryId) ?? forCategory(item.categoryId) ?? level.discountPct;
+/** The entry in force on the date: latest start, then the shorter range. */
+export function sheetEntryOn(sheet: SheetEntry[], itemId: string, date: string): SheetEntry | undefined {
+  return sheet
+    .filter((entry) => entry.itemId === itemId && entry.validFrom <= date && entry.validTill >= date)
+    .sort((a, b) => b.validFrom.localeCompare(a.validFrom) || a.validTill.localeCompare(b.validTill))[0];
 }
 
-export function rateFor(item: PricedItem, customer: { id: string; priceLevelId?: string } | undefined, quantity: number, date: string, book: PricingBook) {
-  const special = customer
-    ? mostSpecific(book.specialRates.filter((rate) => rate.customerId === customer.id && specialRateInForce(rate, date)), item)[0]
+export interface QuotedRate {
+  /** Undefined: no special rate and no rate-sheet price. */
+  rate?: number;
+  source?: RateSource;
+  special?: SpecialRate;
+}
+
+export function rateFor(
+  item: PricedItem,
+  customerId: string | undefined,
+  date: string,
+  specialRates: SpecialRate[],
+  listed?: SheetEntry,
+): QuotedRate {
+  const special = customerId
+    ? mostSpecific(specialRates.filter((rate) => rate.customerId === customerId && specialRateInForce(rate, date)), item)[0]
     : undefined;
-  const level = customer?.priceLevelId ? book.levels.find((candidate) => candidate.id === customer.priceLevelId && !candidate.archived) : undefined;
-
-  let rate = item.sellingPrice;
-  let source: RateSource = "standard";
-  let levelDiscountPct: number | undefined;
   if (special) {
-    rate = special.kind === "net" ? special.value : (item.mrp ?? item.sellingPrice) * (1 - special.value / 100);
-    source = "special";
-  } else if (level && item.mrp) {
-    levelDiscountPct = levelDiscountFor(level, item);
-    rate = item.mrp * (1 - levelDiscountPct / 100);
-    source = "price-level";
+    const base = listed?.sellingPrice ?? item.mrp;
+    if (special.kind === "net") return { rate: special.value, source: "special", special };
+    if (base !== undefined) return { rate: money(base * (1 - special.value / 100)), source: "special", special };
   }
-
-  const slab = mostSpecific(
-    book.slabs.filter((candidate) => !candidate.archived && quantity >= candidate.minQuantity),
-    item,
-  ).sort((a, b) => b.minQuantity - a.minQuantity)[0];
-  if (slab) rate *= 1 - slab.discountPct / 100;
-
-  if (item.minSellingPrice && rate < item.minSellingPrice) {
-    rate = item.minSellingPrice;
-    source = "minimum";
-  }
-  return { rate: money(rate), source, slab, level: levelDiscountPct === undefined ? undefined : level, levelDiscountPct, special };
+  return listed ? { rate: listed.sellingPrice, source: "price-list" } : {};
 }
 
 /** Profit as a share of the selling rate. */

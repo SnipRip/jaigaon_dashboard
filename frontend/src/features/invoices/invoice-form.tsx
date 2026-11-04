@@ -16,9 +16,11 @@ import { INDIAN_STATES, stateName } from "@/features/gst/indian-states";
 import { resolveItemDefaults, type ItemCatalog } from "@/features/items/item-rules";
 import { placeOf } from "@/features/parties/party-rules";
 import type { Party } from "@/features/parties/types";
+import { lineRateOptions, type PricingSources } from "@/features/rates/line-rate-options";
+import { LineRatePicker } from "@/features/rates/line-rate-picker";
 import { lutFor } from "@/features/tax-export/lut-rules";
 import type { Lut } from "@/features/tax-export/types";
-import { formatRate } from "@/lib/format";
+import { formatDate, formatRate } from "@/lib/format";
 import { useToday } from "@/lib/use-today";
 import { exportDeclaration, invoiceTax, invoiceTotals, lineTotals } from "./invoice-rules";
 import { invoiceSchema, type InvoiceFormValues } from "./invoice-schema";
@@ -32,6 +34,8 @@ interface InvoiceFormProps {
   luts: Lut[];
   companyState: string;
   suggestedNumber: string;
+  /** Special rates, the rate sheet and past quotations and invoices. */
+  pricing: PricingSources;
   /** Converting a quotation: its customer and lines. */
   fromQuotation?: { label: string; partyId: string; lines: { itemId: string; quantity: number; rate: number; discountPct: number }[] };
 }
@@ -44,7 +48,7 @@ const KIND_TEXT: Record<InvoiceKind, { title: string; hint: string }> = {
 // The bill. Its kind is picked before this opens: a local GST tax invoice or
 // an export invoice. Customers, tax and printed declarations follow the kind;
 // HSN, unit and GST rate come from each item, never typed here.
-export function InvoiceForm({ kind, customers, catalog, luts, companyState, suggestedNumber, fromQuotation }: InvoiceFormProps) {
+export function InvoiceForm({ kind, customers, catalog, luts, companyState, suggestedNumber, pricing, fromQuotation }: InvoiceFormProps) {
   const isExport = kind === "export";
   const eligible = customers.filter((party) => (isExport ? party.treatment === "overseas" || party.treatment === "sez" : party.treatment !== "overseas"));
   const today = useToday();
@@ -97,6 +101,8 @@ export function InvoiceForm({ kind, customers, catalog, luts, companyState, sugg
     const picked = eligible.find((candidate) => candidate.id === id);
     setValue("partyId", id, { shouldValidate: true });
     if (!picked) return;
+    // A new customer brings their own special rates; a quotation's agreed rates stay.
+    if (!fromQuotation) getValues("lines").forEach((line, index) => line.itemId && suggest(index, line.itemId, id));
     if (isExport) {
       setValue("exportRoute", picked.exportRoute ?? "lut");
       setValue("currency", picked.currency);
@@ -105,10 +111,23 @@ export function InvoiceForm({ kind, customers, catalog, luts, companyState, sugg
     }
   };
 
-  const pickItem = (index: number, itemId: string) => {
+  const optionsFor = (itemId: string | undefined, customerId = partyId || undefined) => {
     const item = catalog.items.find((candidate) => candidate.id === itemId);
+    return item && date ? lineRateOptions(item, customerId, date, pricing, formatDate) : undefined;
+  };
+  // The customer's special rate, else today's sheet rate; with neither the rate is typed.
+  const suggest = (index: number, itemId: string, customerId?: string) => {
+    const suggested = optionsFor(itemId, customerId)?.suggested;
+    setValue(`lines.${index}.rate`, suggested ? String(suggested.rate) : "");
+    setValue(`lines.${index}.discountPct`, "");
+  };
+  const pickItem = (index: number, itemId: string) => {
     setValue(`lines.${index}.itemId`, itemId, { shouldValidate: true });
-    if (item) setValue(`lines.${index}.rate`, String(item.sellingPrice));
+    suggest(index, itemId);
+  };
+  const pickRate = (index: number, rate: number) => {
+    setValue(`lines.${index}.rate`, String(rate), { shouldValidate: true });
+    setValue(`lines.${index}.discountPct`, "");
   };
 
   const toInvoiceLine = (line?: InvoiceFormValues["lines"][number]): InvoiceLine | undefined => {
@@ -257,6 +276,8 @@ export function InvoiceForm({ kind, customers, catalog, luts, companyState, sugg
           {lineFields.fields.map((field, index) => {
             const line = toInvoiceLine(lines?.[index]);
             const lineTotal = line ? lineTotals(line, tax.regime) : undefined;
+            const options = optionsFor(line?.itemId);
+            const typedRate = lines?.[index]?.rate ? line && line.rate * (1 - line.discountPct / 100) : undefined;
             return (
               <div key={field.id} className="glass-inset flex flex-col gap-2.5 rounded-(--radius-tile) p-3">
                 <div className="grid items-end gap-2.5 @2xl:grid-cols-[minmax(0,3fr)_1fr_1fr_1fr_auto]">
@@ -286,6 +307,7 @@ export function InvoiceForm({ kind, customers, catalog, luts, companyState, sugg
                   </Button>
                 </div>
                 {errors.lines?.[index]?.itemId && <p className="text-xs font-semibold text-danger-strong">{errors.lines[index]?.itemId?.message}</p>}
+                {line && options && <LineRatePicker options={options} rate={typedRate} onPick={(rate) => pickRate(index, rate)} />}
                 {line && lineTotal && (
                   <p className="flex flex-wrap gap-x-3 text-xs font-semibold text-muted">
                     <span>HSN {line.hsn}</span>

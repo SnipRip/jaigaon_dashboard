@@ -237,7 +237,7 @@ export function ShipmentDetail({ initialShipment, invoices, customerName, transp
               <dd className="tabular-nums">{formatInr(profit.profit)}</dd>
             </div>
           </dl>
-          <p className="text-xs font-semibold text-muted">Margin {formatPercent(profit.marginPct)}. Cost is at item cost price until stock is valued at landed FIFO cost.</p>
+          <p className="text-xs font-semibold text-muted">Margin {formatPercent(profit.marginPct)}. Cost is at stock cost until sales draw on batches first in, first out.</p>
         </GlassCard>
       </div>
     </div>

@@ -36,7 +36,10 @@ function plain(value: ExcelJS.CellValue): CellValue {
 export async function readUpload(buffer: Buffer, fileName: string): Promise<UploadedSheet> {
   const workbook = new ExcelJS.Workbook();
   try {
-    if (/\.csv$/i.test(fileName)) await workbook.csv.read(Readable.from(buffer));
+    // CSV cells stay text: exceljs would turn "07-11-2026" into 11 July
+    // (month first) at local midnight, a day early in UTC. import-cells.ts
+    // reads dates day first, and numbers and Yes / No from text.
+    if (/\.csv$/i.test(fileName)) await workbook.csv.read(Readable.from(buffer), { map: (value: string) => value });
     else await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
   } catch {
     throw new RowProblem('The file could not be read. Save it as an Excel workbook (.xlsx) or CSV and try again.');

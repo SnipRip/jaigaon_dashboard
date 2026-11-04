@@ -11,7 +11,8 @@ import type { BrandView, CategoryView, GodownView, ItemGroupView, ItemView, SubC
 import type { CategoryDraft } from "./category-editor";
 import type { ItemGroupFormValues } from "./item-group-schema";
 import type { ItemCatalog } from "./item-rules";
-import { CATEGORIES_PATH, ITEM_GROUPS_PATH, ITEMS_PATH } from "./item-paths";
+import type { PictureChange } from "./item-picture-rules";
+import { CATEGORIES_PATH, ITEM_GROUPS_PATH, ITEMS_PATH, itemPicturePath, itemPictureUrl } from "./item-paths";
 import type { ItemFormValues } from "./item-schema";
 import type { Category, Item, ItemDefaults, ItemGroup, StockMovement } from "./types";
 import { NONE, type Overridable } from "./use-overrides";
@@ -72,12 +73,12 @@ const toItem = (view: ItemView, units: UnitView[], brands: BrandView[]): Item =>
   alternateUnits: view.alternateUnits.map((row) => ({ unit: symbolOf(units, row.unitId) ?? "", baseQuantity: row.baseQuantity })),
   weightKg: view.weightKg ?? undefined,
   mrp: view.mrp ?? undefined,
-  sellingPrice: view.sellingPrice,
-  minSellingPrice: view.minSellingPrice ?? undefined,
-  costPrice: view.costPrice,
+  lastLandedCost: view.lastLandedCost ?? undefined,
+  stockCost: view.stockCost ?? undefined,
   preferredSupplier: view.preferredSupplier ?? undefined,
   stock: view.stock,
   reorderLevel: view.reorderLevel,
+  pictureUrl: view.pictureVersion ? itemPictureUrl(view.id, view.pictureVersion) : undefined,
 });
 
 /**
@@ -136,7 +137,7 @@ export function openingMovements(masters: ItemMasters, view: ItemView): StockMov
     kind: "Opening",
     reference: masters.godowns.find((godown) => godown.id === row.godownId)?.name ?? "Opening stock",
     quantity: row.quantity,
-    rate: view.costPrice,
+    rate: row.quantity ? Math.round((row.value / row.quantity) * 100) / 100 : 0,
   }));
 }
 
@@ -170,9 +171,6 @@ function itemBody(masters: ItemMasters, values: ItemFormValues, overridden: Read
     })),
     weightKg: numberOrNull(values.weightKg),
     mrp: numberOrNull(values.mrp),
-    sellingPrice: Number(values.sellingPrice),
-    minSellingPrice: numberOrNull(values.minSellingPrice),
-    costPrice: Number(values.costPrice),
     preferredSupplier: textOrNull(values.preferredSupplier),
     reorderLevel: numberOrNull(values.reorderLevel) ?? 0,
     // Opening stock is entered once, on a new item. Afterwards stock moves
@@ -180,7 +178,7 @@ function itemBody(masters: ItemMasters, values: ItemFormValues, overridden: Read
     openingStock: isNew
       ? values.openingStock
           .filter((row) => Number(row.quantity) > 0)
-          .map((row) => ({ godownId: godownId(masters, row.godown), quantity: Number(row.quantity) }))
+          .map((row) => ({ godownId: godownId(masters, row.godown), quantity: Number(row.quantity), rate: Number(values.openingRate) }))
       : undefined,
   };
 }
@@ -190,6 +188,15 @@ export function saveItem(masters: ItemMasters, item: Item | undefined, values: I
   return item
     ? apiRequest<ItemView>(`${ITEMS_PATH}/${item.id}`, { method: "PATCH", body })
     : apiRequest<ItemView>(ITEMS_PATH, { method: "POST", body });
+}
+
+/** Uploads, replaces or removes the item's picture; nothing when it did not change. */
+export async function saveItemPicture(itemId: string, change: PictureChange) {
+  if (!change) return;
+  if (change === "remove") return apiRequest(itemPicturePath(itemId), { method: "DELETE" });
+  const body = new FormData();
+  body.append("file", change.file);
+  await apiRequest<{ pictureVersion: string }>(itemPicturePath(itemId), { method: "POST", body });
 }
 
 export function saveItemGroup(
@@ -213,9 +220,8 @@ export function saveItemGroup(
       id: line.existing?.id,
       attributeValues: line.values,
       sku: line.row.sku,
-      costPrice: Number(line.row.costPrice),
-      sellingPrice: Number(line.row.sellingPrice),
       openingStock: line.existing ? undefined : numberOrNull(line.row.openingStock),
+      openingRate: line.existing ? undefined : numberOrNull(line.row.openingRate),
       reorderLevel: numberOrNull(line.row.reorderLevel) ?? undefined,
     })),
   };

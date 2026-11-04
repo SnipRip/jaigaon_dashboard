@@ -1,9 +1,10 @@
 import { toNumber } from '../common/decimal.js';
 import type { Item, ItemOpeningStock, ItemUnitConversion } from '../generated/prisma/client.js';
+import { itemCosts, type ItemCosts } from './item-costs.js';
 
 // An item as the API returns it: numbers instead of Decimal strings, and
 // stock on hand worked out from its rows.
-export interface ItemView {
+export interface ItemView extends ItemCosts {
   id: string;
   name: string;
   sku: string;
@@ -18,9 +19,6 @@ export interface ItemView {
   unitId: string | null;
   weightKg: number | null;
   mrp: number | null;
-  sellingPrice: number;
-  minSellingPrice: number | null;
-  costPrice: number;
   preferredSupplier: string | null;
   reorderLevel: number;
   isArchived: boolean;
@@ -29,14 +27,22 @@ export interface ItemView {
   openingStock: { godownId: string; quantity: number; value: number }[];
   /** Opening stock only, until purchases, sales and stock journals are stored. */
   stock: number;
+  /** When the picture last changed (it goes into the picture URL); null without one. */
+  pictureVersion: string | null;
 }
 
 export type ItemRow = Item & {
   alternateUnits: ItemUnitConversion[];
   openingStock: ItemOpeningStock[];
+  picture: { updatedAt: Date } | null;
 };
 
-export const itemRowInclude = { alternateUnits: true, openingStock: true } as const;
+// Only the picture's date: lists never read the bytes.
+export const itemRowInclude = {
+  alternateUnits: true,
+  openingStock: true,
+  picture: { select: { updatedAt: true } },
+} as const;
 
 export function toItemView(item: ItemRow): ItemView {
   const openingStock = item.openingStock.map((row) => ({
@@ -59,9 +65,7 @@ export function toItemView(item: ItemRow): ItemView {
     unitId: item.unitId,
     weightKg: toNumber(item.weightKg),
     mrp: toNumber(item.mrp),
-    sellingPrice: toNumber(item.sellingPrice),
-    minSellingPrice: toNumber(item.minSellingPrice),
-    costPrice: toNumber(item.costPrice),
+    ...itemCosts(item.openingStock),
     preferredSupplier: item.preferredSupplier,
     reorderLevel: toNumber(item.reorderLevel),
     isArchived: item.isArchived,
@@ -73,5 +77,6 @@ export function toItemView(item: ItemRow): ItemView {
     openingStock,
     // Summed in thousandths so 0.1 + 0.2 kg stays 0.3.
     stock: openingStock.reduce((sum, row) => sum + Math.round(row.quantity * 1000), 0) / 1000,
+    pictureVersion: item.picture?.updatedAt.toISOString() ?? null,
   };
 }

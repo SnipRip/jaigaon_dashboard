@@ -1,28 +1,15 @@
 import { Module } from '@nestjs/common';
-import { PriceLevelsController } from './price-levels.controller.js';
-import { PriceLevelsService } from './price-levels.service.js';
-import { QuantitySlabsController } from './quantity-slabs.controller.js';
-import { QuantitySlabsService } from './quantity-slabs.service.js';
-import { RateQuoteController } from './rate-quote.controller.js';
-import { RateQuoteService } from './rate-quote.service.js';
+import { LineRateOptionsController } from './line-rate-options.controller.js';
+import { LineRateOptionsService } from './line-rate-options.service.js';
 import { SpecialRatesController } from './special-rates.controller.js';
 import { SpecialRatesService } from './special-rates.service.js';
 
-// Pricing masters (masters-plan.md, section E) and the rate quote.
+// Customer special rates (masters-plan.md, section E) and the line rate
+// options a quotation or invoice line offers.
 @Module({
-  controllers: [
-    PriceLevelsController,
-    SpecialRatesController,
-    QuantitySlabsController,
-    RateQuoteController,
-  ],
-  providers: [
-    PriceLevelsService,
-    SpecialRatesService,
-    QuantitySlabsService,
-    RateQuoteService,
-  ],
-  // The importer (src/imports) saves rows through them.
-  exports: [PriceLevelsService, SpecialRatesService, QuantitySlabsService],
+  controllers: [SpecialRatesController, LineRateOptionsController],
+  providers: [SpecialRatesService, LineRateOptionsService],
+  // The importer (src/imports) saves rows through it.
+  exports: [SpecialRatesService],
 })
 export class PricingModule {}

@@ -20,7 +20,11 @@ export class OpeningStockDto {
   @IsQuantity()
   quantity: number;
 
-  /** At cost; quantity × cost price when left out. */
+  /** Landed cost per base unit of this opening batch. */
+  @IsAmount()
+  rate: number;
+
+  /** At cost; quantity × rate when left out. */
   @IsOptional()
   @IsAmount()
   value?: number | null;

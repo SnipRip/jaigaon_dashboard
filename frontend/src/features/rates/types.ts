@@ -1,28 +1,17 @@
-// Pricing masters (masters-plan.md, section E): price levels assigned to
-// customers, customer special rates, and quantity slabs.
+// Customer special rates (masters-plan.md, section E). The item master has
+// no selling price; the rate sheet (price list) gives the day's rate.
 import type { MasterRecord } from "@/features/masters/record-master";
 
-/** What a special rate or slab is set on: one item, or a whole category / sub-category. */
+/** What a special rate is set on: one item, or a whole category / sub-category. */
 export interface RateTarget {
   itemId?: string;
   categoryId?: string;
 }
 
-export interface PriceLevel extends MasterRecord {
-  name: string;
-  /** Off MRP, never below the item's minimum selling price. */
-  discountPct: number;
-  description?: string;
-  /** The level's own discount for a category or sub-category (the sub-category's wins). */
-  categoryDiscounts: { categoryId: string; discountPct: number }[];
-  /** Customers on the level. Sample levels leave it out. */
-  customerCount?: number;
-}
-
 export interface SpecialRate extends MasterRecord, RateTarget {
   customerId: string;
   kind: "net" | "discount";
-  /** Net rate in ₹ per unit, or discount % off MRP. */
+  /** Net rate in ₹ per unit, or discount % off the day's rate (off MRP without one). */
   value: number;
   validFrom: string;
   /** Left out: until withdrawn. */
@@ -30,12 +19,14 @@ export interface SpecialRate extends MasterRecord, RateTarget {
   notes?: string;
 }
 
-export interface QuantitySlab extends MasterRecord, RateTarget {
-  /** In the item's base unit. */
-  minQuantity: number;
-  /** Extra discount off the rate that would otherwise apply. */
-  discountPct: number;
-}
+/** Where a suggested rate came from, shown beside it. */
+export type RateSource = "special" | "price-list";
 
-/** Where a quoted rate came from, shown beside it. */
-export type RateSource = "special" | "price-level" | "standard" | "minimum";
+/** A rate-sheet entry, as the sample screens read it. */
+export interface SheetEntry {
+  itemId: string;
+  validFrom: string;
+  validTill: string;
+  sellingPrice: number;
+  minSellingPrice?: number;
+}

@@ -41,6 +41,7 @@ async function NewBill({ searchParams }: { searchParams: NewBillSearchParams }) 
       vendors={vendors}
       catalog={{ categories, groups: itemGroups, items, hsnCodes }}
       purchases={purchases}
+      pastBills={bills}
       companyState={COMPANY_TAX_PROFILE.stateCode}
       suggestedReference={purchaseReference("2026-27", nextBillSequence)}
       initialKind={kind === "charges" || initialFor ? "charges" : "goods"}

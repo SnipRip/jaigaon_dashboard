@@ -5,11 +5,12 @@ import { COMPANY_TAX_PROFILE } from "@/features/gst/company-tax-profile";
 import { hsnCodes } from "@/features/hsn/sample-data";
 import { InvoiceForm } from "@/features/invoices/invoice-form";
 import { invoiceNumber } from "@/features/invoices/invoice-rules";
-import { nextSequence } from "@/features/invoices/sample-data";
-import { categories, itemGroups, items } from "@/features/items/sample-data";
+import { invoices, nextSequence } from "@/features/invoices/sample-data";
+import { categories, itemGroups, items, sampleRateSheet } from "@/features/items/sample-data";
 import { parties } from "@/features/parties/sample-data";
 import { quotationLabel } from "@/features/quotations/quotation-rules";
 import { quotations } from "@/features/quotations/sample-data";
+import { specialRates } from "@/features/rates/sample-data";
 import { lutRegister } from "@/features/tax-export/sample-data";
 
 export const metadata: Metadata = { title: "New export invoice" };
@@ -38,6 +39,7 @@ async function Form({ searchParams }: { searchParams: SearchParams }) {
       customers={parties.filter((party) => party.roles.includes("customer"))}
       catalog={{ categories, groups: itemGroups, items, hsnCodes }}
       luts={lutRegister}
+      pricing={{ specialRates, rateSheet: sampleRateSheet, history: { quotations, invoices } }}
       companyState={COMPANY_TAX_PROFILE.stateCode}
       suggestedNumber={invoiceNumber("export", "2026-27", nextSequence.export)}
       fromQuotation={quotation && { label: quotationLabel(quotation), partyId: quotation.partyId, lines: quotation.lines }}

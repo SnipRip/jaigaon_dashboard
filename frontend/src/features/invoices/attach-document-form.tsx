@@ -75,7 +75,7 @@ export function AttachDocumentForm({ type, existing, suggestions, onSave, onCanc
           <Paperclip aria-hidden="true" className="size-[18px]" />
           Attach scan or PDF
         </Button>
-        <p className="text-xs font-semibold text-muted">Uploading switches on when document storage is set up. The OCR inbox will read the number from the scan.</p>
+        <p className="text-xs font-semibold text-muted">Uploading switches on when document storage is set up.</p>
       </div>
       <div className="flex justify-end gap-2.5">
         <Button variant="neutral" onClick={onCancel}>

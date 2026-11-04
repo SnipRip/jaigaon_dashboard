@@ -14,8 +14,11 @@ import { TextField } from "@/components/ui/text-field";
 import { Tooltip } from "@/components/ui/tooltip";
 import { HsnSummary } from "@/features/hsn/hsn-summary";
 import { ApiError } from "@/lib/api-client";
-import { formatPercent } from "@/lib/format";
+import { formatRate } from "@/lib/format";
 import { InheritedField } from "./inherited-field";
+import { ItemPictureField } from "./item-picture-field";
+import { TodaysRateField } from "./todays-rate-field";
+import type { PictureChange } from "./item-picture-rules";
 import { findGroup, resolveDefaults, resolveItemDefaults, type ItemCatalog } from "./item-rules";
 import { itemSchema, type ItemFormValues } from "./item-schema";
 import type { Item } from "./types";
@@ -32,8 +35,8 @@ interface ItemFormProps extends ItemFormOptions {
   catalog: ItemCatalog;
   /** The item being edited; a new item when absent. */
   item?: Item;
-  /** Saves through the backend; throws an ApiError the form shows. */
-  onSave: (values: ItemFormValues, overridden: ReadonlySet<Overridable>) => Promise<void>;
+  /** Saves through the backend, the picture after the item; throws an ApiError the form shows. */
+  onSave: (values: ItemFormValues, overridden: ReadonlySet<Overridable>, picture: PictureChange) => Promise<void>;
 }
 
 export const saveErrorText = (error: unknown) =>
@@ -60,11 +63,9 @@ function toFormValues(item: Item | undefined, godowns: string[], currentHsn?: st
     }),
     weightKg: text(item?.weightKg),
     mrp: text(item?.mrp),
-    sellingPrice: text(item?.sellingPrice),
-    minSellingPrice: text(item?.minSellingPrice),
-    costPrice: text(item?.costPrice),
     preferredSupplier: item?.preferredSupplier ?? "",
     openingStock: godowns.map((godown) => ({ godown, quantity: "" })),
+    openingRate: "",
     reorderLevel: text(item?.reorderLevel),
   };
 }
@@ -78,6 +79,7 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates, onSa
   const overrides = useOverrides(item?.overrides);
   const { overridden } = overrides;
   const [result, setResult] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [picture, setPicture] = useState<PictureChange>(undefined);
 
   const {
     register,
@@ -85,13 +87,14 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates, onSa
     handleSubmit,
     setValue,
     reset,
-    formState: { errors, isDirty, isSubmitting },
+    formState: { errors, isDirty: fieldsDirty, isSubmitting },
   } = useForm<ItemFormValues>({ resolver: zodResolver(itemSchema), defaultValues: toFormValues(item, godowns, item && resolveItemDefaults(catalog, item).hsn.value) });
   const alternateUnits = useFieldArray({ control, name: "alternateUnits" });
+  const isDirty = fieldsDirty || picture !== undefined;
 
-  const [categoryId, subCategoryId, unitOverride, sellingPrice, costPrice, conversions, hsn] = useWatch({
+  const [categoryId, subCategoryId, unitOverride, conversions, hsn, name] = useWatch({
     control,
-    name: ["categoryId", "subCategoryId", "unitOverride", "sellingPrice", "costPrice", "alternateUnits", "hsn"],
+    name: ["categoryId", "subCategoryId", "unitOverride", "alternateUnits", "hsn", "name"],
   });
   const category = catalog.categories.find((candidate) => candidate.id === categoryId);
   const place = { categoryId, subCategoryId: subCategoryId === NONE ? undefined : subCategoryId, groupId: item?.groupId };
@@ -101,7 +104,6 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates, onSa
   const suggestedHsn = resolveDefaults(catalog, place).hsn.value;
   const inherited = resolveDefaults(catalog, place, { hsn: hsn || undefined });
   const baseUnit = (overridden.has("unit") && unitOverride) || inherited.unit.value || "unit";
-  const margin = Number(sellingPrice) > 0 ? ((Number(sellingPrice) - Number(costPrice)) / Number(sellingPrice)) * 100 : undefined;
 
   // HSN is the item's own field here, so only GST rate and unit are overrides.
   const override = (key: Exclude<Overridable, "hsn">) => {
@@ -117,9 +119,10 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates, onSa
     async (values) => {
       setResult(null);
       try {
-        await onSave(values, overridden);
+        await onSave(values, overridden, picture);
         // The saved values become the new starting point for "Discard changes".
         reset(values);
+        setPicture(undefined);
         setResult({ tone: "success", text: `${values.name} saved.` });
       } catch (error) {
         setResult({ tone: "error", text: saveErrorText(error) });
@@ -198,6 +201,7 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates, onSa
           />
           <TextField label="Description" placeholder="Grade, make, length" error={errors.description?.message} {...register("description")} />
         </div>
+        <ItemPictureField name={name} currentUrl={item?.pictureUrl} change={picture} onChange={setPicture} />
         {group && item?.attributeValues && (
           <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted">
             Attributes:
@@ -352,36 +356,34 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates, onSa
 
       <div className="grid items-start gap-3.5 @4xl:grid-cols-2">
         <GlassCard className="flex flex-col gap-3.5">
-          <div className="flex items-center justify-between gap-2">
-            <CardTitle>Sales</CardTitle>
-            {margin !== undefined && Number.isFinite(margin) && (
-              <StatusChip tone={margin < 5 ? "warning" : "success"}>Margin {formatPercent(margin)}</StatusChip>
-            )}
-          </div>
+          <CardTitle>Sales</CardTitle>
           <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3.5">
-            <TextField label="MRP (₹)" inputMode="decimal" error={errors.mrp?.message} {...register("mrp")} />
-            <TextField label={`Selling price per ${baseUnit} (₹)`} inputMode="decimal" error={errors.sellingPrice?.message} {...register("sellingPrice")} />
-            <TextField
-              label="Minimum selling price (₹)"
-              inputMode="decimal"
-              hint="Quotes never go below this"
-              error={errors.minSellingPrice?.message}
-              {...register("minSellingPrice")}
-            />
+            <TextField label="MRP (₹)" inputMode="decimal" hint="As printed on the goods" error={errors.mrp?.message} {...register("mrp")} />
+            {!isNew && <TodaysRateField itemId={item.id} unit={baseUnit} />}
           </div>
           <p className="text-xs font-semibold text-muted">
-            Customer-specific and price-level rates are set in Rate management. Prices are before GST.
+            The item has no fixed selling price: the day&rsquo;s rate comes from the{" "}
+            <Link href="/price-list" className="text-brand hover:underline">
+              rate sheet
+            </Link>
+            , and a customer&rsquo;s special rate (Rates) comes before it. Prices are before GST.
           </p>
         </GlassCard>
 
         <GlassCard className="flex flex-col gap-3.5">
           <CardTitle>Purchase</CardTitle>
           <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3.5">
-            <TextField label={`Cost price per ${baseUnit} (₹)`} inputMode="decimal" error={errors.costPrice?.message} {...register("costPrice")} />
+            {!isNew && (
+              <>
+                <TextField label={`Last landed cost per ${baseUnit}`} value={costText(item.lastLandedCost)} disabled readOnly />
+                <TextField label={`Stock cost per ${baseUnit} (FIFO)`} value={costText(item.stockCost)} disabled readOnly />
+              </>
+            )}
             <TextField label="Preferred supplier" placeholder="Hind Steel, Durgapur" error={errors.preferredSupplier?.message} {...register("preferredSupplier")} />
           </div>
           <p className="text-xs font-semibold text-muted">
-            Cost is updated by purchases, using FIFO. Freight and unloading tagged to a purchase are added to it.
+            Cost is not entered here. Each purchase is its own batch: the bill rate plus its share of freight, unloading and GST
+            that cannot be claimed. Stock is valued batch by batch, first in, first out.
           </p>
         </GlassCard>
       </div>
@@ -390,7 +392,7 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates, onSa
         <CardTitle>Inventory</CardTitle>
         <div className="grid gap-3.5 @2xl:grid-cols-3">
           {isNew ? (
-            godowns.map((godown, index) => (
+            [...godowns.map((godown, index) => (
               <TextField
                 key={godown}
                 label={`Opening stock · ${godown} (${baseUnit})`}
@@ -399,7 +401,15 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates, onSa
                 error={errors.openingStock?.[index]?.quantity?.message}
                 {...register(`openingStock.${index}.quantity`)}
               />
-            ))
+            )),
+            <TextField
+              key="opening-rate"
+              label={`Opening rate per ${baseUnit} (₹)`}
+              inputMode="decimal"
+              hint="Landed cost of the opening stock"
+              error={errors.openingRate?.message}
+              {...register("openingRate")}
+            />]
           ) : (
             <TextField label={`In stock (${baseUnit})`} value={item.stock} disabled readOnly hint="Changes through purchases, sales and stock adjustments" />
           )}
@@ -425,6 +435,7 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates, onSa
             disabled={!isDirty}
             onClick={() => {
               reset();
+              setPicture(undefined);
               setResult(null);
               overrides.restore();
             }}
@@ -439,3 +450,5 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates, onSa
     </form>
   );
 }
+
+const costText = (cost: number | undefined) => (cost === undefined ? "No stock yet" : formatRate(cost));

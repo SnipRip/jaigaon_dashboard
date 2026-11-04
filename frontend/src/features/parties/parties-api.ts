@@ -3,7 +3,7 @@
 import type { ExportRoute, GstTreatment } from "@/features/gst/gst-rules";
 import { apiRequest } from "@/lib/api-client";
 import type { PartyView } from "@/types/party";
-import { NO_PRICE_LEVEL, type PartyFormValues } from "./party-schema";
+import type { PartyFormValues } from "./party-schema";
 import type { Party, PartyRole } from "./types";
 
 export const PARTIES_PATH = "/parties";
@@ -39,7 +39,6 @@ export function toParty(view: PartyView): Party {
     },
     creditDays: view.creditDays,
     creditLimit: orUndefined(view.creditLimit),
-    priceLevelId: orUndefined(view.priceLevelId),
     openingBalance: view.openingBalance,
     balanceSide: view.openingBalanceSide === "RECEIVABLE" ? "receivable" : "payable",
     udyamNumber: orUndefined(view.udyamNumber),
@@ -86,7 +85,6 @@ function partyBody(values: PartyFormValues) {
     pin: overseas ? null : orNull(values.pin),
     creditDays: Number(values.creditDays),
     creditLimit: isCustomer ? amountOrNull(values.creditLimit) : null,
-    priceLevelId: isCustomer && values.priceLevelId !== NO_PRICE_LEVEL ? values.priceLevelId : null,
     openingBalance: amountOrNull(values.openingBalance) ?? 0,
     openingBalanceSide: values.openingBalanceSide.toUpperCase(),
     udyamNumber: isVendor ? orNull(values.udyamNumber) : null,

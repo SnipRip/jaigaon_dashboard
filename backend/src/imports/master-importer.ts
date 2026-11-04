@@ -27,6 +27,12 @@ export interface MasterImporter<V extends { id: string } = { id: string }> {
   archivable: boolean;
   /** Every record, archived too, for the downloaded sheet. */
   list(context: ImportContext): Promise<V[]>;
+  /**
+   * Rows to fill in for one date (the price list's "sheet for a date"):
+   * records with an empty id, so each uploaded row is matched by its
+   * natural key. Masters without it download only `list`.
+   */
+  template?(date: string, context: ImportContext): Promise<V[]>;
   /** The stored record a row without a record ID is about, by its natural key (name, SKU, GSTIN…). */
   findExisting(values: Record<string, unknown>, context: ImportContext): Promise<string | null>;
   /** Creates the record; returns its id. */

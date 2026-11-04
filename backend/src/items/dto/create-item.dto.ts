@@ -86,16 +86,6 @@ export class CreateItemDto {
   @IsAmount()
   mrp?: number | null;
 
-  @IsAmount()
-  sellingPrice: number;
-
-  @IsOptional()
-  @IsAmount()
-  minSellingPrice?: number | null;
-
-  @IsAmount()
-  costPrice: number;
-
   @Transform(trimToNull)
   @IsOptional()
   @IsString()

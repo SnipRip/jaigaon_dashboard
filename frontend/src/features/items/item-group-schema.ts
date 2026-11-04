@@ -33,12 +33,18 @@ const price = z.string().trim().regex(/^\d+(\.\d{1,2})?$/, "Enter a price");
 const quantity = z.union([z.literal(""), z.string().trim().regex(/^\d+(\.\d{1,3})?$/, "Enter a number")]);
 
 /** One generated variant, as edited in the variants table. */
-export const variantRowSchema = z.object({
-  sku: z.string().trim().min(2, "Enter a SKU").regex(/^[A-Za-z0-9-]+$/, "Letters, digits, dashes"),
-  costPrice: price,
-  sellingPrice: price,
-  openingStock: quantity,
-  reorderLevel: quantity,
-});
+// No cost column: an item's cost comes from its batches. A new variant's
+// opening stock is its first batch, so it needs the rate it cost.
+export const variantRowSchema = z
+  .object({
+    sku: z.string().trim().min(2, "Enter a SKU").regex(/^[A-Za-z0-9-]+$/, "Letters, digits, dashes"),
+    openingStock: quantity,
+    openingRate: z.union([z.literal(""), price]),
+    reorderLevel: quantity,
+  })
+  .refine((row) => row.openingRate !== "" || !Number(row.openingStock), {
+    path: ["openingRate"],
+    message: "Enter the opening rate",
+  });
 
 export type VariantRow = z.infer<typeof variantRowSchema>;

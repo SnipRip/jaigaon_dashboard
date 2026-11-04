@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { GlassTable } from "@/components/ui/glass-table";
 import { StatusChip } from "@/components/ui/status-chip";
-import { formatQuantity } from "@/lib/format";
+import { formatQuantity, formatRate } from "@/lib/format";
 import type { VariantRow } from "./item-group-schema";
 import type { Item } from "./types";
 
@@ -54,9 +54,8 @@ export function VariantRowsTable({ lines, unit, onChange }: VariantRowsTableProp
         <tr className="text-right">
           <th scope="col" className="text-left">Variant</th>
           <th scope="col" className="w-[170px] text-left">SKU</th>
-          <th scope="col" className="w-[120px]">Cost (₹)</th>
-          <th scope="col" className="w-[120px]">Selling (₹)</th>
           <th scope="col" className="w-[130px]">Opening stock</th>
+          <th scope="col" className="w-[130px]">Opening rate (₹)</th>
           <th scope="col" className="w-[120px]">Reorder at</th>
         </tr>
       </thead>
@@ -80,8 +79,6 @@ export function VariantRowsTable({ lines, unit, onChange }: VariantRowsTableProp
                 {firstError && <div className="text-xs font-semibold text-danger-strong">{firstError}</div>}
               </td>
               <td>{input(line, "sku", "SKU", "left")}</td>
-              <td>{input(line, "costPrice", "Cost")}</td>
-              <td>{input(line, "sellingPrice", "Selling price")}</td>
               <td className="text-right">
                 {line.existing ? (
                   <div className="pt-2.5 text-[13px]">
@@ -90,6 +87,16 @@ export function VariantRowsTable({ lines, unit, onChange }: VariantRowsTableProp
                   </div>
                 ) : (
                   input(line, "openingStock", "Opening stock")
+                )}
+              </td>
+              <td className="text-right">
+                {line.existing ? (
+                  <div className="pt-2.5 text-[13px]">
+                    {line.existing.lastLandedCost === undefined ? "–" : formatRate(line.existing.lastLandedCost)}
+                    <div className="text-[11px] text-muted">last landed</div>
+                  </div>
+                ) : (
+                  input(line, "openingRate", "Opening rate")
                 )}
               </td>
               <td>{input(line, "reorderLevel", "Reorder level")}</td>

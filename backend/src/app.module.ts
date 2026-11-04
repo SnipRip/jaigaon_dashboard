@@ -27,6 +27,7 @@ import { LoansModule } from './loans/loans.module.js';
 import { LutsModule } from './luts/luts.module.js';
 import { NumberSeriesModule } from './number-series/number-series.module.js';
 import { PartiesModule } from './parties/parties.module.js';
+import { PriceListModule } from './price-list/price-list.module.js';
 import { PricingModule } from './pricing/pricing.module.js';
 import { StaffModule } from './staff/staff.module.js';
 import { UnitsModule } from './units/units.module.js';
@@ -51,6 +52,7 @@ import { WhatsappOptInsModule } from './whatsapp-optins/whatsapp-optins.module.j
     HsnCodesModule,
     PartiesModule,
     PricingModule,
+    PriceListModule,
     CompanyProfileModule,
     LutsModule,
     NumberSeriesModule,

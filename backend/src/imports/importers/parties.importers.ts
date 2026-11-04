@@ -48,9 +48,6 @@ function partyColumns(role: 'customer' | 'vendor'): ImportColumn<Party>[] {
     { header: 'PIN', field: 'pin', kind: 'text', value: (party) => party.pin },
     { header: 'Credit days', field: 'creditDays', kind: 'number', keepIfBlank: true, value: (party) => party.creditDays },
     { header: 'Credit limit', field: 'creditLimit', kind: 'number', value: (party) => toNumber(party.creditLimit) },
-    ...(role === 'customer'
-      ? [{ header: 'Price level', field: 'priceLevelId', kind: 'ref', ref: 'priceLevel', value: (party, refs) => refs.nameOf('priceLevel', party.priceLevelId) } satisfies ImportColumn<Party>]
-      : []),
     { header: 'Opening balance', field: 'openingBalance', kind: 'number', keepIfBlank: true, value: (party) => toNumber(party.openingBalance) },
     { header: 'Opening balance is', field: 'openingBalanceSide', kind: 'choice', choices: SIDES, keepIfBlank: true, value: (party) => label(SIDES, party.openingBalanceSide) },
     { header: 'Udyam number', field: 'udyamNumber', kind: 'text', hint: 'MSME registration: UDYAM-WB-00-0000000.', value: (party) => party.udyamNumber },
@@ -69,7 +66,7 @@ function partiesImporter(role: 'customer' | 'vendor', parties: PartiesService, p
     title: `${role}s`,
     module: `/${role}s`,
     columns,
-    refs: role === 'customer' ? ['priceLevel'] : [],
+    refs: [],
     archivable: true,
     list: () => prisma.party.findMany({ where: roleWhere, orderBy: { displayName: 'asc' } }),
     // A GSTIN is unique across all parties: a vendor already on file who

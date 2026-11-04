@@ -44,9 +44,6 @@ export interface Party {
   balanceSide?: "receivable" | "payable";
   /** Customers. */
   creditLimit?: number;
-  priceLevelId?: string;
-  /** Sample parties only: the level's name, shown on quotations. */
-  priceLevel?: string;
   /** Vendors. */
   udyamNumber?: string;
   isGta?: boolean;

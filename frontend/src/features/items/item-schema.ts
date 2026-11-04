@@ -36,20 +36,16 @@ export const itemSchema = z
     ),
     weightKg: optionalQuantity("weight"),
     mrp: optionalAmount("MRP"),
-    sellingPrice: amount("selling price"),
-    minSellingPrice: optionalAmount("minimum selling price"),
-    costPrice: amount("cost price"),
     preferredSupplier: z.string().max(120),
     openingStock: z.array(z.object({ godown: z.string(), quantity: optionalQuantity("opening stock") })),
+    // The item's cost is never typed: each batch has its own landed rate. The
+    // opening stock is the first batch, so it needs one.
+    openingRate: optionalAmount("opening rate"),
     reorderLevel: optionalQuantity("reorder level"),
   })
-  .refine((values) => !values.minSellingPrice || Number(values.sellingPrice) >= Number(values.minSellingPrice), {
-    path: ["sellingPrice"],
-    message: "Selling price is below the minimum selling price",
-  })
-  .refine((values) => !values.mrp || Number(values.sellingPrice) <= Number(values.mrp), {
-    path: ["sellingPrice"],
-    message: "Selling price is above the MRP",
+  .refine((values) => values.openingRate !== "" || values.openingStock.every((row) => !Number(row.quantity)), {
+    path: ["openingRate"],
+    message: "Enter what the opening stock cost per unit",
   });
 
 export type ItemFormValues = z.infer<typeof itemSchema>;

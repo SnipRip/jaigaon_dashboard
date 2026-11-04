@@ -51,6 +51,8 @@ model User {
   updatedAt          DateTime    @updatedAt
   sessions           Session[]
   importJobs         ImportJob[]
+  pricesSet          ItemPrice[] @relation("ItemPriceCreatedBy")
+  pricesChanged      ItemPrice[] @relation("ItemPriceUpdatedBy")
 
   @@index([accessRoleId])
 }
@@ -182,9 +184,7 @@ model ItemCategory {
   subGroups        ItemGroup[] @relation("GroupSubCategory")
   items            Item[]      @relation("ItemCategory")
   subCategoryItems Item[]      @relation("ItemSubCategory")
-  levelDiscounts   PriceLevelDiscount[]
   specialRates     SpecialRate[]
-  quantitySlabs    QuantitySlab[]
 
   // Postgres treats NULL parents as distinct, so the service also checks
   // that top-level names are unique.
@@ -242,9 +242,6 @@ model Item {
   // Kilograms per base unit, for truck load and e-way bill weight.
   weightKg          Decimal?      @db.Decimal(12, 3)
   mrp               Decimal?      @db.Decimal(12, 2)
-  sellingPrice      Decimal       @db.Decimal(12, 2)
-  minSellingPrice   Decimal?      @db.Decimal(12, 2)
-  costPrice         Decimal       @db.Decimal(12, 2)
   preferredSupplier String?
   reorderLevel      Decimal       @default(0) @db.Decimal(14, 3)
   isArchived        Boolean       @default(false)
@@ -254,11 +251,27 @@ model Item {
   alternateUnits ItemUnitConversion[]
   openingStock   ItemOpeningStock[]
   specialRates   SpecialRate[]
-  quantitySlabs  QuantitySlab[]
+  priceList      ItemPrice[]
+  picture        ItemPicture?
 
   @@index([categoryId])
   @@index([subCategoryId])
   @@index([groupId])
+}
+
+// One picture per item, kept in the database rather than on disk: it goes
+// into the same backup as the item, leaves with it (cascade) in the same
+// transaction, and needs no upload folder kept across deploys on the shared
+// server. At 1 MB each (CHECK in migration 20261104032204_item_pictures) a
+// few thousand items stay well within what Postgres handles. A separate
+// table so item lists never read the bytes.
+model ItemPicture {
+  itemId      String   @id @db.Uuid
+  item        Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  // Worked out from the file's first bytes, never taken from the upload.
+  contentType String
+  bytes       Bytes
+  updatedAt   DateTime @updatedAt
 }
 
 // "1 bundle = 25 kg": an alternate unit and how many base units one of it holds.
@@ -281,7 +294,8 @@ model ItemOpeningStock {
   godownId String  @db.Uuid
   godown   Godown  @relation(fields: [godownId], references: [id], onDelete: Restrict)
   quantity Decimal @db.Decimal(14, 3)
-  // At cost: quantity × the item's cost price when not given.
+  // The opening batch at its landed cost: quantity × the row's rate when
+  // not given. The item's costs are worked out from these (item-costs.ts).
   value    Decimal @db.Decimal(14, 2)
 
   @@id([itemId, godownId])
@@ -367,9 +381,6 @@ model Party {
   bankAccountNumber  String?
   ifsc               String?
   notes              String?
-  // Customers only: the discount they get off MRP (pricing section below).
-  priceLevelId       String?       @db.Uuid
-  priceLevel         PriceLevel?   @relation(fields: [priceLevelId], references: [id], onDelete: Restrict)
 
   isArchived         Boolean       @default(false)
   createdAt          DateTime      @default(now())
@@ -420,44 +431,18 @@ model HsnRate {
 }
 
 // ---------------------------------------------------------------------------
-// Pricing (masters-plan.md, section E). A customer's rate for an item is,
-// in order: a special rate in force for that customer, else their price
-// level off MRP, else the item's selling price; a quantity slab then takes
-// its extra discount, never below the minimum selling price
-// (src/pricing/pricing-rules.ts). A special rate or slab is for one item or
-// a whole category / sub-category: exactly one of itemId and categoryId.
+// Pricing (agent/selling-rate-plan.md). The item master has no selling
+// price: rates change every day. A customer's rate for an item is, in order:
+// a special rate in force for that customer, else the rate-sheet price in
+// force on the date (ItemPrice), else none and the user types it
+// (src/pricing/pricing-rules.ts). A special rate is for one item or a whole
+// category / sub-category: exactly one of itemId and categoryId.
 // ---------------------------------------------------------------------------
-
-model PriceLevel {
-  id          String   @id @default(uuid()) @db.Uuid
-  name        String   @unique
-  // Off MRP, for every category without its own figure below.
-  discountPct Decimal  @default(0) @db.Decimal(5, 2)
-  description String?
-  isArchived  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  categoryDiscounts PriceLevelDiscount[]
-  customers         Party[]
-}
-
-// A level's discount for one category or sub-category (the sub-category's wins).
-model PriceLevelDiscount {
-  id           String       @id @default(uuid()) @db.Uuid
-  priceLevelId String       @db.Uuid
-  priceLevel   PriceLevel   @relation(fields: [priceLevelId], references: [id], onDelete: Cascade)
-  categoryId   String       @db.Uuid
-  category     ItemCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  discountPct  Decimal      @db.Decimal(5, 2)
-
-  @@unique([priceLevelId, categoryId])
-}
 
 enum SpecialRateKind {
   // A rate in rupees per base unit.
   NET
-  // A discount % off MRP (off the selling price when the item has no MRP).
+  // A discount % off the day's rate-sheet price (off MRP when there is none).
   DISCOUNT
 }
 
@@ -482,22 +467,37 @@ model SpecialRate {
   @@index([partyId])
 }
 
-model QuantitySlab {
-  id          String        @id @default(uuid()) @db.Uuid
-  itemId      String?       @db.Uuid
-  item        Item?         @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  categoryId  String?       @db.Uuid
-  category    ItemCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  // In the item's base unit.
-  minQuantity Decimal       @db.Decimal(14, 3)
-  // Extra, on top of the rate that would otherwise apply.
-  discountPct Decimal       @db.Decimal(5, 2)
-  isArchived  Boolean       @default(false)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+// Day-wise price list (agent/price-list-plan.md): an item's price for one
+// day (validTill = validFrom) or a range. Entries layer: on a date the latest
+// start wins, then the shorter range (src/price-list/price-list-rules.ts).
+// With no entry in force there is no list rate: the user types one.
+// CHECKs in migration item_price_list: till ≥ from, price > 0, minimum ≤
+// price ≤ MRP where given, cost ≥ 0.
+model ItemPrice {
+  id              String   @id @default(uuid()) @db.Uuid
+  itemId          String   @db.Uuid
+  item            Item     @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  validFrom       DateTime @db.Date
+  validTill       DateTime @db.Date
+  sellingPrice    Decimal  @db.Decimal(12, 2)
+  // Null: the item's MRP.
+  mrp             Decimal? @db.Decimal(12, 2)
+  // The floor for these days; only the rate sheet has one.
+  minSellingPrice Decimal? @db.Decimal(12, 2)
+  // The day's cost, for the margin; null: the last landed cost.
+  costPrice       Decimal? @db.Decimal(12, 2)
+  notes           String?
+  isArchived      Boolean  @default(false)
+  createdById     String?  @db.Uuid
+  createdBy       User?    @relation("ItemPriceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById     String?  @db.Uuid
+  updatedBy       User?    @relation("ItemPriceUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  @@index([itemId])
-  @@index([categoryId])
+  // One item and date range is one entry (the import's natural key).
+  @@unique([itemId, validFrom, validTill])
+  @@index([validFrom, validTill])
 }
 
 // ── Company profile ──────────────────────────────────────────────────────

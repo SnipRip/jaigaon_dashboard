@@ -35,6 +35,7 @@ import {
   CHARGE_RATES,
   chargeRateRule,
   isMsme,
+  lastPurchaseRate,
   landsOnItems,
   MSME_PAYMENT_DAYS,
   splitRegime,
@@ -46,6 +47,8 @@ interface BillFormProps {
   catalog: ItemCatalog;
   /** Goods bills a charges bill can be tagged to. */
   purchases: { id: string; label: string }[];
+  /** Earlier goods bills, for the rate last paid to the vendor. */
+  pastBills: Parameters<typeof lastPurchaseRate>[0];
   companyState: string;
   suggestedReference: string;
   initialKind: BillKind;
@@ -69,7 +72,7 @@ const emptyCharge = { head: "", description: "", amount: "", gstRatePct: "18" };
 // GST is never picked: the vendor's treatment and the source of supply decide
 // it (gst-rules.ts). Freight and loading on a goods bill follow the bill's
 // rate; a separate charges bill is tagged to the purchase for landed cost.
-export function BillForm({ vendors, catalog, purchases, companyState, suggestedReference, initialKind, initialFor }: BillFormProps) {
+export function BillForm({ vendors, catalog, purchases, pastBills, companyState, suggestedReference, initialKind, initialFor }: BillFormProps) {
   const today = useToday();
   const { heads, error: headsError } = useAccountHeads();
   const [result, setResult] = useState<{ tone: "success" | "error"; text: string } | null>(null);
@@ -156,10 +159,11 @@ export function BillForm({ vendors, catalog, purchases, companyState, suggestedR
     if (rule?.fixed !== undefined) setValue(`charges.${index}.gstRatePct`, String(rule.fixed));
   };
 
+  // The item has no purchase price of its own; the last bill from this vendor suggests one.
   const pickItem = (index: number, itemId: string) => {
-    const item = catalog.items.find((candidate) => candidate.id === itemId);
     setValue(`lines.${index}.itemId`, itemId, { shouldValidate: true });
-    if (item) setValue(`lines.${index}.rate`, String(item.costPrice));
+    const rate = lastPurchaseRate(pastBills, itemId, vendorId);
+    if (rate !== undefined) setValue(`lines.${index}.rate`, String(rate));
   };
 
   const toBillLine = (line?: BillFormValues["lines"][number]): BillLine | undefined => {

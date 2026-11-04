@@ -16,7 +16,7 @@ const ITEM_CLASSES = "glass-inset flex flex-col gap-0.5 px-4 py-3";
 const MSME_WARN_DAYS = 7;
 
 // Business alerts: overdue customers and MSME bills (judged against today,
-// which only the browser knows), then missing documents, OCR reviews, stock.
+// which only the browser knows), then missing documents, stock.
 export function AttentionList({ items, dated }: { items: AttentionItem[]; dated: DatedAlert[] }) {
   const today = useToday();
   const overdue = today ? dated.filter((alert) => alert.kind === "receivable" && alert.date < today) : [];

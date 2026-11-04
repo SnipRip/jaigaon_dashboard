@@ -1,6 +1,5 @@
 import {
   checkAttributes,
-  checkPrices,
   checkVariantValues,
   inherited,
   openingValue,
@@ -16,18 +15,6 @@ describe('inherited', () => {
     expect(inherited(null, undefined, 0, 18)).toBe(0);
     expect(inherited<string>(undefined, 'kg')).toBe('kg');
     expect(inherited(null, null)).toBeNull();
-  });
-});
-
-describe('checkPrices', () => {
-  it('accepts a selling price between the minimum and the MRP', () => {
-    expect(checkPrices({ mrp: 70, sellingPrice: 65, minSellingPrice: 60 })).toBeNull();
-    expect(checkPrices({ sellingPrice: 65 })).toBeNull();
-  });
-
-  it('rejects a price below the minimum or above the MRP', () => {
-    expect(checkPrices({ sellingPrice: 55, minSellingPrice: 60 })).toMatch(/minimum/);
-    expect(checkPrices({ mrp: 60, sellingPrice: 65 })).toMatch(/MRP/);
   });
 });
 

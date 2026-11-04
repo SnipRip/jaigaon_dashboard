@@ -3,12 +3,13 @@ import { Suspense } from "react";
 import { SampleDataNotice } from "@/components/ui/sample-data-notice";
 import { COMPANY_TAX_PROFILE } from "@/features/gst/company-tax-profile";
 import { hsnCodes } from "@/features/hsn/sample-data";
-import { categories, itemGroups, items } from "@/features/items/sample-data";
+import { invoices } from "@/features/invoices/sample-data";
+import { categories, itemGroups, items, sampleRateSheet } from "@/features/items/sample-data";
 import { parties } from "@/features/parties/sample-data";
 import { QuotationForm } from "@/features/quotations/quotation-form";
 import { quotationNumber } from "@/features/quotations/quotation-rules";
-import { nextQuotationSequence } from "@/features/quotations/sample-data";
-import { priceLevels, quantitySlabs, specialRates } from "@/features/rates/sample-data";
+import { nextQuotationSequence, quotations } from "@/features/quotations/sample-data";
+import { specialRates } from "@/features/rates/sample-data";
 
 export const metadata: Metadata = { title: "New quotation" };
 
@@ -43,7 +44,7 @@ async function Form({ searchParams }: { searchParams: SearchParams }) {
     <QuotationForm
       customers={parties.filter((party) => party.roles.includes("customer"))}
       catalog={{ categories, groups: itemGroups, items, hsnCodes }}
-      book={{ levels: priceLevels, specialRates, slabs: quantitySlabs }}
+      pricing={{ specialRates, rateSheet: sampleRateSheet, history: { quotations, invoices } }}
       companyState={COMPANY_TAX_PROFILE.stateCode}
       suggestedNumber={quotationNumber("2026-27", nextQuotationSequence)}
       initial={{ partyId, lines: carried }}

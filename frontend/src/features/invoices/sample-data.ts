@@ -3,7 +3,7 @@
 // shipping bill, LEO, BRC, LUT) is a placeholder, not a real document.
 import { hsnCodes } from "@/features/hsn/sample-data";
 import { resolveItemDefaults } from "@/features/items/item-rules";
-import { categories, itemGroups, items } from "@/features/items/sample-data";
+import { categories, itemGroups, items, sampleRateSheet } from "@/features/items/sample-data";
 import type { Invoice, InvoiceLine } from "./types";
 
 const catalog = { categories, groups: itemGroups, items, hsnCodes };
@@ -18,7 +18,7 @@ export function lineFor(itemId: string, quantity: number, discountPct = 0, rate?
     hsn: defaults.hsn.value ?? "",
     quantity,
     unit: defaults.unit.value ?? "",
-    rate: rate ?? item.sellingPrice,
+    rate: rate ?? sampleRateSheet.find((entry) => entry.itemId === item.id)?.sellingPrice ?? 0,
     discountPct,
     gstRatePct: defaults.gstRatePct.value ?? 0,
   };
