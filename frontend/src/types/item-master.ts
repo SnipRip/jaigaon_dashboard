@@ -93,6 +93,6 @@ export interface ItemView {
   alternateUnits: { unitId: string; baseQuantity: number }[];
   openingStock: { godownId: string; quantity: number; value: number }[];
   stock: number;
-  /** When the picture last changed; null when the item has none. */
-  pictureVersion: string | null;
+  /** The item's picture ids, the cover (oldest) first. */
+  pictureIds: string[];
 }

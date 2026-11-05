@@ -27,21 +27,21 @@ export interface ItemView extends ItemCosts {
   openingStock: { godownId: string; quantity: number; value: number }[];
   /** Opening stock only, until purchases, sales and stock journals are stored. */
   stock: number;
-  /** When the picture last changed (it goes into the picture URL); null without one. */
-  pictureVersion: string | null;
+  /** The item's picture ids, oldest (the cover) first; each goes into its picture URL. */
+  pictureIds: string[];
 }
 
 export type ItemRow = Item & {
   alternateUnits: ItemUnitConversion[];
   openingStock: ItemOpeningStock[];
-  picture: { updatedAt: Date } | null;
+  pictures: { id: string }[];
 };
 
-// Only the picture's date: lists never read the bytes.
+// Only the picture ids: lists never read the bytes.
 export const itemRowInclude = {
   alternateUnits: true,
   openingStock: true,
-  picture: { select: { updatedAt: true } },
+  pictures: { select: { id: true }, orderBy: { createdAt: 'asc' } },
 } as const;
 
 export function toItemView(item: ItemRow): ItemView {
@@ -77,6 +77,6 @@ export function toItemView(item: ItemRow): ItemView {
     openingStock,
     // Summed in thousandths so 0.1 + 0.2 kg stays 0.3.
     stock: openingStock.reduce((sum, row) => sum + Math.round(row.quantity * 1000), 0) / 1000,
-    pictureVersion: item.picture?.updatedAt.toISOString() ?? null,
+    pictureIds: item.pictures.map((picture) => picture.id),
   };
 }

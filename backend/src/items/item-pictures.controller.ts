@@ -20,19 +20,21 @@ import { ItemPicturesService } from './item-pictures.service.js';
 import { ITEMS_MODULE } from './items-module-key.js';
 import { PictureTooLargeInterceptor } from './picture-too-large.interceptor.js';
 
-// One picture per item. Seeing it needs Items view; uploading or removing it
-// counts as editing the item.
-@Controller('items/:id/picture')
+// An item's pictures, for sending to clients. Seeing one needs Items view;
+// adding or removing one counts as editing the item.
+@Controller('items/:id/pictures')
 export class ItemPicturesController {
   constructor(private readonly pictures: ItemPicturesService) {}
 
-  // The screens ask for it as ?v=<pictureVersion>, so a replaced picture has
-  // a new URL and the old one can be cached for good.
+  // A picture is never replaced, so its URL can be cached for good.
   @RequireAccess(ITEMS_MODULE, 'view')
-  @Get()
+  @Get(':pictureId')
   @Header('Cache-Control', 'private, max-age=31536000, immutable')
-  async get(@Param('id', ParseUUIDPipe) id: string): Promise<StreamableFile> {
-    const picture = await this.pictures.get(id);
+  async get(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('pictureId', ParseUUIDPipe) pictureId: string,
+  ): Promise<StreamableFile> {
+    const picture = await this.pictures.get(id, pictureId);
     return new StreamableFile(picture.bytes, {
       type: picture.contentType,
       length: picture.bytes.length,
@@ -40,25 +42,28 @@ export class ItemPicturesController {
     });
   }
 
-  /** Stores or replaces the picture (multipart field `file`). */
+  /** Adds one picture (multipart field `file`); returns its id. */
   @RequireAccess(ITEMS_MODULE, 'edit')
   @Post()
   @UseInterceptors(
     PictureTooLargeInterceptor,
     FileInterceptor('file', { limits: { fileSize: MAX_PICTURE_BYTES, files: 1, fields: 0 } }),
   )
-  save(
+  add(
     @Param('id', ParseUUIDPipe) id: string,
     @UploadedFile() upload: { buffer: Buffer } | undefined,
-  ): Promise<{ pictureVersion: string }> {
+  ): Promise<{ id: string }> {
     if (!upload) throw new BadRequestException('Choose a picture to upload');
-    return this.pictures.save(id, upload.buffer);
+    return this.pictures.add(id, upload.buffer);
   }
 
   @RequireAccess(ITEMS_MODULE, 'edit')
-  @Delete()
+  @Delete(':pictureId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.pictures.remove(id);
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('pictureId', ParseUUIDPipe) pictureId: string,
+  ): Promise<void> {
+    return this.pictures.remove(id, pictureId);
   }
 }

@@ -11,8 +11,8 @@ import type { BrandView, CategoryView, GodownView, ItemGroupView, ItemView, SubC
 import type { CategoryDraft } from "./category-editor";
 import type { ItemGroupFormValues } from "./item-group-schema";
 import type { ItemCatalog } from "./item-rules";
-import type { PictureChange } from "./item-picture-rules";
-import { CATEGORIES_PATH, ITEM_GROUPS_PATH, ITEMS_PATH, itemPicturePath, itemPictureUrl } from "./item-paths";
+import type { PictureChanges } from "./item-picture-rules";
+import { CATEGORIES_PATH, ITEM_GROUPS_PATH, ITEMS_PATH, itemPicturesPath, itemPictureUrl } from "./item-paths";
 import type { ItemFormValues } from "./item-schema";
 import type { Category, Item, ItemDefaults, ItemGroup, StockMovement } from "./types";
 import { NONE, type Overridable } from "./use-overrides";
@@ -78,7 +78,7 @@ const toItem = (view: ItemView, units: UnitView[], brands: BrandView[]): Item =>
   preferredSupplier: view.preferredSupplier ?? undefined,
   stock: view.stock,
   reorderLevel: view.reorderLevel,
-  pictureUrl: view.pictureVersion ? itemPictureUrl(view.id, view.pictureVersion) : undefined,
+  pictures: view.pictureIds.map((id) => ({ id, url: itemPictureUrl(view.id, id) })),
 });
 
 /**
@@ -190,13 +190,26 @@ export function saveItem(masters: ItemMasters, item: Item | undefined, values: I
     : apiRequest<ItemView>(ITEMS_PATH, { method: "POST", body });
 }
 
-/** Uploads, replaces or removes the item's picture; nothing when it did not change. */
-export async function saveItemPicture(itemId: string, change: PictureChange) {
-  if (!change) return;
-  if (change === "remove") return apiRequest(itemPicturePath(itemId), { method: "DELETE" });
-  const body = new FormData();
-  body.append("file", change.file);
-  await apiRequest<{ pictureVersion: string }>(itemPicturePath(itemId), { method: "POST", body });
+/**
+ * Removes, then uploads, the item's pictures one by one (removing first makes
+ * room under the limit). Stops at the first failure and throws an ApiError;
+ * `onProgress` gets what is still to do after each step, so a retry repeats
+ * nothing that went through.
+ */
+export async function saveItemPictures(itemId: string, changes: PictureChanges, onProgress: (left: PictureChanges) => void) {
+  const left = { added: [...changes.added], removed: [...changes.removed] };
+  while (left.removed.length > 0) {
+    await apiRequest(`${itemPicturesPath(itemId)}/${left.removed[0]}`, { method: "DELETE" });
+    left.removed.shift();
+    onProgress({ ...left });
+  }
+  while (left.added.length > 0) {
+    const body = new FormData();
+    body.append("file", left.added[0].file);
+    await apiRequest<{ id: string }>(itemPicturesPath(itemId), { method: "POST", body });
+    left.added.shift();
+    onProgress({ ...left });
+  }
 }
 
 export function saveItemGroup(

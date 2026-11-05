@@ -5,6 +5,10 @@
 export const MAX_PICTURE_BYTES = 1024 * 1024;
 export const PICTURE_TOO_LARGE = 'The picture is over 1 MB. Choose a smaller one';
 
+/** Pictures one item may have; they are for sending to clients, not a gallery. */
+export const MAX_PICTURES_PER_ITEM = 10;
+export const TOO_MANY_PICTURES = `An item can have up to ${MAX_PICTURES_PER_ITEM} pictures. Remove one first`;
+
 export const PICTURE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 export type PictureType = (typeof PICTURE_TYPES)[number];
 

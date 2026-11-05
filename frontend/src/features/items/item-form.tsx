@@ -18,7 +18,7 @@ import { formatRate } from "@/lib/format";
 import { InheritedField } from "./inherited-field";
 import { ItemPictureField } from "./item-picture-field";
 import { TodaysRateField } from "./todays-rate-field";
-import type { PictureChange } from "./item-picture-rules";
+import { hasPictureChanges, NO_PICTURE_CHANGES, type PictureChanges } from "./item-picture-rules";
 import { findGroup, resolveDefaults, resolveItemDefaults, type ItemCatalog } from "./item-rules";
 import { itemSchema, type ItemFormValues } from "./item-schema";
 import type { Item } from "./types";
@@ -35,8 +35,17 @@ interface ItemFormProps extends ItemFormOptions {
   catalog: ItemCatalog;
   /** The item being edited; a new item when absent. */
   item?: Item;
-  /** Saves through the backend, the picture after the item; throws an ApiError the form shows. */
-  onSave: (values: ItemFormValues, overridden: ReadonlySet<Overridable>, picture: PictureChange) => Promise<void>;
+  /**
+   * Saves through the backend, the pictures after the item; throws an ApiError
+   * the form shows. `onPicturesLeft` gets the picture changes still to do, so a
+   * retry after a failed upload repeats only what did not go through.
+   */
+  onSave: (
+    values: ItemFormValues,
+    overridden: ReadonlySet<Overridable>,
+    pictures: PictureChanges,
+    onPicturesLeft: (left: PictureChanges) => void,
+  ) => Promise<void>;
 }
 
 export const saveErrorText = (error: unknown) =>
@@ -79,7 +88,7 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates, onSa
   const overrides = useOverrides(item?.overrides);
   const { overridden } = overrides;
   const [result, setResult] = useState<{ tone: "success" | "error"; text: string } | null>(null);
-  const [picture, setPicture] = useState<PictureChange>(undefined);
+  const [pictures, setPictures] = useState<PictureChanges>(NO_PICTURE_CHANGES);
 
   const {
     register,
@@ -90,7 +99,7 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates, onSa
     formState: { errors, isDirty: fieldsDirty, isSubmitting },
   } = useForm<ItemFormValues>({ resolver: zodResolver(itemSchema), defaultValues: toFormValues(item, godowns, item && resolveItemDefaults(catalog, item).hsn.value) });
   const alternateUnits = useFieldArray({ control, name: "alternateUnits" });
-  const isDirty = fieldsDirty || picture !== undefined;
+  const isDirty = fieldsDirty || hasPictureChanges(pictures);
 
   const [categoryId, subCategoryId, unitOverride, conversions, hsn, name] = useWatch({
     control,
@@ -119,10 +128,10 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates, onSa
     async (values) => {
       setResult(null);
       try {
-        await onSave(values, overridden, picture);
+        await onSave(values, overridden, pictures, setPictures);
         // The saved values become the new starting point for "Discard changes".
         reset(values);
-        setPicture(undefined);
+        setPictures(NO_PICTURE_CHANGES);
         setResult({ tone: "success", text: `${values.name} saved.` });
       } catch (error) {
         setResult({ tone: "error", text: saveErrorText(error) });
@@ -201,7 +210,7 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates, onSa
           />
           <TextField label="Description" placeholder="Grade, make, length" error={errors.description?.message} {...register("description")} />
         </div>
-        <ItemPictureField name={name} currentUrl={item?.pictureUrl} change={picture} onChange={setPicture} />
+        <ItemPictureField name={name} stored={item?.pictures ?? []} changes={pictures} onChange={setPictures} />
         {group && item?.attributeValues && (
           <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted">
             Attributes:
@@ -435,7 +444,7 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates, onSa
             disabled={!isDirty}
             onClick={() => {
               reset();
-              setPicture(undefined);
+              setPictures(NO_PICTURE_CHANGES);
               setResult(null);
               overrides.restore();
             }}

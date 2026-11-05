@@ -252,26 +252,31 @@ model Item {
   openingStock   ItemOpeningStock[]
   specialRates   SpecialRate[]
   priceList      ItemPrice[]
-  picture        ItemPicture?
+  pictures       ItemPicture[]
 
   @@index([categoryId])
   @@index([subCategoryId])
   @@index([groupId])
 }
 
-// One picture per item, kept in the database rather than on disk: it goes
-// into the same backup as the item, leaves with it (cascade) in the same
-// transaction, and needs no upload folder kept across deploys on the shared
-// server. At 1 MB each (CHECK in migration 20261104032204_item_pictures) a
-// few thousand items stay well within what Postgres handles. A separate
-// table so item lists never read the bytes.
+// An item's pictures (up to 10, for sending to clients), kept in the
+// database rather than on disk: they go into the same backup as the item,
+// leave with it (cascade) in the same transaction, and need no upload folder
+// kept across deploys on the shared server. At 1 MB each (CHECK in migration
+// 20261104032204_item_pictures) a few thousand items stay well within what
+// Postgres handles. A separate table so item lists never read the bytes.
+// A picture is never replaced, only added or removed, so its id alone makes
+// a URL the browser can cache for good. The oldest is the item's cover.
 model ItemPicture {
-  itemId      String   @id @db.Uuid
+  id          String   @id @default(uuid()) @db.Uuid
+  itemId      String   @db.Uuid
   item        Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
   // Worked out from the file's first bytes, never taken from the upload.
   contentType String
   bytes       Bytes
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@index([itemId, createdAt])
 }
 
 // "1 bundle = 25 kg": an alternate unit and how many base units one of it holds.

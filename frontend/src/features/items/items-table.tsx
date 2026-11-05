@@ -43,7 +43,7 @@ export function ItemsTable({ catalog, rows, expandedGroups, onToggleGroup }: Ite
       <tr key={item.id} className={clsx(isVariant && "bg-white/25")}>
         <td className="text-left">
           <div className={clsx("flex items-center gap-2.5", isVariant && "pl-11")}>
-            <ItemThumbnail src={item.pictureUrl} alt="" size={36} />
+            <ItemThumbnail src={item.pictures?.[0]?.url} alt="" size={36} />
             <div className="min-w-0">
               <Link href={`/items/${item.id}`} className="font-semibold hover:text-brand hover:underline">
                 {isVariant ? Object.values(item.attributeValues ?? {}).join(" · ") : item.name}
@@ -102,7 +102,7 @@ export function ItemsTable({ catalog, rows, expandedGroups, onToggleGroup }: Ite
                     >
                       <ChevronRight aria-hidden="true" className={clsx("size-4 transition-transform", isOpen && "rotate-90")} />
                     </button>
-                    <ItemThumbnail src={variants.find((variant) => variant.pictureUrl)?.pictureUrl} alt="" size={36} className="mr-1" />
+                    <ItemThumbnail src={variants.find((variant) => variant.pictures?.length)?.pictures?.[0]?.url} alt="" size={36} className="mr-1" />
                     <div className="min-w-0">
                       <Link href={`/items/groups/${group.id}`} className="font-semibold hover:text-brand hover:underline">
                         {group.name}
