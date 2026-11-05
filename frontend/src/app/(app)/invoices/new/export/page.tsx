@@ -1,17 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { SampleDataNotice } from "@/components/ui/sample-data-notice";
-import { COMPANY_TAX_PROFILE } from "@/features/gst/company-tax-profile";
-import { hsnCodes } from "@/features/hsn/sample-data";
-import { InvoiceForm } from "@/features/invoices/invoice-form";
-import { invoiceNumber } from "@/features/invoices/invoice-rules";
-import { invoices, nextSequence } from "@/features/invoices/sample-data";
-import { categories, itemGroups, items, sampleRateSheet } from "@/features/items/sample-data";
-import { parties } from "@/features/parties/sample-data";
-import { quotationLabel } from "@/features/quotations/quotation-rules";
-import { quotations } from "@/features/quotations/sample-data";
-import { specialRates } from "@/features/rates/sample-data";
-import { lutRegister } from "@/features/tax-export/sample-data";
+import { NewInvoiceScreen } from "@/features/invoices/invoice-screens";
 
 export const metadata: Metadata = { title: "New export invoice" };
 
@@ -21,28 +10,13 @@ type SearchParams = PageProps<"/invoices/new/export">["searchParams"];
 // invoice). `searchParams` is request data, so it is read inside Suspense.
 export default function NewExportInvoicePage({ searchParams }: { searchParams: SearchParams }) {
   return (
-    <>
-      <SampleDataNotice />
-      <Suspense>
-        <Form searchParams={searchParams} />
-      </Suspense>
-    </>
+    <Suspense>
+      <Form searchParams={searchParams} />
+    </Suspense>
   );
 }
 
 async function Form({ searchParams }: { searchParams: SearchParams }) {
-  const { quotation: quotationId } = await searchParams;
-  const quotation = quotations.find((candidate) => candidate.id === quotationId);
-  return (
-    <InvoiceForm
-      kind="export"
-      customers={parties.filter((party) => party.roles.includes("customer"))}
-      catalog={{ categories, groups: itemGroups, items, hsnCodes }}
-      luts={lutRegister}
-      pricing={{ specialRates, rateSheet: sampleRateSheet, history: { quotations, invoices } }}
-      companyState={COMPANY_TAX_PROFILE.stateCode}
-      suggestedNumber={invoiceNumber("export", "2026-27", nextSequence.export)}
-      fromQuotation={quotation && { label: quotationLabel(quotation), partyId: quotation.partyId, lines: quotation.lines }}
-    />
-  );
+  const { quotation } = await searchParams;
+  return <NewInvoiceScreen kind="export" quotationId={typeof quotation === "string" ? quotation : undefined} />;
 }

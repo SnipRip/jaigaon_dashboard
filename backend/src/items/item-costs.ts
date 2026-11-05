@@ -3,7 +3,8 @@
 // cannot be claimed), so the same rod costs more off the Delhi truck than
 // the Bihar one, and it differs by vendor. The item only shows costs worked
 // out from its batches: the opening stock, plus one batch per goods bill line
-// (StockBatch, src/purchases).
+// (StockBatch, src/purchases). Sales draw both down FIFO (src/stock): a batch's
+// remaining falls, and the opening stock's drawn rises.
 import { toNumber } from '../common/decimal.js';
 import type { Prisma } from '../generated/prisma/client.js';
 
@@ -16,7 +17,7 @@ export interface ItemCosts {
 
 /** The rows `itemCosts` and `stockOnHand` read, to add to an item query's `select` or `include`. */
 export const itemCostSource = {
-  openingStock: { select: { quantity: true, value: true } },
+  openingStock: { select: { quantity: true, value: true, drawn: true } },
   stockBatches: {
     select: { quantity: true, remaining: true, landedRate: true, date: true, createdAt: true },
     orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
@@ -24,7 +25,8 @@ export const itemCostSource = {
 } as const satisfies Prisma.ItemInclude;
 
 export interface CostSource {
-  openingStock: { quantity: Prisma.Decimal; value: Prisma.Decimal }[];
+  /** `drawn`: sold out of it so far (missing counts as none). */
+  openingStock: { quantity: Prisma.Decimal; value: Prisma.Decimal; drawn?: Prisma.Decimal }[];
   /** Newest first, as itemCostSource orders them. */
   stockBatches: { remaining: Prisma.Decimal; landedRate: Prisma.Decimal }[];
 }
@@ -34,20 +36,27 @@ const paise = (value: number) => Math.round(value * 100) / 100;
 /** Quantity on hand, in thousandths so 0.1 + 0.2 kg stays 0.3. */
 export function stockOnHand(source: CostSource): number {
   const thousandths = (value: Prisma.Decimal) => Math.round(toNumber(value) * 1000);
-  const opening = source.openingStock.reduce((sum, row) => sum + thousandths(row.quantity), 0);
+  const opening = source.openingStock.reduce((sum, row) => sum + thousandths(row.quantity) - (row.drawn ? thousandths(row.drawn) : 0), 0);
   const batches = source.stockBatches.reduce((sum, row) => sum + thousandths(row.remaining), 0);
   return (opening + batches) / 1000;
 }
 
 /** Per base unit, rounded to paise. */
 export function itemCosts(source: CostSource): ItemCosts {
+  // The opening stock's rate is its value over all of it; what is left is valued at that rate.
+  let openingQuantity = 0;
+  let openingValue = 0;
   let quantity = 0;
   let value = 0;
   for (const row of source.openingStock) {
-    quantity += toNumber(row.quantity);
-    value += toNumber(row.value);
+    const total = toNumber(row.quantity);
+    const left = total - (row.drawn ? toNumber(row.drawn) : 0);
+    openingQuantity += total;
+    openingValue += toNumber(row.value);
+    quantity += left;
+    value += total > 0 ? (toNumber(row.value) * left) / total : 0;
   }
-  const openingRate = quantity > 0 ? value / quantity : null;
+  const openingRate = openingQuantity > 0 ? openingValue / openingQuantity : null;
   for (const batch of source.stockBatches) {
     const remaining = toNumber(batch.remaining);
     quantity += remaining;

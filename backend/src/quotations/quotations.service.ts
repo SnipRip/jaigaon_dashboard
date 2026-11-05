@@ -1,15 +1,12 @@
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { dateOnly } from '../common/dates.js';
-import { sumTax, taxOn } from '../common/gst/tax-split.js';
 import { PrismaService } from '../database/prisma.service.js';
 import type { Prisma, QuotationStatus } from '../generated/prisma/client.js';
-import { loadItemFacts } from '../items/item-document-facts.js';
 import { NumberSeriesService } from '../number-series/number-series.service.js';
-import { LineRateOptionsService } from '../pricing/line-rate-options.service.js';
 import { companyState } from '../purchases/purchase-context.js';
-import { SchemesService } from '../schemes/schemes.service.js';
+import { SalePricingService } from '../sale-pricing/sale-pricing.service.js';
+import { saleRegime } from '../sale-pricing/sale-rules.js';
 import type { QuotationDto, ReviseQuotationDto } from './dto/quotation.dto.js';
-import { rateSourceOf, schemeSourceOf, saleRegime } from './quotation-rules.js';
 import { quotationInclude, toQuotationView, type QuotationView } from './quotation-views.js';
 
 type Tx = Prisma.TransactionClient;
@@ -23,20 +20,20 @@ const NEXT: Record<QuotationStatus, QuotationStatus[]> = {
   ACCEPTED: ['CANCELLED'],
   REJECTED: ['SENT'],
   CANCELLED: [],
+  // Only through the invoice: cancelling it brings the quotation back to ACCEPTED.
+  CONVERTED: [],
 };
 
-// Quotations. On save every line is priced again on the server: the rate
-// the line took is matched to what it was offered (special rate, today's
-// rate-sheet rate, last quoted, last sold) to record where it came from, the
-// schemes in force are applied, GST follows the customer, and the last
-// landed cost is kept for the margin. The browser's figures are only a preview.
+// Quotations. On save every line is priced again on the server
+// (SalePricingService: rate source, schemes, GST follows the customer), and
+// the last landed cost is kept for the margin. The browser's figures are only
+// a preview. Converting to an invoice happens in src/invoices.
 @Injectable()
 export class QuotationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly numbers: NumberSeriesService,
-    private readonly options: LineRateOptionsService,
-    private readonly schemes: SchemesService,
+    private readonly pricing: SalePricingService,
   ) {}
 
   async list(partyId?: string): Promise<QuotationView[]> {
@@ -70,7 +67,7 @@ export class QuotationsService {
       const [current] = await tx.$queryRaw<{ status: QuotationStatus; revision: number; date: Date; total: Prisma.Decimal; partyId: string }[]>`
         SELECT "status", "revision", "date", "total", "partyId" FROM "Quotation" WHERE "id" = ${id}::uuid FOR UPDATE`;
       if (!current) throw new BadRequestException('That quotation does not exist');
-      if (current.status === 'ACCEPTED' || current.status === 'CANCELLED') {
+      if (current.status === 'ACCEPTED' || current.status === 'CANCELLED' || current.status === 'CONVERTED') {
         throw new ConflictException(`An ${current.status.toLowerCase()} quotation is not revised. Make a new one.`);
       }
       const priced = await this.price(tx, dto, id);
@@ -113,82 +110,14 @@ export class QuotationsService {
     if (!party?.isCustomer) throw new BadRequestException('Pick a customer');
     if (party.isArchived) throw new BadRequestException('This customer is archived');
     const { regime, split } = saleRegime(await companyState(tx), party);
+    const { lines, totals } = await this.pricing.price(tx, { partyId: dto.partyId, date: dto.date, split, lines: dto.lines, excludeQuotationId: quotationId });
 
-    const itemIds = [...new Set(dto.lines.map((line) => line.itemId))];
-    const [facts, offered] = await Promise.all([
-      loadItemFacts(tx, itemIds, dto.date),
-      this.options.forLines({ partyId: dto.partyId, date: dto.date, itemIds, excludeQuotationId: quotationId }),
-    ]);
-    const offeredOf = new Map(offered.map((row) => [row.itemId, row]));
-
-    const lines = dto.lines.map((line, position) => {
-      const item = facts.get(line.itemId)!;
-      if (item.isArchived) throw new BadRequestException(`${item.name} is archived`);
-      if (line.quantity <= 0) throw new BadRequestException(`Enter the quantity of ${item.name}`);
-      if (item.gstRatePct === null) throw new BadRequestException(`${item.name} has no GST rate: set its HSN in the HSN master`);
-      const options = offeredOf.get(line.itemId)!;
-      const rateSource = rateSourceOf(line.rate, {
-        special: options.specialRate?.rate ?? null,
-        sheet: options.todaysRate?.rate ?? null,
-        lastQuoted: options.lastQuoted?.rate ?? null,
-        lastSold: options.lastSold?.rate ?? null,
-      });
-      return { line, position, item, options, rateSource, discountPct: line.discountPct ?? 0 };
+    let cost = 0;
+    const rows = lines.map(({ row, options }) => {
+      const costAtQuote = options.costs.lastLandedCost;
+      if (costAtQuote !== null) cost = money(cost + costAtQuote * (row.quantity + row.freeQuantity));
+      return { ...row, costAtQuote };
     });
-
-    const schemes = await this.schemes.forDocument(
-      tx,
-      dto.partyId,
-      dto.date,
-      lines.map(({ line, position, rateSource, discountPct }) => ({
-        key: String(position),
-        itemId: line.itemId,
-        quantity: line.quantity,
-        rate: line.rate,
-        discountPct,
-        rateSource: schemeSourceOf(rateSource),
-      })),
-    );
-
-    const totals = { gross: 0, schemeDiscount: 0, taxable: 0, cgst: 0, sgst: 0, igst: 0, cost: 0 };
-    const rows = lines.map(({ line, position, item, options, rateSource, discountPct }) => {
-      const priced = schemes.lines[position];
-      const tax = taxOn(priced.taxable, item.gstRatePct!, split);
-      const cost = options.costs.lastLandedCost;
-      totals.gross = money(totals.gross + priced.gross);
-      totals.schemeDiscount = money(totals.schemeDiscount + priced.schemeDiscount);
-      totals.taxable = money(totals.taxable + priced.taxable);
-      totals.cgst = money(totals.cgst + tax.cgst);
-      totals.sgst = money(totals.sgst + tax.sgst);
-      totals.igst = money(totals.igst + tax.igst);
-      if (cost !== null) totals.cost = money(totals.cost + cost * (line.quantity + priced.freeQuantity));
-      return {
-        position,
-        partyId: dto.partyId,
-        date: dateOnly(dto.date),
-        itemId: line.itemId,
-        description: item.name,
-        hsn: item.hsn,
-        unit: item.unit,
-        quantity: line.quantity,
-        rate: line.rate,
-        discountPct,
-        rateSource,
-        suggestedRate: options.rate,
-        itemPriceId: rateSource === 'SHEET' ? (options.todaysRate?.id ?? null) : null,
-        specialRateId: rateSource === 'SPECIAL' ? (options.specialRate?.id ?? null) : null,
-        schemeDiscount: priced.schemeDiscount,
-        freeQuantity: priced.freeQuantity,
-        schemes: priced.applied as unknown as Prisma.InputJsonValue,
-        gstRatePct: item.gstRatePct!,
-        taxable: priced.taxable,
-        tax: sumTax(tax),
-        costAtQuote: cost,
-      };
-    });
-    const tax = money(totals.cgst + totals.sgst + totals.igst);
-    const exact = money(totals.taxable + tax);
-    const total = Math.round(exact);
     return {
       header: {
         date: dateOnly(dto.date),
@@ -197,16 +126,8 @@ export class QuotationsService {
         regime,
         terms: dto.terms ?? null,
         notes: dto.notes ?? null,
-        gross: totals.gross,
-        schemeDiscount: totals.schemeDiscount,
-        taxable: totals.taxable,
-        cgst: totals.cgst,
-        sgst: totals.sgst,
-        igst: totals.igst,
-        tax,
-        roundOff: money(total - exact),
-        total,
-        cost: totals.cost,
+        ...totals,
+        cost,
       },
       lines: rows,
     };

@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { Prisma } from '../generated/prisma/client.js';
 import { itemCosts, stockOnHand } from './item-costs.js';
 
-const opening = (quantity: number, value: number) => ({
+const opening = (quantity: number, value: number, drawn = 0) => ({
   quantity: new Prisma.Decimal(quantity),
   value: new Prisma.Decimal(value),
+  drawn: new Prisma.Decimal(drawn),
 });
 const batch = (remaining: number, landedRate: number) => ({
   remaining: new Prisma.Decimal(remaining),
@@ -43,5 +44,17 @@ describe('itemCosts', () => {
 describe('stockOnHand', () => {
   it('adds opening stock and what is left of each batch, in thousandths', () => {
     expect(stockOnHand(source([opening(0.1, 1)], [batch(0.2, 1), batch(5, 1)]))).toBe(5.3);
+  });
+  it("leaves out what sales drew from the opening stock", () => {
+    expect(stockOnHand(source([opening(100, 5000, 30.5)], [batch(20, 1)]))).toBe(89.5);
+  });
+});
+
+describe("itemCosts after sales", () => {
+  it("values the opening stock left at its own rate", () => {
+    // 100 at ₹50, 60 sold: 40 left at ₹50, plus 100 at ₹56.
+    expect(itemCosts(source([opening(100, 5000, 60)], [batch(100, 56)]))).toEqual({ lastLandedCost: 56, stockCost: 54.29 });
+    // Sold out: no stock cost, the opening rate stays the last cost.
+    expect(itemCosts(source([opening(10, 500, 10)]))).toEqual({ lastLandedCost: 50, stockCost: null });
   });
 });

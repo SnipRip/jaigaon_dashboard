@@ -9,11 +9,13 @@ interface InvoiceTotalsCardProps {
   totals: InvoiceTotals;
   tax: TaxDecision;
   currency: "INR" | "BTN";
+  /** What schemes took off (shown above the taxable value when there is some). */
+  schemeDiscount?: number;
 }
 
 // Running totals beside the invoice form: taxable value, each GST head, round
 // off, grand total in figures and words, and whether an e-way bill is due.
-export function InvoiceTotalsCard({ totals, tax, currency }: InvoiceTotalsCardProps) {
+export function InvoiceTotalsCard({ totals, tax, currency, schemeDiscount = 0 }: InvoiceTotalsCardProps) {
   const row = (label: string, value: number, strong = false) => (
     <div className={strong ? "flex justify-between text-lg font-semibold" : "flex justify-between text-sm font-semibold"}>
       <dt>{label}</dt>
@@ -28,6 +30,15 @@ export function InvoiceTotalsCard({ totals, tax, currency }: InvoiceTotalsCardPr
         <StatusChip tone="brand">{tax.title}</StatusChip>
       </div>
       <dl className="flex flex-col gap-1.5">
+        {schemeDiscount > 0 && (
+          <>
+            {row("Items", Math.round((totals.taxable + schemeDiscount) * 100) / 100)}
+            <div className="flex justify-between text-sm font-semibold text-success-strong">
+              <dt>Schemes</dt>
+              <dd className="tabular-nums">− {formatRate(schemeDiscount)}</dd>
+            </div>
+          </>
+        )}
         {row("Taxable value", totals.taxable)}
         {Object.entries(totals.taxByName).map(([name, amount]) => row(name, amount ?? 0))}
         {Object.keys(totals.taxByName).length === 0 && (

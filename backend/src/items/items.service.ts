@@ -1,7 +1,10 @@
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { toNumber } from '../common/decimal.js';
 import { archivedFilter } from '../common/dto/archivable.js';
 import { PrismaService } from '../database/prisma.service.js';
 import { Prisma } from '../generated/prisma/client.js';
+import { openingRate } from '../stock/fifo-rules.js';
+import { restateOpeningCost } from '../stock/stock-out.js';
 import type { CreateItemDto } from './dto/create-item.dto.js';
 import type { OpeningStockDto } from './dto/item-line.dto.js';
 import type { ListItemsQueryDto } from './dto/list-items-query.dto.js';
@@ -93,8 +96,16 @@ export class ItemsService {
       if (alternateUnits) {
         await tx.itemUnitConversion.deleteMany({ where: { itemId: id } });
       }
+      // What invoices already sold out of the opening stock stays sold.
+      const drawnOf = new Map(current.openingStock.map((row) => [row.godownId, toNumber(row.drawn)]));
       if (openingStock) {
         fail(checkOpeningStock(openingStock.map((row) => row.godownId)));
+        for (const [godownId, drawn] of drawnOf) {
+          const row = openingStock.find((candidate) => candidate.godownId === godownId);
+          if (drawn > 0 && (!row || row.quantity < drawn)) {
+            fail(`${drawn} of this opening stock is already sold from that godown, so it cannot go below ${drawn}`);
+          }
+        }
         await tx.itemOpeningStock.deleteMany({ where: { itemId: id } });
       }
       const item = await tx.item.update({
@@ -103,10 +114,15 @@ export class ItemsService {
           ...fields,
           attributeValues: jsonOrNull(fields.attributeValues),
           alternateUnits: alternateUnits ? { create: alternateUnits } : undefined,
-          openingStock: openingStock ? { create: openingRows(openingStock) } : undefined,
+          openingStock: openingStock ? { create: openingRows(openingStock, drawnOf) } : undefined,
         },
         include: itemRowInclude,
       });
+      if (openingStock) {
+        for (const row of item.openingStock) {
+          if (toNumber(row.drawn) > 0) await restateOpeningCost(tx, id, row.godownId, openingRate(toNumber(row.quantity), toNumber(row.value)));
+        }
+      }
       return toItemView(item);
     });
   }
@@ -149,11 +165,12 @@ export class ItemsService {
   }
 }
 
-const openingRows = (rows: OpeningStockDto[]) =>
+const openingRows = (rows: OpeningStockDto[], drawnOf = new Map<string, number>()) =>
   rows.map((row) => ({
     godownId: row.godownId,
     quantity: row.quantity,
     value: openingValue(row.quantity, row.rate, row.value),
+    drawn: drawnOf.get(row.godownId) ?? 0,
   }));
 
 // A null clears a JSON column only through Prisma's DbNull marker.

@@ -5,6 +5,7 @@ import { PrismaService } from '../database/prisma.service.js';
 import type { LandedCostMethod, Prisma } from '../generated/prisma/client.js';
 import { loadItemFacts } from '../items/item-document-facts.js';
 import { NumberSeriesService } from '../number-series/number-series.service.js';
+import { restateBatchCost } from '../stock/stock-out.js';
 import type { CreatePurchaseBillDto, LastPurchaseRatesQueryDto, ListPurchaseBillsQueryDto } from './dto/purchase-bill.dto.js';
 import { companyState, liveGodown, liveVendor } from './purchase-context.js';
 import {
@@ -332,6 +333,8 @@ export class PurchaseBillsService {
       await tx.purchaseBillLine.update({ where: { id: line.id }, data: row });
       if (line.batch) {
         await tx.stockBatch.update({ where: { id: line.batch.id }, data: { landedRate: row.landedRate } });
+        // Goods already sold from this batch now cost the new rate on their invoices.
+        await restateBatchCost(tx, line.batch.id, row.landedRate);
       } else {
         await tx.stockBatch.create({
           data: {

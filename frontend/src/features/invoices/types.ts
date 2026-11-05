@@ -4,6 +4,7 @@
 // invoice, shipping bill, LEO, BRC) are attached to the invoice afterwards.
 import type { ExportRoute } from "@/features/gst/gst-rules";
 import type { Address } from "@/features/parties/types";
+import type { InvoiceView } from "@/types/invoice";
 
 export type InvoiceKind = "local" | "export";
 
@@ -17,6 +18,10 @@ export interface InvoiceLine {
   rate: number;
   discountPct: number;
   gstRatePct: number;
+  /** Rupees schemes took off the line (saved invoices and quotations). */
+  schemeDiscount?: number;
+  /** Units schemes gave free. */
+  freeQuantity?: number;
 }
 
 export type DispatchDocumentKind =
@@ -59,4 +64,6 @@ export interface Invoice {
   vehicleNumber?: string;
   documents: Partial<Record<DispatchDocumentKind, DispatchDocument>>;
   notes?: string;
+  /** The invoice as saved, with what the backend worked out: rate sources, schemes, GST, the stock drawn and its cost. */
+  stored?: InvoiceView;
 }

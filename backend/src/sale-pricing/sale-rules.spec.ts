@@ -1,4 +1,4 @@
-import { rateSourceOf, saleRegime, schemeSourceOf } from './quotation-rules.js';
+import { invoiceRegime, rateSourceOf, saleRegime, schemeSourceOf } from './sale-rules.js';
 
 describe('saleRegime', () => {
   const WB = '19';
@@ -24,5 +24,22 @@ describe('rateSourceOf', () => {
   it('treats past documents as typed rates for schemes', () => {
     expect(schemeSourceOf('LAST_QUOTED')).toBe('MANUAL');
     expect(schemeSourceOf('SHEET')).toBe('SHEET');
+  });
+});
+
+describe('invoiceRegime', () => {
+  const WB = '19';
+  const local = { treatment: 'REGISTERED' as const, placeOfSupply: WB, exportRoute: null };
+  const bhutan = { treatment: 'OVERSEAS' as const, placeOfSupply: null, exportRoute: 'LUT' as const };
+  it('charges a local invoice by its own place of supply', () => {
+    expect(invoiceRegime(WB, 'LOCAL', local, {})).toEqual({ regime: 'INTRA_STATE', split: 'INTRA', placeOfSupply: WB });
+    // Delivered to Assam: IGST, whatever the buyer's own state.
+    expect(invoiceRegime(WB, 'LOCAL', local, { placeOfSupply: '18' })).toEqual({ regime: 'INTER_STATE', split: 'INTER', placeOfSupply: '18' });
+    // A walk-in with no state buys here.
+    expect(invoiceRegime(WB, 'LOCAL', { treatment: 'CONSUMER', placeOfSupply: null, exportRoute: null }, {}).placeOfSupply).toBe(WB);
+  });
+  it('charges an export by its route, defaulting to the buyer', () => {
+    expect(invoiceRegime(WB, 'EXPORT', bhutan, {})).toEqual({ regime: 'EXPORT_LUT', split: 'NONE', placeOfSupply: null });
+    expect(invoiceRegime(WB, 'EXPORT', bhutan, { exportRoute: 'IGST' })).toEqual({ regime: 'EXPORT_IGST', split: 'INTER', placeOfSupply: null });
   });
 });

@@ -1,13 +1,12 @@
 import { Module } from '@nestjs/common';
 import { NumberSeriesModule } from '../number-series/number-series.module.js';
-import { PricingModule } from '../pricing/pricing.module.js';
-import { SchemesModule } from '../schemes/schemes.module.js';
+import { SalePricingModule } from '../sale-pricing/sale-pricing.module.js';
 import { QuotationsController } from './quotations.controller.js';
 import { QuotationsService } from './quotations.service.js';
 
-// Quotations, priced on the server: line rate options (pricing), schemes and GST.
+// Quotations, priced on the server (sale-pricing: rate options, schemes, GST).
 @Module({
-  imports: [NumberSeriesModule, PricingModule, SchemesModule],
+  imports: [NumberSeriesModule, SalePricingModule],
   controllers: [QuotationsController],
   providers: [QuotationsService],
 })

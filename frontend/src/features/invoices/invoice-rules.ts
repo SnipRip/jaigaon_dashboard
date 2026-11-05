@@ -1,8 +1,10 @@
-// Invoice arithmetic and status. No React: the backend will port these when
-// invoices are saved for real.
+// Invoice arithmetic and status. No React. The backend prices saved invoices
+// (backend/src/invoices); this gives the same figures for the printed copy
+// and the sample invoices other screens still read.
 //
-// Taxable value = quantity × rate less discount. GST per line follows the
-// regime from gst-rules.ts; totals round to the rupee with a round-off line.
+// Taxable value = quantity × rate less discount, less what schemes took off.
+// GST per line follows the regime from gst-rules.ts; totals round to the
+// rupee with a round-off line.
 import { saleTax, taxComponents, type Regime, type TaxComponent, type TaxDecision } from "@/features/gst/gst-rules";
 import type { Party } from "@/features/parties/types";
 import { documentsFor } from "./dispatch-documents";
@@ -33,7 +35,7 @@ export interface LineTotals {
 }
 
 export function lineTotals(line: InvoiceLine, regime: Regime): LineTotals {
-  const taxable = money(line.quantity * line.rate * (1 - line.discountPct / 100));
+  const taxable = money(money(line.quantity * line.rate * (1 - line.discountPct / 100)) - (line.schemeDiscount ?? 0));
   const taxes = taxComponents(line.gstRatePct, regime).map((component) => ({
     ...component,
     amount: money((taxable * component.ratePct) / 100),

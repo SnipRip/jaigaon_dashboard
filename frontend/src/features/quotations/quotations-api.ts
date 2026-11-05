@@ -33,6 +33,7 @@ export function toQuotation(view: QuotationView): Quotation {
     terms: view.terms ?? "",
     notes: view.notes ?? undefined,
     history: view.history,
+    invoiceId: view.invoice?.id,
     stored: view,
   };
 }

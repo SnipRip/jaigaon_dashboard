@@ -1,7 +1,7 @@
 // Quotations as the backend returns them (backend/src/quotations).
 import type { AppliedSchemeView } from "./scheme";
 
-export type QuotationStatusView = "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "CANCELLED";
+export type QuotationStatusView = "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "CANCELLED" | "CONVERTED";
 export type LineRateSourceView = "SPECIAL" | "SHEET" | "LAST_QUOTED" | "LAST_SOLD" | "MANUAL";
 export type SaleRegimeView = "INTRA_STATE" | "INTER_STATE" | "EXPORT_LUT" | "EXPORT_IGST";
 
@@ -52,4 +52,6 @@ export interface QuotationView {
   };
   lines: QuotationLineView[];
   history: { revision: number; date: string; total: number; note: string }[];
+  /** The live invoice it was converted to. */
+  invoice: { id: string; number: string } | null;
 }

@@ -10,9 +10,19 @@ import type { InvoiceLine } from "@/features/invoices/types";
 import type { Item } from "@/features/items/types";
 import { marginPct, rateFor, sheetEntryOn } from "./rate-rules";
 import type { LineRateOptionsView } from "@/types/pricing";
+import type { LineRateSourceView } from "@/types/quotation";
 import type { RateSource, SheetEntry, SpecialRate } from "./types";
 
 const money = (value: number) => Math.round(value * 100) / 100;
+
+/** Where a saved quotation or invoice line's rate came from, in words. */
+export const RATE_SOURCE_TEXT: Record<LineRateSourceView, string> = {
+  SPECIAL: "Special rate",
+  SHEET: "Today's rate",
+  LAST_QUOTED: "Last quoted",
+  LAST_SOLD: "Last sold",
+  MANUAL: "Typed",
+};
 
 export type RateChoiceKind = "special" | "today" | "last-quoted" | "last-sold";
 

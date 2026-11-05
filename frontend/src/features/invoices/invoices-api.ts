@@ -1,0 +1,70 @@
+// Calls for sales invoices, and the conversion from the backend's invoice to
+// the `Invoice` the screens and the printed bill read. The backend prices
+// every line and draws the stock on save; `stored` keeps those figures.
+// Dispatch documents are not stored yet, so a saved invoice starts with none.
+import { apiRequest } from "@/lib/api-client";
+import type { InvoiceKindView, InvoiceView } from "@/types/invoice";
+import type { Invoice, InvoiceKind } from "./types";
+
+export const INVOICES_PATH = "/invoices";
+
+export const toInvoiceKind = (kind: InvoiceKindView): InvoiceKind => (kind === "EXPORT" ? "export" : "local");
+
+export function toInvoice(view: InvoiceView): Invoice {
+  return {
+    id: view.id,
+    kind: toInvoiceKind(view.kind),
+    number: view.number,
+    date: view.date,
+    status: view.status === "CANCELLED" ? "cancelled" : "issued",
+    partyId: view.partyId,
+    placeOfSupply: view.placeOfSupply ?? undefined,
+    shipTo: view.shipToLine || view.shipToCity ? { line1: view.shipToLine ?? "", city: view.shipToCity ?? "" } : undefined,
+    exportRoute: view.regime === "EXPORT_IGST" ? "igst" : view.regime === "EXPORT_LUT" ? "lut" : undefined,
+    lutArn: view.lutArn ?? undefined,
+    destinationCountry: view.destinationCountry ?? undefined,
+    currency: view.currency,
+    lines: view.lines.map((line) => ({
+      itemId: line.itemId,
+      description: line.description,
+      hsn: line.hsn,
+      quantity: line.quantity,
+      unit: line.unit,
+      rate: line.rate,
+      discountPct: line.discountPct,
+      gstRatePct: line.gstRatePct,
+      schemeDiscount: line.schemeDiscount,
+      freeQuantity: line.freeQuantity,
+    })),
+    vehicleNumber: view.vehicleNumber ?? undefined,
+    documents: {},
+    notes: view.notes ?? undefined,
+    stored: view,
+  };
+}
+
+export interface InvoiceBody {
+  kind: InvoiceKindView;
+  partyId: string;
+  godownId: string;
+  date: string;
+  /** Null takes the next number in the series. */
+  number: string | null;
+  placeOfSupply: string | null;
+  exportRoute: "LUT" | "IGST" | null;
+  currency: "INR" | "BTN";
+  shipToLine: string | null;
+  shipToCity: string | null;
+  vehicleNumber: string | null;
+  notes: string | null;
+  quotationId?: string;
+  lines: { itemId: string; quantity: number; rate: number; discountPct: number }[];
+}
+
+export const createInvoice = (body: InvoiceBody) => apiRequest<InvoiceView>(INVOICES_PATH, { method: "POST", body });
+export const cancelInvoice = (id: string, reason: string) =>
+  apiRequest<InvoiceView>(`${INVOICES_PATH}/${id}/cancel`, { method: "POST", body: { reason } });
+
+/** The next number a save on `date` would take (null when numbers are typed). */
+export const numberPreviewPath = (kind: InvoiceKind, date: string) =>
+  `/number-series/preview?kind=${kind === "export" ? "EXPORT_INVOICE" : "SALES_INVOICE"}&date=${date}`;

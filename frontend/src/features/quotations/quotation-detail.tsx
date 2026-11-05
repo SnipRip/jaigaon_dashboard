@@ -12,6 +12,7 @@ import { StatusChip } from "@/components/ui/status-chip";
 import type { Issuer } from "@/features/invoices/invoice-document";
 import type { Item } from "@/features/items/types";
 import type { Party } from "@/features/parties/types";
+import { RATE_SOURCE_TEXT } from "@/features/rates/line-rate-options";
 import { ApiError } from "@/lib/api-client";
 import { formatDate, formatInr, formatPercent, formatQuantity, formatRate } from "@/lib/format";
 import type { QuotationStatusView } from "@/types/quotation";
@@ -30,14 +31,6 @@ interface QuotationDetailProps {
   /** After a status change is saved: reload the quotations. */
   onChanged: () => Promise<void>;
 }
-
-const SOURCE_TEXT: Record<string, string> = {
-  SPECIAL: "Special rate",
-  SHEET: "Today's rate",
-  LAST_QUOTED: "Last quoted",
-  LAST_SOLD: "Last sold",
-  MANUAL: "Typed",
-};
 
 // One quotation: the printable copy, where it stands, how each line was
 // priced (rate source, schemes, cost at the time), revisions, and the status
@@ -112,7 +105,7 @@ export function QuotationDetail({ quotation, party, issuer, items, onChanged }: 
                         </div>
                       </td>
                       <td className="text-left">
-                        <StatusChip tone={line.rateSource === "MANUAL" ? "warning" : "brand"}>{SOURCE_TEXT[line.rateSource]}</StatusChip>
+                        <StatusChip tone={line.rateSource === "MANUAL" ? "warning" : "brand"}>{RATE_SOURCE_TEXT[line.rateSource]}</StatusChip>
                         {line.suggestedRate !== null && line.rateSource !== "SPECIAL" && line.rateSource !== "SHEET" && (
                           <div className="text-xs text-muted">offered {formatRate(line.suggestedRate)}</div>
                         )}
@@ -185,12 +178,25 @@ export function QuotationDetail({ quotation, party, issuer, items, onChanged }: 
                 Revise to R{quotation.revision + 1}
               </Link>
             )}
-            {quotation.status !== "cancelled" && (
+            {quotation.status !== "cancelled" && quotation.status !== "converted" && (
               <Button variant="danger" disabled={busy} onClick={() => void setStatus("CANCELLED", "Cancelled. Its number stays cancelled in the register.")}>
                 Cancel quotation
               </Button>
             )}
-            <p className="text-xs font-semibold text-muted">Converting to an invoice switches on when invoices are stored.</p>
+            {(quotation.status === "sent" || quotation.status === "accepted") && (
+              <Link href={`/invoices/new/${tax.regime === "export-lut" || tax.regime === "export-igst" ? "export" : "local"}?quotation=${quotation.id}`} className={buttonClasses("success")}>
+                Convert to invoice
+              </Link>
+            )}
+            {quotation.status === "converted" && stored?.invoice && (
+              <p className="text-sm font-semibold">
+                Invoiced as{" "}
+                <Link href={`/invoices/${stored.invoice.id}`} className="text-brand hover:underline">
+                  {stored.invoice.number}
+                </Link>
+                . Cancelling that invoice brings this quotation back.
+              </p>
+            )}
           </div>
           {notice && <FormMessage tone={notice.tone}>{notice.text}</FormMessage>}
         </GlassCard>

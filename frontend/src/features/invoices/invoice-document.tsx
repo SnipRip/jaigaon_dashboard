@@ -147,9 +147,13 @@ export function InvoiceDocument({ invoice, party, issuer, tax }: InvoiceDocument
                   <td className="py-1.5 text-left">{line.hsn}</td>
                   <td className="py-1.5">
                     {formatQuantity(line.quantity)} {line.unit}
+                    {line.freeQuantity ? <div className="text-[10px]">+ {formatQuantity(line.freeQuantity)} free</div> : null}
                   </td>
                   <td className="py-1.5">{formatRate(line.rate)}</td>
-                  <td className="py-1.5">{line.discountPct ? `${line.discountPct}%` : "—"}</td>
+                  <td className="py-1.5">
+                    {line.discountPct ? `${line.discountPct}%` : line.schemeDiscount ? "" : "—"}
+                    {line.schemeDiscount ? <div className="text-[10px]">scheme {formatRate(line.schemeDiscount)}</div> : null}
+                  </td>
                   <td className="py-1.5">{formatRate(totalsForLine.taxable)}</td>
                   <td className="py-1.5 whitespace-nowrap">{describeComponents(line.gstRatePct, tax.regime)}</td>
                   <td className="py-1.5 font-semibold">{formatRate(totalsForLine.total)}</td>

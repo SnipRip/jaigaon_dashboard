@@ -8,6 +8,8 @@ export const quotationInclude = {
   party: { select: { displayName: true } },
   lines: { orderBy: { position: 'asc' } },
   revisions: { orderBy: { revision: 'asc' } },
+  // The live invoice it was converted to (a cancelled one no longer counts).
+  invoices: { where: { status: 'ISSUED' }, select: { id: true, number: true } },
 } as const satisfies Prisma.QuotationInclude;
 
 type QuotationRow = Prisma.QuotationGetPayload<{ include: typeof quotationInclude }>;
@@ -56,6 +58,7 @@ export const toQuotationView = (quotation: QuotationRow) => ({
     costAtQuote: toNumber(line.costAtQuote),
   })),
   history: quotation.revisions.map((row) => ({ revision: row.revision, date: isoDate(row.date), total: toNumber(row.total), note: row.note })),
+  invoice: quotation.invoices[0] ?? null,
   createdAt: quotation.createdAt,
 });
 

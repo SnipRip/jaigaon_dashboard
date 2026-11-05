@@ -1,7 +1,7 @@
-// Sale GST and line rate sources for quotations (and invoices, later). Pure.
+// Sale GST and line rate sources for quotations and invoices. Pure.
 // The frontend shows the same live from features/gst/gst-rules.ts saleTax.
 import type { TaxSplit } from '../common/gst/tax-split.js';
-import type { ExportRoute, GstTreatment, LineRateSource, SaleRegime } from '../generated/prisma/enums.js';
+import type { ExportRoute, GstTreatment, InvoiceKind, LineRateSource, SaleRegime } from '../generated/prisma/enums.js';
 
 /**
  * Overseas and SEZ buyers: export under LUT (0%) or with IGST paid; else
@@ -25,6 +25,27 @@ export interface OfferedRates {
   sheet: number | null;
   lastQuoted: number | null;
   lastSold: number | null;
+}
+
+/**
+ * An invoice charges GST by its own kind and fields: an export invoice by
+ * its route (LUT or IGST paid, defaulting to the buyer's); a local one by its
+ * place of supply, which can differ from the buyer's state (delivery to
+ * another state). SEZ buyers are zero-rated like exports either way.
+ */
+export function invoiceRegime(
+  companyState: string,
+  kind: InvoiceKind,
+  party: { treatment: GstTreatment; placeOfSupply: string | null; exportRoute: ExportRoute | null },
+  fields: { placeOfSupply?: string | null; exportRoute?: ExportRoute | null },
+): { regime: SaleRegime; split: TaxSplit; placeOfSupply: string | null } {
+  const route = fields.exportRoute ?? party.exportRoute;
+  if (kind === 'EXPORT' || party.treatment === 'SEZ') {
+    const exported = saleRegime(companyState, { treatment: 'OVERSEAS', placeOfSupply: null, exportRoute: route });
+    return { ...exported, placeOfSupply: kind === 'LOCAL' ? (fields.placeOfSupply ?? party.placeOfSupply ?? companyState) : null };
+  }
+  const placeOfSupply = fields.placeOfSupply ?? party.placeOfSupply ?? companyState;
+  return { ...saleRegime(companyState, { treatment: party.treatment, placeOfSupply, exportRoute: null }), placeOfSupply };
 }
 
 /**

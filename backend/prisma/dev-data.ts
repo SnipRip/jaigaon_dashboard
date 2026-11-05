@@ -254,16 +254,24 @@ async function main() {
 
   // Number formats the documents below need, from the start of this financial
   // year; a series that already has a format is left alone.
-  const FORMATS: { kind: 'PURCHASE_ORDER' | 'PURCHASE' | 'QUOTATION'; pattern: string }[] = [
+  const FORMATS: { kind: 'PURCHASE_ORDER' | 'PURCHASE' | 'QUOTATION' | 'SALES_INVOICE' | 'EXPORT_INVOICE'; pattern: string }[] = [
     { kind: 'PURCHASE_ORDER', pattern: 'PO/{FY}/{SEQ:4}' },
     { kind: 'PURCHASE', pattern: 'PUR/{FY}/{SEQ:4}' },
     { kind: 'QUOTATION', pattern: 'QT/{FY}/{SEQ:4}' },
+    { kind: 'SALES_INVOICE', pattern: 'INV/{FY}/{SEQ:4}' },
+    { kind: 'EXPORT_INVOICE', pattern: 'EXP/{FY}/{SEQ:4}' },
   ];
   for (const format of FORMATS) {
     const series = await prisma.numberSeries.findUnique({ where: { kind: format.kind }, select: { id: true, _count: { select: { formats: true } } } });
     if (series && series._count.formats === 0) {
       await prisma.numberFormat.create({ data: { seriesId: series.id, applicableFrom: day('2026-04-01'), pattern: format.pattern, reset: 'YEARLY' } });
     }
+  }
+
+  // A made-up LUT for this financial year so export invoices under LUT can be
+  // tried; not a real ARN. Left alone when the year already has one.
+  if (!(await prisma.lut.findUnique({ where: { financialYear: '2026-27' }, select: { id: true } }))) {
+    await prisma.lut.create({ data: { financialYear: '2026-27', arn: 'AD1904260000DEV', validFrom: day('2026-04-01'), validTo: day('2027-03-31') } });
   }
 
   const counts = {
