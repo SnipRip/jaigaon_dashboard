@@ -1,5 +1,7 @@
 import {
   BadgeCheck,
+  ClipboardList,
+  BadgePercent,
   BookOpen,
   CalendarClock,
   Building2,
@@ -72,6 +74,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Purchases",
     items: [
+      { href: "/purchase-orders", label: "Purchase orders", icon: ClipboardList, summary: "Orders to vendors at the agreed rate, and what has come in against each" },
       {
         href: "/purchases",
         label: "Vendor bills",
@@ -111,6 +114,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/masters/units", label: "Units", icon: Ruler, summary: "Units of measure, decimals allowed and the GST unit code" },
       { href: "/masters/godowns", label: "Godowns", icon: Warehouse, summary: "Stores and yards where stock is kept" },
       { href: "/rates", label: "Special rates", icon: Tag, summary: "Customer special rates, which come before the day's rate on the rate sheet" },
+      { href: "/schemes", label: "Schemes & discounts", icon: BadgePercent, summary: "Customer schemes on items, categories or brands: % off with a cap, ₹ per unit, flat amounts, buy-X-get-Y, order discounts" },
       { href: "/masters/hsn", label: "HSN / SAC codes", icon: Hash, summary: "Goods and service codes with their GST rate and rate history" },
       { href: "/masters/tax-export", label: "GST & export setup", icon: Globe, summary: "Company GST state, LUT register, IEC, AD code and the export document checklist" },
       { href: "/masters/bank-cash", label: "Bank & cash", icon: Landmark, summary: "Bank accounts and cash books that receipts and payments go through" },

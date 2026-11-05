@@ -2,8 +2,8 @@
 // landed rate (bill rate + its share of freight, unloading and GST that
 // cannot be claimed), so the same rod costs more off the Delhi truck than
 // the Bihar one, and it differs by vendor. The item only shows costs worked
-// out from its batches. Until purchase bills are stored, the opening stock
-// is the only batch an item has.
+// out from its batches: the opening stock, plus one batch per goods bill line
+// (StockBatch, src/purchases).
 import { toNumber } from '../common/decimal.js';
 import type { Prisma } from '../generated/prisma/client.js';
 
@@ -14,23 +14,48 @@ export interface ItemCosts {
   stockCost: number | null;
 }
 
-/** The rows `itemCosts` reads, to add to an item query's `select` or `include`. */
+/** The rows `itemCosts` and `stockOnHand` read, to add to an item query's `select` or `include`. */
 export const itemCostSource = {
   openingStock: { select: { quantity: true, value: true } },
-} as const;
+  stockBatches: {
+    select: { quantity: true, remaining: true, landedRate: true, date: true, createdAt: true },
+    orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+  },
+} as const satisfies Prisma.ItemInclude;
 
-type Batch = { quantity: Prisma.Decimal; value: Prisma.Decimal };
+export interface CostSource {
+  openingStock: { quantity: Prisma.Decimal; value: Prisma.Decimal }[];
+  /** Newest first, as itemCostSource orders them. */
+  stockBatches: { remaining: Prisma.Decimal; landedRate: Prisma.Decimal }[];
+}
+
+const paise = (value: number) => Math.round(value * 100) / 100;
+
+/** Quantity on hand, in thousandths so 0.1 + 0.2 kg stays 0.3. */
+export function stockOnHand(source: CostSource): number {
+  const thousandths = (value: Prisma.Decimal) => Math.round(toNumber(value) * 1000);
+  const opening = source.openingStock.reduce((sum, row) => sum + thousandths(row.quantity), 0);
+  const batches = source.stockBatches.reduce((sum, row) => sum + thousandths(row.remaining), 0);
+  return (opening + batches) / 1000;
+}
 
 /** Per base unit, rounded to paise. */
-export function itemCosts(batches: Batch[]): ItemCosts {
+export function itemCosts(source: CostSource): ItemCosts {
   let quantity = 0;
   let value = 0;
-  for (const batch of batches) {
-    quantity += toNumber(batch.quantity);
-    value += toNumber(batch.value);
+  for (const row of source.openingStock) {
+    quantity += toNumber(row.quantity);
+    value += toNumber(row.value);
   }
-  const perUnit = quantity > 0 ? Math.round((value / quantity) * 100) / 100 : null;
-  // The opening batches all date from the same day, so the newest batch is
-  // the opening stock as a whole; purchase lines will set lastLandedCost.
-  return { lastLandedCost: perUnit, stockCost: perUnit };
+  const openingRate = quantity > 0 ? value / quantity : null;
+  for (const batch of source.stockBatches) {
+    const remaining = toNumber(batch.remaining);
+    quantity += remaining;
+    value += remaining * toNumber(batch.landedRate);
+  }
+  const newest = source.stockBatches[0];
+  return {
+    lastLandedCost: newest ? paise(toNumber(newest.landedRate)) : openingRate === null ? null : paise(openingRate),
+    stockCost: quantity > 0 ? paise(value / quantity) : null,
+  };
 }

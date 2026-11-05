@@ -3,6 +3,7 @@
 // can be tagged to a goods bill so its cost lands on those items.
 import type { InvoiceLine } from "@/features/invoices/types";
 import type { AccountHead } from "@/features/masters/types";
+import type { PurchaseBillView } from "@/types/purchase";
 
 export type BillKind = "goods" | "charges";
 
@@ -66,4 +67,6 @@ export interface Bill {
   /** Name of the uploaded scan, once file storage exists. */
   fileName?: string;
   notes?: string;
+  /** The bill as saved, with the figures the backend worked out (landed rates, godown, order). */
+  stored?: PurchaseBillView;
 }

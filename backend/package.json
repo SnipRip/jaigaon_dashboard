@@ -23,6 +23,7 @@
     "db:migrate": "prisma migrate dev --config prisma7.config.ts",
     "db:deploy": "prisma migrate deploy --config prisma7.config.ts",
     "db:seed": "prisma db seed --config prisma7.config.ts",
+    "db:dev-data": "tsx prisma/dev-data.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

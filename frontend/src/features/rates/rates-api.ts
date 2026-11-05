@@ -45,6 +45,9 @@ const specialRateBody = (changes: Changes) => ({
 export const specialRatePersistence = <R extends MasterRecord>(onSaved: () => void, decorate: (rate: SpecialRate) => R) =>
   persistence<SpecialRateView, R>(SPECIAL_RATES_PATH, (view) => decorate(toSpecialRate(view)), specialRateBody, onSaved);
 
-/** Every item of a document in one call; no party is a walk-in buyer. */
-export const fetchLineOptions = ([, partyId, date, itemIds]: readonly [string, string | undefined, string, string[]]) =>
-  apiRequest<LineRateOptionsView[]>(LINE_OPTIONS_PATH, { method: "POST", body: { partyId, date, itemIds } });
+/**
+ * Every item of a document in one call; no party is a walk-in buyer. A
+ * quotation being revised passes its id so its own lines are not "last quoted".
+ */
+export const fetchLineOptions = ([, partyId, date, itemIds, excludeQuotationId]: readonly [string, string | undefined, string, string[], string?]) =>
+  apiRequest<LineRateOptionsView[]>(LINE_OPTIONS_PATH, { method: "POST", body: { partyId, date, itemIds, excludeQuotationId } });

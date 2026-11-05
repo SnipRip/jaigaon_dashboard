@@ -15,6 +15,9 @@ export const billSchema = z
     dueDate: isoDate("Pick the due date"),
     sourceOfSupply: z.string(),
     landedCostFor: z.string(),
+    godownId: z.string(),
+    purchaseOrderId: z.string(),
+    allocation: z.enum(["value", "quantity", "weight"]),
     ewayNumber: z.union([z.literal(""), z.string().trim().regex(/^\d{12}$/, "12 digits")]),
     ewayDate: z.string(),
     vehicleNumber: vehicleNumberSchema,
@@ -22,6 +25,7 @@ export const billSchema = z
     lines: z.array(
       z.object({
         itemId: z.string(),
+        orderLineId: z.string(),
         quantity: z.string().trim(),
         rate: z.string().trim(),
         discountPct: z.string().trim(),
@@ -44,6 +48,7 @@ export const billSchema = z
 
     if (values.kind === "goods") {
       if (values.lines.length === 0) issue(["lines"], "Add at least one item");
+      if (!values.godownId) issue(["godownId"], "Pick the godown the goods came into");
       values.lines.forEach((line, index) => {
         if (!line.itemId) issue(["lines", index, "itemId"], "Pick an item");
         if (!decimal(3).test(line.quantity) || Number(line.quantity) <= 0) issue(["lines", index, "quantity"], "Enter the quantity");

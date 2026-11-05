@@ -20,4 +20,9 @@ export class LineRateOptionsDto {
   @ArrayUnique()
   @IsUUID('all', { each: true })
   itemIds: string[];
+
+  /** A quotation being revised: its own lines are not "last quoted". */
+  @IsOptional()
+  @IsUUID()
+  excludeQuotationId?: string;
 }

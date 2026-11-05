@@ -54,6 +54,11 @@ model User {
   pricesSet          ItemPrice[] @relation("ItemPriceCreatedBy")
   pricesChanged      ItemPrice[] @relation("ItemPriceUpdatedBy")
 
+  purchaseOrdersMade PurchaseOrder[] @relation("PurchaseOrderCreatedBy")
+  purchaseBillsMade  PurchaseBill[]  @relation("PurchaseBillCreatedBy")
+
+  quotationsMade Quotation[] @relation("QuotationCreatedBy")
+
   @@index([accessRoleId])
 }
 
@@ -135,8 +140,9 @@ model Brand {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
-  groups ItemGroup[]
-  items  Item[]
+  groups        ItemGroup[]
+  items         Item[]
+  schemeTargets SchemeTarget[]
 }
 
 enum GodownKind {
@@ -158,7 +164,10 @@ model Godown {
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
 
-  openingStock ItemOpeningStock[]
+  openingStock   ItemOpeningStock[]
+  purchaseOrders PurchaseOrder[]
+  purchaseBills  PurchaseBill[]
+  stockBatches   StockBatch[]
 }
 
 // Both category levels. A row with no parent is a category; a row with a
@@ -180,14 +189,16 @@ model ItemCategory {
   updatedAt     DateTime       @updatedAt
 
   brands           Brand[]
-  groups           ItemGroup[] @relation("GroupCategory")
-  subGroups        ItemGroup[] @relation("GroupSubCategory")
-  items            Item[]      @relation("ItemCategory")
-  subCategoryItems Item[]      @relation("ItemSubCategory")
+  groups           ItemGroup[]   @relation("GroupCategory")
+  subGroups        ItemGroup[]   @relation("GroupSubCategory")
+  items            Item[]        @relation("ItemCategory")
+  subCategoryItems Item[]        @relation("ItemSubCategory")
   specialRates     SpecialRate[]
 
   // Postgres treats NULL parents as distinct, so the service also checks
   // that top-level names are unique.
+  schemeTargets SchemeTarget[]
+
   @@unique([parentId, name])
   @@index([parentId])
 }
@@ -253,6 +264,13 @@ model Item {
   specialRates   SpecialRate[]
   priceList      ItemPrice[]
   pictures       ItemPicture[]
+
+  schemeTargets      SchemeTarget[]
+  purchaseOrderLines PurchaseOrderLine[]
+  purchaseBillLines  PurchaseBillLine[]
+  stockBatches       StockBatch[]
+
+  quotationLines QuotationLine[]
 
   @@index([categoryId])
   @@index([subCategoryId])
@@ -343,43 +361,43 @@ enum BalanceSide {
 }
 
 model Party {
-  id                 String        @id @default(uuid()) @db.Uuid
-  isCustomer         Boolean       @default(false)
-  isVendor           Boolean       @default(false)
-  kind               PartyKind     @default(BUSINESS)
+  id            String    @id @default(uuid()) @db.Uuid
+  isCustomer    Boolean   @default(false)
+  isVendor      Boolean   @default(false)
+  kind          PartyKind @default(BUSINESS)
   // Shown on quotations and invoices.
-  displayName        String
-  legalName          String?
-  contactPerson      String?
+  displayName   String
+  legalName     String?
+  contactPerson String?
   // E.164, for calls and WhatsApp.
-  phone              String?
-  email              String?
+  phone         String?
+  email         String?
 
-  treatment          GstTreatment
+  treatment     GstTreatment
   // Unique when present: the same GSTIN is the same registered business.
-  gstin              String?       @unique
-  pan                String?
+  gstin         String?       @unique
+  pan           String?
   // GST state code ("19"). Null for a party outside India.
-  placeOfSupply      String?
+  placeOfSupply String?
   // Outside India only.
-  country            String?
+  country       String?
   // Outside India: the buyer's own tax ID, e.g. Bhutan TPN.
-  foreignTaxId       String?
-  currency           PartyCurrency @default(INR)
+  foreignTaxId  String?
+  currency      PartyCurrency @default(INR)
   // Customers outside India: export under LUT or with IGST paid.
-  exportRoute        ExportRoute?
+  exportRoute   ExportRoute?
   // Vendors: goods transport agency, freight under reverse charge.
-  isGta              Boolean       @default(false)
+  isGta         Boolean       @default(false)
 
-  addressLine        String?
-  city               String?
-  pin                String?
+  addressLine String?
+  city        String?
+  pin         String?
 
   // 0 is cash.
-  creditDays         Int           @default(0)
-  creditLimit        Decimal?      @db.Decimal(14, 2)
-  openingBalance     Decimal       @default(0) @db.Decimal(14, 2)
-  openingBalanceSide BalanceSide   @default(RECEIVABLE)
+  creditDays         Int         @default(0)
+  creditLimit        Decimal?    @db.Decimal(14, 2)
+  openingBalance     Decimal     @default(0) @db.Decimal(14, 2)
+  openingBalanceSide BalanceSide @default(RECEIVABLE)
   // Vendors: MSME vendors must be paid within 45 days.
   udyamNumber        String?
   bankName           String?
@@ -387,11 +405,17 @@ model Party {
   ifsc               String?
   notes              String?
 
-  isArchived         Boolean       @default(false)
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+  isArchived Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   specialRates SpecialRate[]
+
+  schemes        SchemeParty[]
+  purchaseOrders PurchaseOrder[]
+  purchaseBills  PurchaseBill[]
+
+  quotations Quotation[]
 
   @@index([isCustomer])
   @@index([isVendor])
@@ -410,17 +434,17 @@ enum CodeKind {
 }
 
 model HsnCode {
-  id            String    @id @default(uuid()) @db.Uuid
+  id            String   @id @default(uuid()) @db.Uuid
   // HSN for goods: 4, 6 or 8 digits. SAC for services: 4 or 6, starting 99.
-  code          String    @unique
+  code          String   @unique
   kind          CodeKind
   description   String
-  cessPct       Decimal?  @db.Decimal(5, 2)
+  cessPct       Decimal? @db.Decimal(5, 2)
   // Bought under reverse charge (goods transport agency freight).
-  reverseCharge Boolean   @default(false)
+  reverseCharge Boolean  @default(false)
   notes         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   rates HsnRate[]
 }
@@ -469,6 +493,8 @@ model SpecialRate {
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @updatedAt
 
+  quotationLines QuotationLine[]
+
   @@index([partyId])
 }
 
@@ -501,6 +527,8 @@ model ItemPrice {
   updatedAt       DateTime @updatedAt
 
   // One item and date range is one entry (the import's natural key).
+  quotationLines QuotationLine[]
+
   @@unique([itemId, validFrom, validTill])
   @@index([validFrom, validTill])
 }
@@ -576,6 +604,8 @@ enum NumberedKind {
   CUSTOMER_CODE
   VENDOR_CODE
   ITEM_SKU
+  // Added 5 Nov 2026, at the end so existing values keep their order.
+  PURCHASE_ORDER
 }
 
 // Tally's voucher numbering methods. Automatic: the number is always taken
@@ -706,9 +736,9 @@ model BankCashAccount {
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
-  loansDisbursed  Loan[]        @relation("LoanDisbursedThrough")
-  loansRepaid     Loan[]        @relation("LoanRepaidThrough")
-  loanEntries     LoanEntry[]
+  loansDisbursed Loan[]      @relation("LoanDisbursedThrough")
+  loansRepaid    Loan[]      @relation("LoanRepaidThrough")
+  loanEntries    LoanEntry[]
 
   @@unique([ifsc, accountNumber])
 }
@@ -909,20 +939,21 @@ enum HeadAllocation {
 // and an indirect expense is always an overhead: CHECK constraints in
 // migration 20261103072017_account_heads keep that true.
 model AccountHead {
-  id          String          @id @default(uuid()) @db.Uuid
+  id         String          @id @default(uuid()) @db.Uuid
   // The Tally ledger name.
-  name        String          @unique
-  nature      HeadNature
-  gst         HeadGst?
-  gstRatePct  Decimal?        @db.Decimal(5, 2)
-  allocation  HeadAllocation?
-  notes       String?
-  isArchived  Boolean         @default(false)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  name       String          @unique
+  nature     HeadNature
+  gst        HeadGst?
+  gstRatePct Decimal?        @db.Decimal(5, 2)
+  allocation HeadAllocation?
+  notes      String?
+  isArchived Boolean         @default(false)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
 
   // Loans whose interest posts to this head.
-  loans Loan[]
+  loans           Loan[]
+  purchaseCharges PurchaseBillCharge[]
 }
 
 // ---------------------------------------------------------------------------
@@ -997,26 +1028,26 @@ enum GroupNature {
 }
 
 model LedgerGroup {
-  id                 String        @id @default(uuid()) @db.Uuid
-  name               String        @unique
+  id                 String       @id @default(uuid()) @db.Uuid
+  name               String       @unique
   // Null: a primary group.
-  parentId           String?       @db.Uuid
-  parent             LedgerGroup?  @relation("GroupTree", fields: [parentId], references: [id], onDelete: Restrict)
+  parentId           String?      @db.Uuid
+  parent             LedgerGroup? @relation("GroupTree", fields: [parentId], references: [id], onDelete: Restrict)
   // Primary groups only; a sub-group takes its parent's (CHECK).
   nature             GroupNature?
   // Primary income and expense groups only: Sales, Purchase, Direct.
-  affectsGrossProfit Boolean       @default(false)
+  affectsGrossProfit Boolean      @default(false)
   // The 28 Tally groups: never renamed, moved or deleted.
-  isPredefined       Boolean       @default(false)
+  isPredefined       Boolean      @default(false)
   // Its ledgers stay folded in reports (Sundry Debtors, Sundry Creditors).
-  behavesAsSubLedger Boolean       @default(false)
+  behavesAsSubLedger Boolean      @default(false)
   // Show the net of debit and credit in reports.
-  nettBalances       Boolean       @default(false)
+  nettBalances       Boolean      @default(false)
   // Order among its siblings in reports (Tally's position index).
-  position           Int           @default(0)
+  position           Int          @default(0)
   notes              String?
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
 
   children LedgerGroup[] @relation("GroupTree")
   ledgers  Ledger[]
@@ -1089,4 +1120,455 @@ model Ledger {
   loansAsTds   Loan[] @relation("LoanTdsLedger")
 
   @@index([groupId])
+}
+
+// ---------------------------------------------------------------------------
+// Schemes and discounts for customers (sales only, client 5 Nov 2026). A
+// scheme takes something off a quotation or invoice on top of the rate the
+// line took: % off (with a cap in rupees), rupees off per unit, a flat
+// amount, or buy-X-get-Y-free. LINE schemes look at one item line; ORDER
+// schemes at the whole document (spread over its lines so GST is worked
+// out on what is actually charged). The rules are in src/schemes/scheme-rules.ts.
+// ---------------------------------------------------------------------------
+
+enum SchemeLevel {
+  LINE
+  ORDER
+}
+
+enum SchemeBenefit {
+  // value = percent off the line's (or order's) value, capped at maxDiscount.
+  PERCENT
+  // value = rupees off each base unit.
+  AMOUNT_PER_UNIT
+  // value = rupees off once the conditions are met.
+  FLAT_AMOUNT
+  // Every buyQuantity units bought give value units free. Lines only.
+  FREE_QUANTITY
+}
+
+// Which customers get it.
+enum SchemePartyScope {
+  ALL
+  // Customers in India (any treatment but overseas and SEZ), walk-ins too.
+  INDIA
+  // Overseas and SEZ buyers (Bhutan).
+  OVERSEAS
+  SELECTED
+}
+
+// Which kind of rate the line took; a scheme may skip negotiated rates.
+enum SchemeRateSource {
+  SHEET
+  SPECIAL
+  MANUAL
+}
+
+model Scheme {
+  id          String             @id @default(uuid()) @db.Uuid
+  name        String             @unique
+  description String?
+  level       SchemeLevel
+  benefit     SchemeBenefit
+  value       Decimal            @db.Decimal(12, 2)
+  // FREE_QUANTITY: units to buy for `value` free units.
+  buyQuantity Decimal?           @db.Decimal(14, 3)
+  // Rupees; the most one line (LINE) or the document (ORDER) gets off.
+  maxDiscount Decimal?           @db.Decimal(12, 2)
+  // LINE: base units on the line.
+  minQuantity Decimal?           @db.Decimal(14, 3)
+  // LINE: the line's value; ORDER: the eligible lines' value. Before GST.
+  minValue    Decimal?           @db.Decimal(14, 2)
+  partyScope  SchemePartyScope   @default(ALL)
+  rateSources SchemeRateSource[]
+  // Not stackable: only the best such scheme applies. Stackable ones add on.
+  stackable   Boolean            @default(false)
+  validFrom   DateTime           @db.Date
+  // Null runs until withdrawn.
+  validTill   DateTime?          @db.Date
+  notes       String?
+  isArchived  Boolean            @default(false)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  // None: every item.
+  targets SchemeTarget[]
+  // partyScope SELECTED only.
+  parties SchemeParty[]
+
+  @@index([isArchived, validFrom])
+}
+
+// One item, category / sub-category or brand a scheme is on (exactly one).
+model SchemeTarget {
+  id         String        @id @default(uuid()) @db.Uuid
+  schemeId   String        @db.Uuid
+  scheme     Scheme        @relation(fields: [schemeId], references: [id], onDelete: Cascade)
+  itemId     String?       @db.Uuid
+  item       Item?         @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  categoryId String?       @db.Uuid
+  category   ItemCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  brandId    String?       @db.Uuid
+  brand      Brand?        @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([schemeId])
+}
+
+model SchemeParty {
+  schemeId String @db.Uuid
+  scheme   Scheme @relation(fields: [schemeId], references: [id], onDelete: Cascade)
+  partyId  String @db.Uuid
+  party    Party  @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  @@id([schemeId, partyId])
+  @@index([partyId])
+}
+
+// ---------------------------------------------------------------------------
+// Purchases (client, 5 Nov 2026: purchase orders first, so items come into
+// stock). An order to a vendor brings no stock; a goods bill does, one stock
+// batch per bill line at its landed rate. A charges bill (freight,
+// unloading, labour) can be tagged to a goods bill and its cost is spread
+// over that bill's lines. The arithmetic is in src/purchases/purchase-rules.ts
+// and matches the frontend's features/purchases/purchase-rules.ts.
+// ---------------------------------------------------------------------------
+
+enum PurchaseOrderStatus {
+  OPEN
+  // Closed by hand with quantities still to come (short close).
+  CLOSED
+  CANCELLED
+}
+
+model PurchaseOrder {
+  id             String              @id @default(uuid()) @db.Uuid
+  // From the PURCHASE_ORDER series.
+  number         String              @unique
+  issuedNumberId String?             @db.Uuid
+  date           DateTime            @db.Date
+  expectedDate   DateTime?           @db.Date
+  vendorId       String              @db.Uuid
+  vendor         Party               @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  // Where the goods are to be delivered.
+  godownId       String              @db.Uuid
+  godown         Godown              @relation(fields: [godownId], references: [id], onDelete: Restrict)
+  status         PurchaseOrderStatus @default(OPEN)
+  terms          String?
+  notes          String?
+  createdById    String?             @db.Uuid
+  createdBy      User?               @relation("PurchaseOrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  lines PurchaseOrderLine[]
+  bills PurchaseBill[]
+
+  @@index([vendorId, date])
+  @@index([date])
+}
+
+model PurchaseOrderLine {
+  id          String        @id @default(uuid()) @db.Uuid
+  orderId     String        @db.Uuid
+  order       PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  position    Int
+  itemId      String        @db.Uuid
+  item        Item          @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  // Base units.
+  quantity    Decimal       @db.Decimal(14, 3)
+  // Per base unit, before GST: the rate agreed with the vendor.
+  rate        Decimal       @db.Decimal(12, 2)
+  discountPct Decimal       @default(0) @db.Decimal(5, 2)
+  gstRatePct  Decimal       @db.Decimal(5, 2)
+
+  billLines PurchaseBillLine[]
+
+  @@index([orderId])
+}
+
+enum PurchaseBillKind {
+  // Items into stock.
+  GOODS
+  // Freight, loading, unloading or labour.
+  CHARGES
+}
+
+enum PurchaseBillStatus {
+  OPEN
+  VOID
+}
+
+enum LandedCostMethod {
+  VALUE
+  QUANTITY
+  WEIGHT
+}
+
+// How the GST on a bill is charged, from the vendor and the source of supply.
+enum PurchaseRegime {
+  INTRA_STATE
+  INTER_STATE
+  // Composition or unregistered vendor: no GST, nothing to claim.
+  NO_GST
+  // Goods transport agency: we pay the GST and claim it back.
+  REVERSE_CHARGE
+  // Overseas vendor: IGST at customs.
+  IMPORT
+}
+
+model PurchaseBill {
+  id               String             @id @default(uuid()) @db.Uuid
+  kind             PurchaseBillKind
+  // Our own number from the PURCHASE series.
+  reference        String             @unique
+  issuedNumberId   String?            @db.Uuid
+  // As printed on the vendor's bill.
+  vendorBillNumber String
+  date             DateTime           @db.Date
+  dueDate          DateTime           @db.Date
+  vendorId         String             @db.Uuid
+  vendor           Party              @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  // GST state code the supply comes from; null for an overseas vendor.
+  sourceOfSupply   String?
+  regime           PurchaseRegime
+  // Goods bills: where the stock goes, and the order it fills.
+  godownId         String?            @db.Uuid
+  godown           Godown?            @relation(fields: [godownId], references: [id], onDelete: Restrict)
+  purchaseOrderId  String?            @db.Uuid
+  purchaseOrder    PurchaseOrder?     @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  allocation       LandedCostMethod   @default(VALUE)
+  // Charges bills: the goods bill whose items carry this cost.
+  landedCostForId  String?            @db.Uuid
+  landedCostFor    PurchaseBill?      @relation("LandedCost", fields: [landedCostForId], references: [id], onDelete: Restrict)
+  taggedCharges    PurchaseBill[]     @relation("LandedCost")
+  ewayBillNumber   String?
+  ewayBillDate     DateTime?          @db.Date
+  vehicleNumber    String?
+  notes            String?
+  status           PurchaseBillStatus @default(OPEN)
+  // Worked out on save (purchase-rules.ts), kept so lists need no lines.
+  goodsValue       Decimal            @db.Decimal(14, 2)
+  chargesValue     Decimal            @db.Decimal(14, 2)
+  taxable          Decimal            @db.Decimal(14, 2)
+  cgst             Decimal            @db.Decimal(14, 2)
+  sgst             Decimal            @db.Decimal(14, 2)
+  igst             Decimal            @db.Decimal(14, 2)
+  tax              Decimal            @db.Decimal(14, 2)
+  itcClaimable     Decimal            @db.Decimal(14, 2)
+  itcLost          Decimal            @db.Decimal(14, 2)
+  roundOff         Decimal            @db.Decimal(6, 2)
+  // What we owe the vendor.
+  payable          Decimal            @db.Decimal(14, 2)
+  // What the bill costs us: taxable value plus GST we cannot claim.
+  cost             Decimal            @db.Decimal(14, 2)
+  createdById      String?            @db.Uuid
+  createdBy        User?              @relation("PurchaseBillCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  lines   PurchaseBillLine[]
+  charges PurchaseBillCharge[]
+
+  // The same vendor bill is never entered twice.
+  @@unique([vendorId, vendorBillNumber])
+  @@index([date])
+  @@index([purchaseOrderId])
+  @@index([landedCostForId])
+}
+
+model PurchaseBillLine {
+  id          String             @id @default(uuid()) @db.Uuid
+  billId      String             @db.Uuid
+  bill        PurchaseBill       @relation(fields: [billId], references: [id], onDelete: Cascade)
+  position    Int
+  itemId      String             @db.Uuid
+  item        Item               @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  orderLineId String?            @db.Uuid
+  orderLine   PurchaseOrderLine? @relation(fields: [orderLineId], references: [id], onDelete: Restrict)
+  // As on the bill, kept as printed.
+  description String
+  hsn         String
+  unit        String
+  quantity    Decimal            @db.Decimal(14, 3)
+  rate        Decimal            @db.Decimal(12, 2)
+  discountPct Decimal            @default(0) @db.Decimal(5, 2)
+  gstRatePct  Decimal            @db.Decimal(5, 2)
+  // Section 17(5) and the like: the GST becomes cost.
+  itcEligible Boolean            @default(true)
+  taxable     Decimal            @db.Decimal(14, 2)
+  tax         Decimal            @db.Decimal(14, 2)
+  // Taxable plus GST that cannot be claimed.
+  ownCost     Decimal            @db.Decimal(14, 2)
+  // This line's part of the bill's freight and the tagged charges bills.
+  landedShare Decimal            @db.Decimal(14, 2)
+  landedCost  Decimal            @db.Decimal(14, 2)
+  // Per base unit: what stock from this line is valued at.
+  landedRate  Decimal            @db.Decimal(14, 4)
+
+  batch StockBatch?
+
+  @@index([billId])
+  @@index([itemId])
+  @@index([orderLineId])
+}
+
+model PurchaseBillCharge {
+  id          String       @id @default(uuid()) @db.Uuid
+  billId      String       @db.Uuid
+  bill        PurchaseBill @relation(fields: [billId], references: [id], onDelete: Cascade)
+  position    Int
+  headId      String       @db.Uuid
+  head        AccountHead  @relation(fields: [headId], references: [id], onDelete: Restrict)
+  description String?
+  amount      Decimal      @db.Decimal(14, 2)
+  gstRatePct  Decimal      @db.Decimal(5, 2)
+  tax         Decimal      @db.Decimal(14, 2)
+
+  @@index([billId])
+}
+
+// Stock that came in, one batch per goods bill line. Sales will draw the
+// oldest first (FIFO) by lowering `remaining`. Opening stock stays in
+// ItemOpeningStock.
+model StockBatch {
+  id         String           @id @default(uuid()) @db.Uuid
+  itemId     String           @db.Uuid
+  item       Item             @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  godownId   String           @db.Uuid
+  godown     Godown           @relation(fields: [godownId], references: [id], onDelete: Restrict)
+  billLineId String           @unique @db.Uuid
+  billLine   PurchaseBillLine @relation(fields: [billLineId], references: [id], onDelete: Cascade)
+  date       DateTime         @db.Date
+  quantity   Decimal          @db.Decimal(14, 3)
+  remaining  Decimal          @db.Decimal(14, 3)
+  landedRate Decimal          @db.Decimal(14, 4)
+  createdAt  DateTime         @default(now())
+
+  @@index([itemId, date])
+}
+
+// ---------------------------------------------------------------------------
+// Quotations (SOW 5; selling-rate-plan.md section 4). Each line keeps the
+// rate, where it came from, the suggested rate and the cost at that moment,
+// so "last quoted" is a top-1 index scan and old margins stay true after
+// costs move. A revision replaces the lines in place; earlier totals stay in
+// QuotationRevision. Schemes (src/schemes) are applied on save.
+// ---------------------------------------------------------------------------
+
+enum QuotationStatus {
+  DRAFT
+  // Given to the customer: counts as "last quoted" from here on.
+  SENT
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+// Where a line's rate came from. Worked out on save by comparing the rate
+// with what the line was offered; anything else is MANUAL.
+enum LineRateSource {
+  SPECIAL
+  SHEET
+  LAST_QUOTED
+  LAST_SOLD
+  MANUAL
+}
+
+// How GST is charged on a sale (frontend gst-rules.ts saleTax).
+enum SaleRegime {
+  INTRA_STATE
+  INTER_STATE
+  EXPORT_LUT
+  EXPORT_IGST
+}
+
+model Quotation {
+  id             String          @id @default(uuid()) @db.Uuid
+  number         String          @unique
+  issuedNumberId String?         @db.Uuid
+  // 0 for the first issue; printed as -R1, -R2 after revisions.
+  revision       Int             @default(0)
+  date           DateTime        @db.Date
+  validUntil     DateTime        @db.Date
+  partyId        String          @db.Uuid
+  party          Party           @relation(fields: [partyId], references: [id], onDelete: Restrict)
+  status         QuotationStatus @default(SENT)
+  regime         SaleRegime
+  terms          String?
+  notes          String?
+  // Worked out on save.
+  gross          Decimal         @db.Decimal(14, 2)
+  schemeDiscount Decimal         @db.Decimal(14, 2)
+  taxable        Decimal         @db.Decimal(14, 2)
+  cgst           Decimal         @db.Decimal(14, 2)
+  sgst           Decimal         @db.Decimal(14, 2)
+  igst           Decimal         @db.Decimal(14, 2)
+  tax            Decimal         @db.Decimal(14, 2)
+  roundOff       Decimal         @db.Decimal(6, 2)
+  total          Decimal         @db.Decimal(14, 2)
+  // Last landed cost of what is quoted, free units included, at save time.
+  cost           Decimal         @db.Decimal(14, 2)
+  createdById    String?         @db.Uuid
+  createdBy      User?           @relation("QuotationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  lines     QuotationLine[]
+  revisions QuotationRevision[]
+
+  @@index([partyId, date])
+  @@index([date])
+}
+
+model QuotationLine {
+  id             String         @id @default(uuid()) @db.Uuid
+  quotationId    String         @db.Uuid
+  quotation      Quotation      @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  position       Int
+  // Copied from the quotation so "last quoted to this customer" needs no join.
+  partyId        String         @db.Uuid
+  date           DateTime       @db.Date
+  itemId         String         @db.Uuid
+  item           Item           @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  description    String
+  hsn            String
+  unit           String
+  quantity       Decimal        @db.Decimal(14, 3)
+  // Per unit before GST, as offered; the typed discount comes off it.
+  rate           Decimal        @db.Decimal(12, 2)
+  discountPct    Decimal        @default(0) @db.Decimal(5, 2)
+  rateSource     LineRateSource
+  // What the line was offered first (special, else today's rate); null with neither.
+  suggestedRate  Decimal?       @db.Decimal(12, 2)
+  itemPriceId    String?        @db.Uuid
+  itemPrice      ItemPrice?     @relation(fields: [itemPriceId], references: [id], onDelete: Restrict)
+  specialRateId  String?        @db.Uuid
+  specialRate    SpecialRate?   @relation(fields: [specialRateId], references: [id], onDelete: Restrict)
+  // Rupees schemes took off this line, and free units they gave.
+  schemeDiscount Decimal        @db.Decimal(14, 2)
+  freeQuantity   Decimal        @default(0) @db.Decimal(14, 3)
+  // [{ schemeId, name, level, amount, freeQuantity }] as applied on the date.
+  schemes        Json           @default("[]")
+  gstRatePct     Decimal        @db.Decimal(5, 2)
+  taxable        Decimal        @db.Decimal(14, 2)
+  tax            Decimal        @db.Decimal(14, 2)
+  // Last landed cost per unit at save time; null before any stock.
+  costAtQuote    Decimal?       @db.Decimal(14, 4)
+
+  @@index([quotationId])
+  @@index([partyId, itemId, date(sort: Desc)])
+}
+
+model QuotationRevision {
+  id          String    @id @default(uuid()) @db.Uuid
+  quotationId String    @db.Uuid
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  // The revision this row closed: 0 is the first issue.
+  revision    Int
+  date        DateTime  @db.Date
+  total       Decimal   @db.Decimal(14, 2)
+  note        String
+  createdAt   DateTime  @default(now())
+
+  @@unique([quotationId, revision])
 }

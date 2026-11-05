@@ -59,6 +59,7 @@ export const KIND_RULES: Record<NumberedKind, KindRules> = {
     scope: 'INVOICE',
   },
   // Our own reference; the vendor's bill number is stored beside it.
+  PURCHASE_ORDER: { label: 'purchase order', ...OTHER_DOCUMENT, scope: 'PURCHASE_ORDER' },
   PURCHASE: { label: 'purchase', ...OTHER_DOCUMENT, scope: 'PURCHASE' },
   RECEIPT: { label: 'receipt', ...GST_DOCUMENT, scope: 'RECEIPT' },
   PAYMENT: { label: 'payment', ...GST_DOCUMENT, scope: 'PAYMENT' },

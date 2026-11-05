@@ -52,8 +52,8 @@ const ROLES = [
     name: 'Accountant',
     description: 'Bills, expenses, payments, GST and reports; reads sales',
     permissions: {
-      ...grant(VIEW, ['/dashboard', '/rate-enquiry', '/quotations', '/invoices', '/shipments', '/documents', '/profit', '/reports', '/customers', '/items', '/rates']),
-      ...grant(WORK, ['/purchases', '/expenses', '/payments', '/vendors', '/masters', '/masters/hsn', '/masters/tax-export', '/masters/bank-cash', '/masters/expense-heads', '/masters/number-series']),
+      ...grant(VIEW, ['/dashboard', '/rate-enquiry', '/quotations', '/invoices', '/shipments', '/documents', '/profit', '/reports', '/customers', '/items', '/rates', '/schemes']),
+      ...grant(WORK, ['/purchase-orders', '/purchases', '/expenses', '/payments', '/vendors', '/masters', '/masters/hsn', '/masters/tax-export', '/masters/bank-cash', '/masters/expense-heads', '/masters/number-series']),
     },
   },
   {
@@ -61,7 +61,7 @@ const ROLES = [
     description: 'Rate enquiry, quotations, invoices and customers; no costs or profit',
     permissions: {
       ...grant(WORK, ['/rate-enquiry', '/quotations', '/invoices', '/customers', '/whatsapp']),
-      ...grant(VIEW, ['/dashboard', '/items', '/shipments']),
+      ...grant(VIEW, ['/dashboard', '/items', '/shipments', '/schemes']),
     },
   },
   {
@@ -69,7 +69,7 @@ const ROLES = [
     description: 'Stock, shipments and documents at the yard',
     permissions: {
       ...grant(WORK, ['/items', '/shipments', '/documents', '/masters/godowns', '/masters/units', '/masters/brands']),
-      ...grant(VIEW, ['/dashboard', '/purchases']),
+      ...grant(VIEW, ['/dashboard', '/purchase-orders', '/purchases']),
     },
   },
 ];

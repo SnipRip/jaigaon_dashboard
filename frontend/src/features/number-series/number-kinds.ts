@@ -20,6 +20,7 @@ export const KINDS: Record<NumberedKind, KindInfo> = {
   EXPORT_INVOICE: { label: "Export invoice", group: "Sales", gst: true, suggested: yearly("EXP/{FY}/{SEQ:4}") },
   RECEIPT: { label: "Receipt (customers, loans)", group: "Sales", gst: true, suggested: yearly("RCT/{FY}/{SEQ:4}") },
   CREDIT_NOTE: { label: "Credit note", group: "Sales", gst: true, suggested: yearly("CN/{FY}/{SEQ:4}") },
+  PURCHASE_ORDER: { label: "Purchase order", group: "Purchases and payments", gst: false, suggested: yearly("PO/{FY}/{SEQ:4}") },
   PURCHASE: { label: "Vendor bill (our reference)", group: "Purchases and payments", gst: false, suggested: yearly("PUR/{FY}/{SEQ:4}") },
   PAYMENT: { label: "Payment (vendors, loans)", group: "Purchases and payments", gst: true, suggested: yearly("PAY/{FY}/{SEQ:4}") },
   DEBIT_NOTE: { label: "Debit note", group: "Purchases and payments", gst: true, suggested: yearly("DN/{FY}/{SEQ:4}") },

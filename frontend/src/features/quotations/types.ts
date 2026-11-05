@@ -1,8 +1,9 @@
 // Quotations (SOW 5): numbered, valid till a date, revised in place with the
 // old totals kept, and converted to an invoice once accepted.
 import type { InvoiceLine } from "@/features/invoices/types";
+import type { QuotationView } from "@/types/quotation";
 
-export type QuotationStatus = "draft" | "sent" | "accepted" | "rejected" | "converted";
+export type QuotationStatus = "draft" | "sent" | "accepted" | "rejected" | "cancelled" | "converted";
 
 export interface QuotationRevision {
   revision: number;
@@ -28,4 +29,6 @@ export interface Quotation {
   history: QuotationRevision[];
   /** Sent on WhatsApp, once that is connected. */
   sentOn?: string;
+  /** The quotation as saved, with what the backend worked out: rate sources, schemes, GST, cost. */
+  stored?: QuotationView;
 }

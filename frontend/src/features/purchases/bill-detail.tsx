@@ -1,9 +1,10 @@
 "use client";
 
-import { Paperclip, Wallet } from "lucide-react";
+import { Ban, Paperclip, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { buttonClasses } from "@/components/ui/button";
+import { Button, buttonClasses } from "@/components/ui/button";
+import { FormMessage } from "@/components/ui/form-message";
 import { FactTile } from "@/components/ui/fact-tile";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { GlassTable } from "@/components/ui/glass-table";
@@ -15,6 +16,7 @@ import type { Item } from "@/features/items/types";
 import { headName } from "@/features/masters/account-head-rules";
 import { useAccountHeads } from "@/features/masters/use-account-heads";
 import type { Party } from "@/features/parties/types";
+import { ApiError } from "@/lib/api-client";
 import { formatDate, formatInr, formatQuantity, formatRate } from "@/lib/format";
 import { useToday } from "@/lib/use-today";
 import { BillStatusChip } from "./bill-status-chip";
@@ -22,7 +24,8 @@ import { BillTotalsCard } from "./bill-totals-card";
 import { viewBill } from "./bill-view";
 import { LandedCostCard } from "./landed-cost-card";
 import { billChargeRate, chargeBillsFor, ewayBillMissing, isMsme, MSME_PAYMENT_DAYS } from "./purchase-rules";
-import type { Bill } from "./types";
+import { setBillAllocation, voidBill } from "./purchases-api";
+import type { Bill, LandedCostMethod } from "./types";
 
 interface BillDetailProps {
   bill: Bill;
@@ -30,17 +33,43 @@ interface BillDetailProps {
   parties: Party[];
   items: Item[];
   companyState: string;
+  /** After a change is saved: reload bills, orders and item costs. */
+  onChanged: () => Promise<void>;
 }
 
 // One vendor bill as entered from the vendor's paper: its lines and the
 // GST on each, input credit, what is left to pay, the e-way bill it came
 // with and, for goods, the landed cost of each item.
-export function BillDetail({ bill, bills, parties, items, companyState }: BillDetailProps) {
+export function BillDetail({ bill, bills, parties, items, companyState, onChanged }: BillDetailProps) {
   const today = useToday();
   const { heads } = useAccountHeads();
   // Until the heads load, a charge shows the name it was saved with.
   const chargeName = (ref: string) => headName(heads ?? [], ref);
   const [method, setMethod] = useState(bill.allocation);
+  const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const stored = bill.stored;
+  const act = async (work: () => Promise<unknown>, done: string) => {
+    setBusy(true);
+    setNotice(null);
+    try {
+      await work();
+      await onChanged();
+      setNotice({ tone: "success", text: done });
+      return true;
+    } catch (error) {
+      setNotice({ tone: "error", text: error instanceof ApiError ? error.message : "Could not save. Check the connection and try again." });
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+  // The spread is saved at once: the stock batches take the new landed rates.
+  const changeMethod = (next: LandedCostMethod) => {
+    const before = method;
+    setMethod(next);
+    void act(() => setBillAllocation(bill.id, next), "Landed cost spread again and saved.").then((saved) => saved || setMethod(before));
+  };
   const view = viewBill(bill, parties, companyState, today);
   const { vendor, tax, split, totals, status } = view;
   const balance = Math.max(totals.payable - bill.paid, 0);
@@ -55,6 +84,12 @@ export function BillDetail({ bill, bills, parties, items, companyState }: BillDe
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>{bill.reference}</CardTitle>
             <StatusChip tone="neutral">{bill.kind === "goods" ? "Goods bill" : "Freight, loading & labour"}</StatusChip>
+            {bill.status === "void" && <StatusChip tone="danger">Void</StatusChip>}
+            {stored?.purchaseOrderId && (
+              <Link href={`/purchase-orders/${stored.purchaseOrderId}`} className="text-xs font-semibold text-brand hover:underline">
+                Against {stored.purchaseOrderNumber}
+              </Link>
+            )}
             <Link href="/purchases" className={buttonClasses("neutral", "ml-auto")}>
               Back to bills
             </Link>
@@ -70,7 +105,10 @@ export function BillDetail({ bill, bills, parties, items, companyState }: BillDe
               {bill.vendorBillNumber}
               <span className="block text-xs font-semibold text-muted">{formatDate(bill.date)}</span>
             </FactTile>
-            <FactTile label="Source of supply">{stateName(bill.sourceOfSupply) ?? "Outside India"}</FactTile>
+            <FactTile label="Source of supply">
+              {stateName(bill.sourceOfSupply) ?? "Outside India"}
+              {stored?.godownName && <span className="block text-xs font-semibold text-muted">Into {stored.godownName}</span>}
+            </FactTile>
             <FactTile label="Due">
               {formatDate(bill.dueDate)}
               {isMsme(vendor) && <span className="block text-xs font-semibold text-muted">MSME: within {MSME_PAYMENT_DAYS} days</span>}
@@ -148,7 +186,16 @@ export function BillDetail({ bill, bills, parties, items, companyState }: BillDe
         )}
 
         {bill.kind === "goods" && (
-          <LandedCostCard goods={view} tagged={tagged} items={items} chargeName={chargeName} method={method} onMethodChange={setMethod} />
+          <LandedCostCard
+            goods={view}
+            tagged={tagged}
+            items={items}
+            chargeName={chargeName}
+            method={method}
+            onMethodChange={changeMethod}
+            savedRates={stored?.lines.map((line) => line.landedRate)}
+            disabled={busy || bill.status !== "open"}
+          />
         )}
 
         {bill.kind === "charges" && (
@@ -230,6 +277,23 @@ export function BillDetail({ bill, bills, parties, items, companyState }: BillDe
           {bill.notes && <p className="text-xs font-semibold text-ink-soft">{bill.notes}</p>}
           <p className="text-xs font-semibold text-muted">Uploading scans switches on when file storage is chosen.</p>
         </GlassCard>
+
+        {bill.status === "open" && (
+          <GlassCard className="flex flex-col gap-2">
+            <CardTitle>Void this bill</CardTitle>
+            <p className="text-xs font-semibold text-muted">
+              {bill.kind === "goods"
+                ? "Takes its stock back out. Not possible once any of it has been sold, or while freight or labour bills are added to it."
+                : "Its cost comes off the purchase it was added to."}{" "}
+              Bills are not edited: void and enter it again.
+            </p>
+            <Button variant="danger" disabled={busy} onClick={() => void act(() => voidBill(bill.id), `${bill.reference} is void.`)} className="self-start">
+              <Ban aria-hidden="true" className="size-[18px]" />
+              Void bill
+            </Button>
+          </GlassCard>
+        )}
+        {notice && <FormMessage tone={notice.tone}>{notice.text}</FormMessage>}
       </div>
     </div>
   );

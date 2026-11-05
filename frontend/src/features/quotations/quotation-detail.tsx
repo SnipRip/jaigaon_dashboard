@@ -7,56 +7,62 @@ import { Button, buttonClasses } from "@/components/ui/button";
 import { FactTile } from "@/components/ui/fact-tile";
 import { FormMessage } from "@/components/ui/form-message";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
-import { GlassModal } from "@/components/ui/glass-modal";
+import { GlassTable } from "@/components/ui/glass-table";
 import { StatusChip } from "@/components/ui/status-chip";
-import { TextField } from "@/components/ui/text-field";
 import type { Issuer } from "@/features/invoices/invoice-document";
 import type { Item } from "@/features/items/types";
 import type { Party } from "@/features/parties/types";
-import { addDays } from "@/lib/dates";
-import { formatDate, formatInr, formatPercent } from "@/lib/format";
+import { ApiError } from "@/lib/api-client";
+import { formatDate, formatInr, formatPercent, formatQuantity, formatRate } from "@/lib/format";
+import type { QuotationStatusView } from "@/types/quotation";
 import { useToday } from "@/lib/use-today";
 import { QuotationDocument } from "./quotation-document";
 import { quotationFigures, quotationLabel, quotationStage } from "./quotation-rules";
 import { STAGE_TONE } from "./quotations-workspace";
-import type { Quotation, QuotationStatus } from "./types";
+import { setQuotationStatus } from "./quotations-api";
+import type { Quotation } from "./types";
 
 interface QuotationDetailProps {
-  initialQuotation: Quotation;
+  quotation: Quotation;
   party: Party;
   issuer: Issuer;
   items: Item[];
+  /** After a status change is saved: reload the quotations. */
+  onChanged: () => Promise<void>;
 }
 
-// One quotation: the printable copy, where it stands, revisions, and the step
-// to an invoice. Status changes stay on the page until quotations are saved.
-export function QuotationDetail({ initialQuotation, party, issuer, items }: QuotationDetailProps) {
+const SOURCE_TEXT: Record<string, string> = {
+  SPECIAL: "Special rate",
+  SHEET: "Today's rate",
+  LAST_QUOTED: "Last quoted",
+  LAST_SOLD: "Last sold",
+  MANUAL: "Typed",
+};
+
+// One quotation: the printable copy, where it stands, how each line was
+// priced (rate source, schemes, cost at the time), revisions, and the status
+// steps. Changes are saved at once; a revision opens the form.
+export function QuotationDetail({ quotation, party, issuer, items, onChanged }: QuotationDetailProps) {
   const today = useToday();
-  const [quotation, setQuotation] = useState(initialQuotation);
-  const [revising, setRevising] = useState(false);
-  const [revisionNote, setRevisionNote] = useState("");
-  const [notice, setNotice] = useState<string | null>(null);
-  const { tax, totals, profit } = quotationFigures(quotation, party, issuer.stateCode, items);
+  const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const { tax, totals, profit, costKnown } = quotationFigures(quotation, party, issuer.stateCode, items);
   const stage = quotationStage(quotation, today);
-  const invoiceKind = party.treatment === "overseas" || party.treatment === "sez" ? "export" : "local";
+  const stored = quotation.stored;
+  const canRevise = quotation.status !== "accepted" && quotation.status !== "cancelled" && quotation.status !== "converted";
 
-  const setStatus = (status: QuotationStatus, text: string) => {
-    setQuotation((current) => ({ ...current, status, sentOn: status === "sent" ? (today ?? current.date) : current.sentOn }));
-    setNotice(`${text} on this page. It is not saved to the database yet.`);
-  };
-
-  const revise = () => {
-    setQuotation((current) => ({
-      ...current,
-      revision: current.revision + 1,
-      status: "draft",
-      date: today ?? current.date,
-      validUntil: addDays(today ?? current.date, 7),
-      history: [...current.history, { revision: current.revision, date: current.date, total: totals.grandTotal, note: revisionNote || "Revised" }],
-    }));
-    setRevising(false);
-    setRevisionNote("");
-    setNotice("A new revision is open as a draft. Change rates on the copy below once editing is connected.");
+  const setStatus = async (status: QuotationStatusView, text: string) => {
+    setBusy(true);
+    setNotice(null);
+    try {
+      await setQuotationStatus(quotation.id, status);
+      await onChanged();
+      setNotice({ tone: "success", text });
+    } catch (error) {
+      setNotice({ tone: "error", text: error instanceof ApiError ? error.message : "Could not save. Check the connection and try again." });
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -77,6 +83,57 @@ export function QuotationDetail({ initialQuotation, party, issuer, items }: Quot
         </div>
         <p className="-mt-2 text-xs font-semibold text-muted">WhatsApp sending switches on when the WhatsApp Business API is connected.</p>
         <QuotationDocument quotation={quotation} party={party} issuer={issuer} tax={tax} totals={totals} />
+        {stored && (
+          <GlassCard className="flex flex-col gap-3">
+            <CardTitle>How each line was priced</CardTitle>
+            <GlassTable className="min-w-[640px]">
+              <thead>
+                <tr className="text-right">
+                  <th scope="col" className="text-left">Item</th>
+                  <th scope="col" className="text-left">Rate from</th>
+                  <th scope="col">Rate</th>
+                  <th scope="col" className="text-left">Schemes</th>
+                  <th scope="col">Charged</th>
+                  <th scope="col">Cost then</th>
+                  <th scope="col">Margin</th>
+                </tr>
+              </thead>
+              <tbody className="text-right font-semibold tabular-nums">
+                {stored.lines.map((line) => {
+                  const cost = line.costAtQuote === null ? undefined : line.costAtQuote * (line.quantity + line.freeQuantity);
+                  const margin = cost === undefined || line.taxable === 0 ? undefined : ((line.taxable - cost) / line.taxable) * 100;
+                  return (
+                    <tr key={line.id}>
+                      <td className="text-left">
+                        {line.description}
+                        <div className="text-xs text-muted">
+                          {formatQuantity(line.quantity)} {line.unit}
+                          {line.freeQuantity > 0 && ` + ${formatQuantity(line.freeQuantity)} free`}
+                        </div>
+                      </td>
+                      <td className="text-left">
+                        <StatusChip tone={line.rateSource === "MANUAL" ? "warning" : "brand"}>{SOURCE_TEXT[line.rateSource]}</StatusChip>
+                        {line.suggestedRate !== null && line.rateSource !== "SPECIAL" && line.rateSource !== "SHEET" && (
+                          <div className="text-xs text-muted">offered {formatRate(line.suggestedRate)}</div>
+                        )}
+                      </td>
+                      <td>
+                        {formatRate(line.rate)}
+                        {line.discountPct > 0 && <div className="text-xs text-muted">less {line.discountPct}%</div>}
+                      </td>
+                      <td className="text-left text-xs">
+                        {line.schemes.length ? line.schemes.map((applied) => <div key={applied.schemeId}>{applied.name}{applied.amount ? `: − ${formatRate(applied.amount)}` : ""}</div>) : <span className="text-muted">None</span>}
+                      </td>
+                      <td>{formatRate(line.taxable)}</td>
+                      <td>{cost === undefined ? <span className="text-muted">No stock</span> : formatRate(cost)}</td>
+                      <td className={margin !== undefined && margin < 8 ? "text-danger-strong" : undefined}>{margin === undefined ? "–" : formatPercent(margin)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </GlassTable>
+          </GlassCard>
+        )}
       </div>
 
       <div className="flex flex-col gap-3.5 xl:sticky xl:top-3.5">
@@ -88,7 +145,11 @@ export function QuotationDetail({ initialQuotation, party, issuer, items }: Quot
           <dl className="grid grid-cols-2 gap-2 text-sm">
             <FactTile label="Total">{formatInr(totals.grandTotal)}</FactTile>
             <FactTile label="Margin">
-              <span className={profit.marginPct < 8 ? "text-danger-strong" : undefined}>{formatPercent(profit.marginPct)}</span>
+              {costKnown ? (
+                <span className={profit.marginPct < 8 ? "text-danger-strong" : undefined}>{formatPercent(profit.marginPct)}</span>
+              ) : (
+                <span className="text-muted">Unknown: an item has no stock yet</span>
+              )}
             </FactTile>
             <FactTile label="Valid till">{formatDate(quotation.validUntil)}</FactTile>
             <FactTile label="Tax">{tax.title}</FactTile>
@@ -98,34 +159,40 @@ export function QuotationDetail({ initialQuotation, party, issuer, items }: Quot
             {quotation.sentOn && ` · sent ${formatDate(quotation.sentOn)}`}
           </p>
 
-          {quotation.status === "converted" && quotation.invoiceId ? (
-            <Link href={`/invoices/${quotation.invoiceId}`} className={buttonClasses("success")}>
-              Open the invoice
-            </Link>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {quotation.status === "draft" && <Button onClick={() => setStatus("sent", "Marked as sent")}>Mark as sent</Button>}
-              {(quotation.status === "sent" || stage === "Expired") && (
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="success" className="flex-1" onClick={() => setStatus("accepted", "Marked as accepted")}>
-                    Accepted
-                  </Button>
-                  <Button variant="danger" className="flex-1" onClick={() => setStatus("rejected", "Marked as lost")}>
-                    Lost
-                  </Button>
-                </div>
-              )}
-              {quotation.status !== "rejected" && (
-                <Link href={`/invoices/new/${invoiceKind}?quotation=${quotation.id}`} className={buttonClasses(quotation.status === "accepted" ? "success" : "outline")}>
-                  Convert to {invoiceKind === "export" ? "an export" : "a local"} invoice
-                </Link>
-              )}
-              <Button variant="neutral" onClick={() => setRevising(true)}>
-                Revise
+          <div className="flex flex-col gap-2">
+            {quotation.status === "draft" && (
+              <Button disabled={busy} onClick={() => void setStatus("SENT", "Marked as given to the customer.")}>
+                Mark as sent
               </Button>
-            </div>
-          )}
-          {notice && <FormMessage tone="success">{notice}</FormMessage>}
+            )}
+            {quotation.status === "sent" && (
+              <div className="flex flex-wrap gap-2">
+                <Button variant="success" className="flex-1" disabled={busy} onClick={() => void setStatus("ACCEPTED", "Marked as accepted.")}>
+                  Accepted
+                </Button>
+                <Button variant="danger" className="flex-1" disabled={busy} onClick={() => void setStatus("REJECTED", "Marked as lost.")}>
+                  Lost
+                </Button>
+              </div>
+            )}
+            {quotation.status === "rejected" && (
+              <Button variant="neutral" disabled={busy} onClick={() => void setStatus("SENT", "Back with the customer.")}>
+                Reopen
+              </Button>
+            )}
+            {canRevise && (
+              <Link href={`/quotations/${quotation.id}/revise`} className={buttonClasses("neutral")}>
+                Revise to R{quotation.revision + 1}
+              </Link>
+            )}
+            {quotation.status !== "cancelled" && (
+              <Button variant="danger" disabled={busy} onClick={() => void setStatus("CANCELLED", "Cancelled. Its number stays cancelled in the register.")}>
+                Cancel quotation
+              </Button>
+            )}
+            <p className="text-xs font-semibold text-muted">Converting to an invoice switches on when invoices are stored.</p>
+          </div>
+          {notice && <FormMessage tone={notice.tone}>{notice.text}</FormMessage>}
         </GlassCard>
 
         {quotation.history.length > 0 && (
@@ -147,22 +214,6 @@ export function QuotationDetail({ initialQuotation, party, issuer, items }: Quot
         )}
       </div>
 
-      <GlassModal
-        open={revising}
-        onOpenChange={setRevising}
-        title={`Revise ${quotationLabel(quotation)}`}
-        description="The current version is kept with its total; the new one starts as a draft valid for a week."
-        footer={
-          <>
-            <Button variant="neutral" onClick={() => setRevising(false)}>
-              Cancel
-            </Button>
-            <Button onClick={revise}>Start revision R{quotation.revision + 1}</Button>
-          </>
-        }
-      >
-        <TextField label="Why it is being revised" placeholder="Customer asked for a better TMT rate" value={revisionNote} onChange={(event) => setRevisionNote(event.target.value)} />
-      </GlassModal>
     </div>
   );
 }

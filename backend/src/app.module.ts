@@ -29,6 +29,9 @@ import { NumberSeriesModule } from './number-series/number-series.module.js';
 import { PartiesModule } from './parties/parties.module.js';
 import { PriceListModule } from './price-list/price-list.module.js';
 import { PricingModule } from './pricing/pricing.module.js';
+import { SchemesModule } from './schemes/schemes.module.js';
+import { PurchasesModule } from './purchases/purchases.module.js';
+import { QuotationsModule } from './quotations/quotations.module.js';
 import { StaffModule } from './staff/staff.module.js';
 import { UnitsModule } from './units/units.module.js';
 import { UsersModule } from './users/users.module.js';
@@ -53,6 +56,9 @@ import { WhatsappOptInsModule } from './whatsapp-optins/whatsapp-optins.module.j
     PartiesModule,
     PricingModule,
     PriceListModule,
+    SchemesModule,
+    PurchasesModule,
+    QuotationsModule,
     CompanyProfileModule,
     LutsModule,
     NumberSeriesModule,

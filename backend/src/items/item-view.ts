@@ -1,6 +1,6 @@
 import { toNumber } from '../common/decimal.js';
 import type { Item, ItemOpeningStock, ItemUnitConversion } from '../generated/prisma/client.js';
-import { itemCosts, type ItemCosts } from './item-costs.js';
+import { itemCostSource, itemCosts, stockOnHand, type CostSource, type ItemCosts } from './item-costs.js';
 
 // An item as the API returns it: numbers instead of Decimal strings, and
 // stock on hand worked out from its rows.
@@ -34,6 +34,7 @@ export interface ItemView extends ItemCosts {
 export type ItemRow = Item & {
   alternateUnits: ItemUnitConversion[];
   openingStock: ItemOpeningStock[];
+  stockBatches: CostSource['stockBatches'];
   pictures: { id: string }[];
 };
 
@@ -41,6 +42,7 @@ export type ItemRow = Item & {
 export const itemRowInclude = {
   alternateUnits: true,
   openingStock: true,
+  stockBatches: itemCostSource.stockBatches,
   pictures: { select: { id: true }, orderBy: { createdAt: 'asc' } },
 } as const;
 
@@ -65,7 +67,7 @@ export function toItemView(item: ItemRow): ItemView {
     unitId: item.unitId,
     weightKg: toNumber(item.weightKg),
     mrp: toNumber(item.mrp),
-    ...itemCosts(item.openingStock),
+    ...itemCosts(item),
     preferredSupplier: item.preferredSupplier,
     reorderLevel: toNumber(item.reorderLevel),
     isArchived: item.isArchived,
@@ -75,8 +77,7 @@ export function toItemView(item: ItemRow): ItemView {
       baseQuantity: toNumber(row.baseQuantity),
     })),
     openingStock,
-    // Summed in thousandths so 0.1 + 0.2 kg stays 0.3.
-    stock: openingStock.reduce((sum, row) => sum + Math.round(row.quantity * 1000), 0) / 1000,
+    stock: stockOnHand(item),
     pictureIds: item.pictures.map((picture) => picture.id),
   };
 }

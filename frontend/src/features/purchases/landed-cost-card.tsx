@@ -22,12 +22,15 @@ interface LandedCostCardProps {
   chargeName: (head: string) => string;
   method: LandedCostMethod;
   onMethodChange: (method: LandedCostMethod) => void;
+  /** The landed rates saved on the bill's lines (what stock is valued at), in line order. */
+  savedRates?: number[];
+  disabled?: boolean;
 }
 
 // What each item really cost once freight, unloading and labour are spread
 // over it. Tally cannot do this (27 Oct 2026 walkthrough); stock is valued
 // at the landed rate.
-export function LandedCostCard({ goods, tagged, items, chargeName, method, onMethodChange }: LandedCostCardProps) {
+export function LandedCostCard({ goods, tagged, items, chargeName, method, onMethodChange, savedRates, disabled }: LandedCostCardProps) {
   const onBill = goods.totals.chargesValue;
   const charges = onBill + tagged.reduce((sum, view) => sum + view.totals.cost, 0);
   const weightOf = (line: BillLine) => lineWeightKg(line, items.find((item) => item.id === line.itemId));
@@ -73,7 +76,7 @@ export function LandedCostCard({ goods, tagged, items, chargeName, method, onMet
 
       <FilterGroup label="Spread by">
         {LANDED_COST_METHODS.map((option) => (
-          <FilterChip key={option.value} selected={method === option.value} onClick={() => onMethodChange(option.value)}>
+          <FilterChip key={option.value} selected={method === option.value} disabled={disabled} onClick={() => onMethodChange(option.value)}>
             {option.label}
           </FilterChip>
         ))}
@@ -91,11 +94,12 @@ export function LandedCostCard({ goods, tagged, items, chargeName, method, onMet
               <th scope="col">Charges</th>
               <th scope="col">Landed cost</th>
               <th scope="col">Rate: bill → landed</th>
+              {savedRates && <th scope="col">Stock valued at</th>}
             </tr>
           </thead>
           <tbody className="text-right font-semibold tabular-nums">
-            {rows.map((row) => (
-              <tr key={row.line.itemId}>
+            {rows.map((row, index) => (
+              <tr key={index}>
                 <td className="text-left font-semibold">{row.line.description}</td>
                 <td>
                   {formatQuantity(row.line.quantity)} {row.line.unit}
@@ -108,6 +112,12 @@ export function LandedCostCard({ goods, tagged, items, chargeName, method, onMet
                   {formatRate(row.line.rate)} → <span className="font-semibold text-ink">{formatRate(row.landedRate)}</span>
                   <div className="text-xs text-muted">per {row.line.unit}</div>
                 </td>
+                {savedRates && (
+                  <td>
+                    {savedRates[index] !== undefined ? formatRate(savedRates[index]) : "–"}
+                    <div className="text-xs text-muted">saved</div>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -123,7 +133,7 @@ export function LandedCostCard({ goods, tagged, items, chargeName, method, onMet
           <Plus aria-hidden="true" className="size-[18px]" />
           Add a freight, unloading or labour bill
         </Link>
-        <p className="text-xs font-semibold text-muted">Changing the method here is not saved until bills are connected to the database.</p>
+        <p className="text-xs font-semibold text-muted">A new spread is saved at once and the stock takes the new landed rates.</p>
       </div>
     </GlassCard>
   );

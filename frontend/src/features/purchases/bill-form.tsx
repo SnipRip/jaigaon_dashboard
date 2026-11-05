@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Paperclip, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { Button, buttonClasses } from "@/components/ui/button";
@@ -23,7 +24,10 @@ import { allocationLabel } from "@/features/masters/expense-heads-master";
 import { useAccountHeads } from "@/features/masters/use-account-heads";
 import { placeOf } from "@/features/parties/party-rules";
 import type { Party } from "@/features/parties/types";
-import { formatRate } from "@/lib/format";
+import type { Godown } from "@/features/masters/types";
+import { ApiError } from "@/lib/api-client";
+import { formatDate, formatQuantity, formatRate } from "@/lib/format";
+import type { PurchaseOrderView } from "@/types/purchase";
 import { useToday } from "@/lib/use-today";
 import { billSchema, type BillFormValues } from "./bill-schema";
 import { BillTotalsCard } from "./bill-totals-card";
@@ -35,11 +39,12 @@ import {
   CHARGE_RATES,
   chargeRateRule,
   isMsme,
-  lastPurchaseRate,
+  LANDED_COST_METHODS,
   landsOnItems,
   MSME_PAYMENT_DAYS,
   splitRegime,
 } from "./purchase-rules";
+import { createBill, fetchLastRates } from "./purchases-api";
 import type { BillCharge, BillKind, BillLine, ChargeHead } from "./types";
 
 interface BillFormProps {
@@ -47,12 +52,14 @@ interface BillFormProps {
   catalog: ItemCatalog;
   /** Goods bills a charges bill can be tagged to. */
   purchases: { id: string; label: string }[];
-  /** Earlier goods bills, for the rate last paid to the vendor. */
-  pastBills: Parameters<typeof lastPurchaseRate>[0];
+  godowns: Godown[];
   companyState: string;
-  suggestedReference: string;
   initialKind: BillKind;
   initialFor?: string;
+  /** Receiving against this order: its vendor, godown and pending lines come in. */
+  order?: PurchaseOrderView;
+  /** After the save: reload what the other screens read. */
+  onSaved: () => Promise<void>;
 }
 
 const NOT_TAGGED = "none";
@@ -65,15 +72,19 @@ const KIND_TEXT: Record<BillKind, { label: string; hint: string }> = {
   },
 };
 
-const emptyLine = { itemId: "", quantity: "", rate: "", discountPct: "", itc: "eligible" as const };
+const emptyLine = { itemId: "", orderLineId: "", quantity: "", rate: "", discountPct: "", itc: "eligible" as const };
 const emptyCharge = { head: "", description: "", amount: "", gstRatePct: "18" };
 
 // A vendor bill, entered from the vendor's paper the way Zoho Books does it.
 // GST is never picked: the vendor's treatment and the source of supply decide
 // it (gst-rules.ts). Freight and loading on a goods bill follow the bill's
 // rate; a separate charges bill is tagged to the purchase for landed cost.
-export function BillForm({ vendors, catalog, purchases, pastBills, companyState, suggestedReference, initialKind, initialFor }: BillFormProps) {
+export function BillForm({ vendors, catalog, purchases, godowns, companyState, initialKind, initialFor, order, onSaved }: BillFormProps) {
   const today = useToday();
+  const router = useRouter();
+  const orderVendor = order && vendors.find((candidate) => candidate.id === order.vendorId);
+  const defaultGodown = godowns.find((godown) => godown.isDefault && !godown.archived) ?? godowns.find((godown) => !godown.archived);
+  const pendingLines = order?.lines.filter((line) => line.pending > 0) ?? [];
   const { heads, error: headsError } = useAccountHeads();
   const [result, setResult] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
@@ -83,22 +94,34 @@ export function BillForm({ vendors, catalog, purchases, pastBills, companyState,
     handleSubmit,
     setValue,
     getValues,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<BillFormValues>({
     resolver: zodResolver(billSchema),
     defaultValues: {
       kind: initialKind,
-      vendorId: "",
+      vendorId: order?.vendorId ?? "",
       vendorBillNumber: "",
       date: "",
       dueDate: "",
-      sourceOfSupply: "",
+      sourceOfSupply: orderVendor?.placeOfSupply ?? "",
       landedCostFor: initialFor ?? "",
+      godownId: order?.godownId ?? defaultGodown?.id ?? "",
+      purchaseOrderId: order?.id ?? "",
+      allocation: "value",
       ewayNumber: "",
       ewayDate: "",
       vehicleNumber: "",
       notes: "",
-      lines: [emptyLine],
+      lines: pendingLines.length
+        ? pendingLines.map((line) => ({
+            itemId: line.itemId,
+            orderLineId: line.id,
+            quantity: String(line.pending),
+            rate: String(line.rate),
+            discountPct: line.discountPct ? String(line.discountPct) : "",
+            itc: "eligible" as const,
+          }))
+        : [emptyLine],
       charges: initialKind === "charges" ? [emptyCharge] : [],
     },
   });
@@ -107,8 +130,10 @@ export function BillForm({ vendors, catalog, purchases, pastBills, companyState,
 
   // The date is only known in the browser (see useToday); fill it once.
   useEffect(() => {
-    if (today && !getValues("date")) setValue("date", today);
-  }, [today, getValues, setValue]);
+    if (!today || getValues("date")) return;
+    setValue("date", today);
+    if (orderVendor) setValue("dueDate", billDueDate(today, orderVendor));
+  }, [today, getValues, setValue, orderVendor]);
 
   const [kind, vendorId, sourceOfSupply, lines, charges, landedCostFor] = useWatch({
     control,
@@ -159,11 +184,22 @@ export function BillForm({ vendors, catalog, purchases, pastBills, companyState,
     if (rule?.fixed !== undefined) setValue(`charges.${index}.gstRatePct`, String(rule.fixed));
   };
 
-  // The item has no purchase price of its own; the last bill from this vendor suggests one.
-  const pickItem = (index: number, itemId: string) => {
+  // The item has no purchase price of its own; the last bill from this
+  // vendor (else any vendor) suggests one. Only a start: type what the bill says.
+  const [lastPaid, setLastPaid] = useState<Record<number, string>>({});
+  const pickItem = async (index: number, itemId: string) => {
     setValue(`lines.${index}.itemId`, itemId, { shouldValidate: true });
-    const rate = lastPurchaseRate(pastBills, itemId, vendorId);
-    if (rate !== undefined) setValue(`lines.${index}.rate`, String(rate));
+    setValue(`lines.${index}.orderLineId`, "");
+    try {
+      const [last] = await fetchLastRates(["last-rates", vendorId || undefined, itemId] as const);
+      if (last && !getValues(`lines.${index}.rate`)) setValue(`lines.${index}.rate`, String(last.rate));
+      setLastPaid((current) => ({
+        ...current,
+        [index]: last ? `Last paid ${formatRate(last.rate)} on ${formatDate(last.date)}${last.fromThisVendor ? "" : ` to ${last.vendorName}`}` : "Not bought before",
+      }));
+    } catch {
+      // Only a suggestion: the rate is typed from the bill anyway.
+    }
   };
 
   const toBillLine = (line?: BillFormValues["lines"][number]): BillLine | undefined => {
@@ -192,11 +228,49 @@ export function BillForm({ vendors, catalog, purchases, pastBills, companyState,
   const goodsRate = billChargeRate(billLines);
 
   const onSubmit = handleSubmit(
-    () =>
-      setResult({
-        tone: "success",
-        text: "The bill checks out. Saving, stock and the vendor's balance switch on when bills are connected to the database.",
-      }),
+    async (values) => {
+      setResult(null);
+      const goods = values.kind === "goods";
+      try {
+        const saved = await createBill({
+          kind: goods ? "GOODS" : "CHARGES",
+          vendorId: values.vendorId,
+          vendorBillNumber: values.vendorBillNumber,
+          date: values.date,
+          dueDate: values.dueDate || undefined,
+          sourceOfSupply: values.sourceOfSupply || null,
+          godownId: goods ? values.godownId : null,
+          purchaseOrderId: goods && values.purchaseOrderId ? values.purchaseOrderId : null,
+          allocation: values.allocation.toUpperCase(),
+          landedCostForId: !goods && values.landedCostFor ? values.landedCostFor : null,
+          ewayBillNumber: goods ? values.ewayNumber || null : null,
+          ewayBillDate: goods && values.ewayNumber ? values.ewayDate : null,
+          vehicleNumber: goods ? values.vehicleNumber || null : null,
+          notes: values.notes || null,
+          lines: goods
+            ? values.lines.map((line) => ({
+                itemId: line.itemId,
+                orderLineId: line.orderLineId || null,
+                quantity: Number(line.quantity),
+                rate: Number(line.rate),
+                discountPct: Number(line.discountPct) || 0,
+                gstRatePct: toBillLine(line)?.gstRatePct ?? 0,
+                itcEligible: line.itc === "eligible",
+              }))
+            : [],
+          charges: values.charges.map((charge) => ({
+            headId: charge.head,
+            description: charge.description || null,
+            amount: Number(charge.amount),
+            gstRatePct: goods ? undefined : (rateRuleFor(charge.head)?.fixed ?? Number(charge.gstRatePct)),
+          })),
+        });
+        await onSaved();
+        router.push(`/purchases/${saved.id}`);
+      } catch (error) {
+        setResult({ tone: "error", text: error instanceof ApiError ? error.message : "Could not save. Check the connection and try again." });
+      }
+    },
     () => setResult({ tone: "error", text: "Some fields need attention. See the ones marked in red above." }),
   );
 
@@ -211,13 +285,14 @@ export function BillForm({ vendors, catalog, purchases, pastBills, companyState,
         <GlassCard className="flex flex-col gap-3.5">
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>New bill</CardTitle>
-            <StatusChip tone="neutral">{suggestedReference}</StatusChip>
+            <StatusChip tone="neutral">Numbered on save</StatusChip>
+            {order && <StatusChip tone="brand">Against {order.number}</StatusChip>}
           </div>
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-medium text-muted">What is this bill for?</span>
             <FilterGroup label="What is this bill for?">
               {(["goods", "charges"] as const).map((option) => (
-                <FilterChip key={option} selected={kind === option} onClick={() => pickKind(option)}>
+                <FilterChip key={option} selected={kind === option} disabled={Boolean(order) && option === "charges"} onClick={() => pickKind(option)}>
                   {KIND_TEXT[option].label}
                 </FilterChip>
               ))}
@@ -232,6 +307,7 @@ export function BillForm({ vendors, catalog, purchases, pastBills, companyState,
                 options={eligibleVendors.map((candidate) => ({ value: candidate.id, label: `${candidate.displayName} · ${placeOf(candidate)}` }))}
                 value={vendorId || undefined}
                 onValueChange={pickVendor}
+                disabled={Boolean(order)}
               />
               {errorText(errors.vendorId?.message)}
               {vendor && (
@@ -277,6 +353,30 @@ export function BillForm({ vendors, catalog, purchases, pastBills, companyState,
               {...register("dueDate")}
             />
           </div>
+          {isGoods && (
+            <div className="grid gap-3.5 @xl:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Controller
+                  control={control}
+                  name="godownId"
+                  render={({ field }) => (
+                    <SelectField
+                      label="Received into"
+                      options={godowns.filter((godown) => !godown.archived).map((godown) => ({ value: godown.id, label: godown.name }))}
+                      value={field.value || undefined}
+                      onValueChange={field.onChange}
+                    />
+                  )}
+                />
+                {errorText(errors.godownId?.message)}
+              </div>
+              {order && (
+                <p className="self-end text-xs font-semibold text-muted">
+                  The lines below are what {order.number} still has to come. Change the quantities to what arrived; remove what did not.
+                </p>
+              )}
+            </div>
+          )}
           {tax && (
             <div className={tax.itc ? "glass-inset rounded-(--radius-tile) px-4 py-3" : "rounded-(--radius-tile) bg-warning-tint px-4 py-3"}>
               <p className="flex flex-wrap items-center gap-2 text-sm font-semibold">
@@ -304,10 +404,23 @@ export function BillForm({ vendors, catalog, purchases, pastBills, companyState,
                         control={control}
                         name={`lines.${index}.itemId`}
                         render={({ field: itemField }) => (
-                          <SelectField label="Item" options={itemOptions} value={itemField.value || undefined} onValueChange={(value) => pickItem(index, value)} />
+                          <SelectField
+                            label="Item"
+                            options={itemOptions}
+                            value={itemField.value || undefined}
+                            onValueChange={(value) => void pickItem(index, value)}
+                            disabled={Boolean(lines?.[index]?.orderLineId)}
+                          />
                         )}
                       />
                       {errorText(lineErrors?.itemId?.message)}
+                      {lines?.[index]?.orderLineId ? (
+                        <p className="text-xs font-semibold text-muted">
+                          From {order?.number}: {formatQuantity(order?.lines.find((row) => row.id === lines[index].orderLineId)?.pending ?? 0)} pending
+                        </p>
+                      ) : (
+                        lastPaid[index] && <p className="text-xs font-semibold text-muted">{lastPaid[index]}</p>
+                      )}
                     </div>
                     <TextField
                       label={`Quantity${line ? ` (${line.unit})` : ""}`}
@@ -438,6 +551,24 @@ export function BillForm({ vendors, catalog, purchases, pastBills, companyState,
             <Plus aria-hidden="true" className="size-[18px]" />
             Add a charge
           </Button>
+          {isGoods && (
+            <Controller
+              control={control}
+              name="allocation"
+              render={({ field }) => (
+                <div className="flex flex-col gap-1.5">
+                  <FilterGroup label="Spread freight and tagged bills over the items by">
+                    {LANDED_COST_METHODS.map((option) => (
+                      <FilterChip key={option.value} selected={field.value === option.value} onClick={() => field.onChange(option.value)}>
+                        {option.label}
+                      </FilterChip>
+                    ))}
+                  </FilterGroup>
+                  <p className="text-xs font-semibold text-muted">{LANDED_COST_METHODS.find((option) => option.value === field.value)?.hint}. It can be changed on the bill later.</p>
+                </div>
+              )}
+            />
+          )}
 
           {!isGoods &&
             (landsOnPurchase ? (
@@ -479,8 +610,8 @@ export function BillForm({ vendors, catalog, purchases, pastBills, companyState,
           </div>
           {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
           <div className="flex flex-wrap gap-2.5">
-            <Button type="submit" size="lg">
-              Save bill
+            <Button type="submit" size="lg" disabled={isSubmitting}>
+              {isSubmitting ? "Saving…" : "Save bill"}
             </Button>
             <Link href="/purchases" className={buttonClasses("neutral", "ml-auto", "lg")}>
               Back to bills

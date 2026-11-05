@@ -25,6 +25,7 @@ export const STAGE_TONE: Record<QuotationStage, StatusTone> = {
   Expired: "warning",
   Accepted: "success",
   Rejected: "danger",
+  Cancelled: "neutral",
   Converted: "success",
 };
 
@@ -97,7 +98,7 @@ export function QuotationsWorkspace({ quotations, parties, items, companyState }
             </tr>
           </thead>
           <tbody className="text-right font-semibold tabular-nums">
-            {visible.map(({ quotation, party, stage, totals, profit }) => (
+            {visible.map(({ quotation, party, stage, totals, profit, costKnown }) => (
               <tr key={quotation.id} className="align-top">
                 <td className="text-left">
                   <Link href={`/quotations/${quotation.id}`} className="font-semibold hover:text-brand hover:underline">
@@ -111,7 +112,7 @@ export function QuotationsWorkspace({ quotations, parties, items, companyState }
                   <div className="font-semibold">{party.displayName}</div>
                 </td>
                 <td className="font-semibold">{formatInr(totals.grandTotal)}</td>
-                <td className={profit.marginPct < 8 ? "text-danger-strong" : undefined}>{formatPercent(profit.marginPct)}</td>
+                <td className={costKnown && profit.marginPct < 8 ? "text-danger-strong" : undefined}>{costKnown ? formatPercent(profit.marginPct) : <span className="text-muted">No cost yet</span>}</td>
                 <td className="text-left">{formatDayMonth(quotation.validUntil)}</td>
                 <td className="text-left">
                   <StatusChip tone={STAGE_TONE[stage]}>{stage}</StatusChip>

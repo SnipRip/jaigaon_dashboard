@@ -14,7 +14,7 @@ import { ImportDialog } from "@/components/ui/import-dialog";
 import { SearchField } from "@/components/ui/search-field";
 import { StatTile } from "@/components/ui/stat-tile";
 import type { StatusTone } from "@/components/ui/status-chip";
-import { Tooltip } from "@/components/ui/tooltip";
+import { IconAction } from "@/components/ui/icon-action";
 import { fromFormValues, newId, type FieldSpec, type FormValues } from "./record-fields";
 import { RecordForm } from "./record-form";
 import { ApiError } from "@/lib/api-client";
@@ -315,22 +315,3 @@ export function RecordMaster<T extends MasterRecord>({
 }
 
 const messageOf = (error: unknown) => (error instanceof ApiError ? error.message : "Could not save. Check the connection and try again.");
-
-function IconAction({ label, onClick, danger, children }: { label: string; onClick: () => void; danger?: boolean; children: ReactNode }) {
-  return (
-    <Tooltip label={label}>
-      <button
-        type="button"
-        aria-label={label}
-        onClick={onClick}
-        className={
-          danger
-            ? "glass-control glass-press flex size-9 items-center justify-center text-danger-strong hover:bg-danger-tint/80"
-            : "glass-control glass-press flex size-9 items-center justify-center text-ink-soft hover:bg-white/80"
-        }
-      >
-        {children}
-      </button>
-    </Tooltip>
-  );
-}

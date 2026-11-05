@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { dateOnly, todayInIndia } from '../common/dates.js';
+import { dateOnly, isoDate, todayInIndia } from '../common/dates.js';
 import { toNumber } from '../common/decimal.js';
 import { PrismaService } from '../database/prisma.service.js';
 import { itemCostSource, itemCosts, type ItemCosts } from '../items/item-costs.js';
@@ -25,12 +25,22 @@ export interface LineRateOptionsView extends Pick<RateQuote, 'rate' | 'source'> 
   /** What the margin is worked out on: the day's cost from the sheet, else the last landed cost. */
   marginCost: number | null;
   costs: ItemCosts;
+  /** The latest quotation line for this customer and item (sent, not a draft or cancelled): its rate after the line's discount. */
+  lastQuoted: PastRate | null;
+  /** The latest invoice line for this customer and item. Null until invoices are stored. */
+  lastSold: PastRate | null;
+}
+
+export interface PastRate {
+  rate: number;
+  date: string;
+  number: string;
+  documentId: string;
 }
 
 // The rate order is in pricing-rules.ts. This loads its inputs for many
-// items in four queries, whatever the number of lines. Last quoted and last
-// sold join in once quotations and invoices are stored
-// (agent/selling-rate-plan.md, section 4).
+// items in five queries, whatever the number of lines. Last sold joins in
+// once invoices are stored (agent/selling-rate-plan.md, section 4).
 @Injectable()
 export class LineRateOptionsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -47,7 +57,7 @@ export class LineRateOptionsService {
       ...new Set(items.flatMap((item) => (item.subCategoryId ? [item.categoryId, item.subCategoryId] : [item.categoryId]))),
     ];
 
-    const [covering, previous, specials] = await Promise.all([
+    const [covering, previous, specials, quoted] = await Promise.all([
       this.prisma.itemPrice.findMany({
         where: { itemId: { in: dto.itemIds }, isArchived: false, validFrom: { lte: day }, validTill: { gte: day } },
       }),
@@ -58,6 +68,7 @@ export class LineRateOptionsService {
         distinct: ['itemId'],
       }),
       dto.partyId ? this.specialRatesFor(dto.partyId, dto.itemIds, categoryIds) : Promise.resolve([]),
+      dto.partyId ? this.lastQuoted(dto.partyId, dto.itemIds, day, dto.excludeQuotationId) : Promise.resolve(new Map<string, PastRate>()),
     ]);
     const entriesOf = byItem(covering.map(toItemPriceView));
     const previousOf = new Map(previous.map((entry) => [entry.itemId, toItemPriceView(entry)]));
@@ -88,9 +99,41 @@ export class LineRateOptionsService {
           : null,
         floor: prices?.minSellingPrice ?? null,
         marginCost: prices?.costPrice ?? master.costPrice,
-        costs: itemCosts(row.openingStock),
+        costs: itemCosts(row),
+        lastQuoted: quoted.get(item.id) ?? null,
+        lastSold: null,
       };
     });
+  }
+
+  /**
+   * One row per item: the newest line quoted to this customer on or before
+   * the date (a top-1 scan of the partyId, itemId, date index). Drafts were
+   * never given to the customer and cancelled ones were withdrawn.
+   */
+  private async lastQuoted(partyId: string, itemIds: string[], day: Date, excludeQuotationId?: string): Promise<Map<string, PastRate>> {
+    const lines = await this.prisma.quotationLine.findMany({
+      where: {
+        partyId,
+        itemId: { in: itemIds },
+        date: { lte: day },
+        quotation: { status: { in: ['SENT', 'ACCEPTED', 'REJECTED'] }, ...(excludeQuotationId ? { id: { not: excludeQuotationId } } : {}) },
+      },
+      orderBy: [{ itemId: 'asc' }, { date: 'desc' }, { quotation: { createdAt: 'desc' } }],
+      distinct: ['itemId'],
+      select: { itemId: true, rate: true, discountPct: true, date: true, quotation: { select: { id: true, number: true, revision: true } } },
+    });
+    return new Map(
+      lines.map((line) => [
+        line.itemId,
+        {
+          rate: Math.round(toNumber(line.rate) * (1 - toNumber(line.discountPct) / 100) * 100) / 100,
+          date: isoDate(line.date),
+          number: line.quotation.revision ? `${line.quotation.number}-R${line.quotation.revision}` : line.quotation.number,
+          documentId: line.quotation.id,
+        },
+      ]),
+    );
   }
 
   private async specialRatesFor(partyId: string, itemIds: string[], categoryIds: string[]) {

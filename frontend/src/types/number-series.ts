@@ -5,6 +5,7 @@ export type NumberedKind =
   | "QUOTATION"
   | "SALES_INVOICE"
   | "EXPORT_INVOICE"
+  | "PURCHASE_ORDER"
   | "PURCHASE"
   | "RECEIPT"
   | "PAYMENT"

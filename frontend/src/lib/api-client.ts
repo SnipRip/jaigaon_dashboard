@@ -13,7 +13,7 @@ export class ApiError extends Error {
 }
 
 interface ApiRequestOptions {
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   /** JSON, or FormData for a file upload (the browser sets its content type). */
   body?: unknown;
   /** Set on the login call, where a 401 means wrong credentials, not an expired session. */

@@ -42,10 +42,7 @@ export function QuotationDocument({ quotation, party, issuer, tax, totals }: Quo
       <section className="mt-3">
         <p className="text-[11px] font-semibold text-muted">To</p>
         <p className="font-semibold">{party.legalName ?? party.displayName}</p>
-        <p>
-          {party.billing.line1}, {party.billing.city}
-          {party.billing.stateCode ? `, ${stateName(party.billing.stateCode)}` : party.billing.country ? `, ${party.billing.country}` : ""}
-        </p>
+        <p>{[party.billing.line1, party.billing.city, party.billing.stateCode ? stateName(party.billing.stateCode) : party.billing.country].filter(Boolean).join(", ")}</p>
         {party.gstin && <p>GSTIN {party.gstin}</p>}
       </section>
 
@@ -63,10 +60,19 @@ export function QuotationDocument({ quotation, party, issuer, tax, totals }: Quo
           </tr>
         </thead>
         <tbody className="tabular-nums">
-          {quotation.lines.map((line, index) => (
-            <tr key={line.itemId} className="border-b border-ink/15">
+          {quotation.lines.map((line, index) => {
+            const saved = quotation.stored?.lines[index];
+            return (
+            <tr key={index} className="border-b border-ink/15">
               <td className="py-1.5 pr-2">{index + 1}</td>
-              <td className="py-1.5 pr-2 font-semibold">{line.description}</td>
+              <td className="py-1.5 pr-2 font-semibold">
+                {line.description}
+                {saved && saved.freeQuantity > 0 && (
+                  <span className="block text-[11px] font-normal">
+                    + {formatQuantity(saved.freeQuantity)} {line.unit} free under the scheme
+                  </span>
+                )}
+              </td>
               <td className="py-1.5 pr-2">{line.hsn}</td>
               <td className="py-1.5 pr-2 text-right">
                 {formatQuantity(line.quantity)} {line.unit}
@@ -76,7 +82,8 @@ export function QuotationDocument({ quotation, party, issuer, tax, totals }: Quo
               <td className="py-1.5 pr-2 text-right">{line.gstRatePct}%</td>
               <td className="py-1.5 text-right">{formatRate(lineTotals(line, "no-gst").taxable)}</td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
 
@@ -87,6 +94,20 @@ export function QuotationDocument({ quotation, party, issuer, tax, totals }: Quo
           {quotation.notes && <p className="mt-2 font-semibold">{quotation.notes}</p>}
         </div>
         <dl className="min-w-[220px] tabular-nums">
+          {quotation.stored && quotation.stored.totals.schemeDiscount > 0 && (
+            <>
+              <div className="flex justify-between gap-3.5">
+                <dt>Items</dt>
+                <dd>{formatRate(quotation.stored.totals.gross)}</dd>
+              </div>
+              {schemeNames(quotation.stored).map((scheme) => (
+                <div key={scheme.name} className="flex justify-between gap-3.5">
+                  <dt>Less {scheme.name}</dt>
+                  <dd>− {formatRate(scheme.amount)}</dd>
+                </div>
+              ))}
+            </>
+          )}
           <div className="flex justify-between gap-3.5">
             <dt>Value before GST</dt>
             <dd>{formatRate(totals.taxable)}</dd>
@@ -119,4 +140,13 @@ export function QuotationDocument({ quotation, party, issuer, tax, totals }: Quo
       <p className="mt-6 text-right font-semibold">For {issuer.legalName}</p>
     </article>
   );
+}
+
+/** Each scheme's rupees over the whole quotation, for the printed totals. */
+function schemeNames(stored: NonNullable<Quotation["stored"]>) {
+  const totals = new Map<string, number>();
+  for (const line of stored.lines) {
+    for (const applied of line.schemes) if (applied.amount) totals.set(applied.name, Math.round(((totals.get(applied.name) ?? 0) + applied.amount) * 100) / 100);
+  }
+  return [...totals].map(([name, amount]) => ({ name, amount }));
 }

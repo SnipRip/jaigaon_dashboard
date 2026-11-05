@@ -38,4 +38,16 @@ export interface LineRateOptionsView {
   /** The day's cost from the sheet, else the last landed cost; null before any stock. */
   marginCost: number | null;
   costs: { lastLandedCost: number | null; stockCost: number | null };
+  /** The latest line quoted to this customer (not a draft or cancelled), after its discount. */
+  lastQuoted: PastRateView | null;
+  /** The latest invoice line sold to this customer; null until invoices are stored. */
+  lastSold: PastRateView | null;
+}
+
+export interface PastRateView {
+  rate: number;
+  date: string;
+  /** QT/2627/0041-R1 */
+  number: string;
+  documentId: string;
 }

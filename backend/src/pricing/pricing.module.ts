@@ -10,6 +10,6 @@ import { SpecialRatesService } from './special-rates.service.js';
   controllers: [SpecialRatesController, LineRateOptionsController],
   providers: [SpecialRatesService, LineRateOptionsService],
   // The importer (src/imports) saves rows through it.
-  exports: [SpecialRatesService],
+  exports: [SpecialRatesService, LineRateOptionsService],
 })
 export class PricingModule {}

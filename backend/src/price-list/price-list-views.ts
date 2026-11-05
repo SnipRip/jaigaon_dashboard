@@ -3,7 +3,7 @@
 import { isoDate } from '../common/dates.js';
 import { toNumber } from '../common/decimal.js';
 import type { Item, ItemPrice } from '../generated/prisma/client.js';
-import { itemCosts } from '../items/item-costs.js';
+import { itemCosts, type CostSource } from '../items/item-costs.js';
 import type { ItemMasterPrices, ItemPriceFacts } from './price-list-rules.js';
 
 export interface ItemPriceView extends ItemPriceFacts {
@@ -58,10 +58,8 @@ export const toItemPriceView = (
 
 /** `item` is selected with `itemCostSource` so its cost can be worked out. */
 export const toItemMasterPrices = (
-  item: Pick<Item, 'mrp'> & {
-    openingStock: Parameters<typeof itemCosts>[0];
-  },
+  item: Pick<Item, 'mrp'> & CostSource,
 ): ItemMasterPrices => ({
   mrp: toNumber(item.mrp),
-  costPrice: itemCosts(item.openingStock).lastLandedCost,
+  costPrice: itemCosts(item).lastLandedCost,
 });

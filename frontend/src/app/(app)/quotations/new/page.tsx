@@ -1,15 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { SampleDataNotice } from "@/components/ui/sample-data-notice";
-import { COMPANY_TAX_PROFILE } from "@/features/gst/company-tax-profile";
-import { hsnCodes } from "@/features/hsn/sample-data";
-import { invoices } from "@/features/invoices/sample-data";
-import { categories, itemGroups, items, sampleRateSheet } from "@/features/items/sample-data";
-import { parties } from "@/features/parties/sample-data";
-import { QuotationForm } from "@/features/quotations/quotation-form";
-import { quotationNumber } from "@/features/quotations/quotation-rules";
-import { nextQuotationSequence, quotations } from "@/features/quotations/sample-data";
-import { specialRates } from "@/features/rates/sample-data";
+import { NewQuotationScreen } from "@/features/quotations/quotation-screens";
 
 export const metadata: Metadata = { title: "New quotation" };
 
@@ -20,34 +11,13 @@ type SearchParams = PageProps<"/quotations/new">["searchParams"];
 // inside a Suspense boundary.
 export default function NewQuotationPage({ searchParams }: { searchParams: SearchParams }) {
   return (
-    <>
-      <SampleDataNotice />
-      <Suspense>
-        <Form searchParams={searchParams} />
-      </Suspense>
-    </>
+    <Suspense>
+      <Form searchParams={searchParams} />
+    </Suspense>
   );
 }
 
 async function Form({ searchParams }: { searchParams: SearchParams }) {
   const { customer, lines } = await searchParams;
-  const carried = (typeof lines === "string" ? lines.split(",") : [])
-    .map((entry) => {
-      const [sku, quantity] = entry.split(":");
-      const item = items.find((candidate) => candidate.sku === sku);
-      return item && Number(quantity) > 0 ? { itemId: item.id, quantity: Number(quantity) } : undefined;
-    })
-    .filter((line) => line !== undefined);
-  const partyId = typeof customer === "string" && parties.some((party) => party.id === customer) ? customer : undefined;
-
-  return (
-    <QuotationForm
-      customers={parties.filter((party) => party.roles.includes("customer"))}
-      catalog={{ categories, groups: itemGroups, items, hsnCodes }}
-      pricing={{ specialRates, rateSheet: sampleRateSheet, history: { quotations, invoices } }}
-      companyState={COMPANY_TAX_PROFILE.stateCode}
-      suggestedNumber={quotationNumber("2026-27", nextQuotationSequence)}
-      initial={{ partyId, lines: carried }}
-    />
-  );
+  return <NewQuotationScreen customer={typeof customer === "string" ? customer : undefined} lines={typeof lines === "string" ? lines : undefined} />;
 }
