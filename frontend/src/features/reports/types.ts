@@ -1,5 +1,6 @@
-// A report is a table: typed columns and plain rows, so one viewer can
-// filter, total, print and download any of them as CSV.
+// A report is a table: typed columns here, plain rows from the backend
+// (GET /reports/:id), so one viewer can filter, total, print and download
+// any of them as CSV.
 
 export interface ReportColumn {
   key: string;
@@ -20,9 +21,15 @@ export interface Report {
   group: (typeof REPORT_GROUPS)[number];
   description: string;
   columns: ReportColumn[];
-  rows: ReportRow[];
-  /** Column holding the date the period filter uses. */
-  dateKey?: string;
+  /** Covers a period (From / To, this financial year by default); otherwise it shows where things stand today. */
+  period: boolean;
   /** Column holding the party name the party filter uses. */
   partyKey?: string;
+}
+
+/** A report's rows as the backend returns them; from / to are null for a report of today. */
+export interface ReportDataView {
+  from: string | null;
+  to: string | null;
+  rows: ReportRow[];
 }

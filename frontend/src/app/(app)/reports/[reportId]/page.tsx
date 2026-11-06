@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { SampleDataNotice } from "@/components/ui/sample-data-notice";
-import { expenses } from "@/features/expenses/sample-data";
-import { ExpensesByHeadView } from "@/features/reports/expenses-by-head-view";
 import { findReport, REPORTS } from "@/features/reports/report-definitions";
 import { ReportListNav } from "@/features/reports/report-list-nav";
 import { ReportView } from "@/features/reports/report-view";
@@ -32,13 +29,12 @@ async function ReportBody({ params }: { params: ReportParams }) {
   if (!report) notFound();
   return (
     <>
-      <SampleDataNotice />
       <div className="flex flex-wrap items-start gap-3.5">
         <div className="flex-[1_1_200px] lg:max-w-[230px]">
           <ReportListNav reports={REPORTS} activeId={report.id} />
         </div>
         <div className="min-w-0 flex-[999_1_560px]">
-          {report.id === "expenses" ? <ExpensesByHeadView report={report} expenses={expenses} /> : <ReportView report={report} />}
+          <ReportView report={report} />
         </div>
       </div>
     </>

@@ -3,14 +3,18 @@
 import { Download, Printer } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { GlassTable } from "@/components/ui/glass-table";
 import { SearchField } from "@/components/ui/search-field";
 import { SelectField } from "@/components/ui/select-field";
+import { LoadNotice } from "@/components/ui/load-notice";
 import { TextField } from "@/components/ui/text-field";
+import { apiGet } from "@/lib/api-client";
 import { formatDate, formatInr, formatQuantity } from "@/lib/format";
-import type { Report, ReportColumn, ReportRow } from "./types";
+import { reportPath } from "./reports-api";
+import type { Report, ReportColumn, ReportDataView, ReportRow } from "./types";
 
 const ALL = "all";
 
@@ -35,25 +39,27 @@ const csvCell = (value: string | number | undefined) => {
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 };
 
-// Any report: period and party filters, search, totals, print and a CSV
-// download built in the browser (opens in Excel; Tally import uses it).
+// Any report: the backend works out the rows for the period (this financial
+// year when From / To are blank); party filter, search, totals, print and a
+// CSV download happen in the browser (opens in Excel; Tally import uses it).
 export function ReportView({ report }: { report: Report }) {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [party, setParty] = useState(ALL);
   const [query, setQuery] = useState("");
+  const loaded = useSWR<ReportDataView>(reportPath(report.id, report.period ? { from, to } : {}), apiGet, { keepPreviousData: true });
+  // A refused period (To before From) hides the last period's rows rather than showing them under the error.
+  const { error } = loaded;
+  const data = error ? undefined : loaded.data;
+  const rows = data?.rows ?? [];
   const needle = query.trim().toLowerCase();
-  const parties = report.partyKey ? [...new Set(report.rows.map((row) => String(row[report.partyKey!])))].sort() : [];
+  const parties = report.partyKey ? [...new Set(rows.map((row) => String(row[report.partyKey!])))].sort() : [];
 
-  const visible = report.rows.filter((row) => {
-    const date = report.dateKey ? String(row[report.dateKey]) : undefined;
-    return (
-      (!from || !date || date >= from) &&
-      (!to || !date || date <= to) &&
+  const visible = rows.filter(
+    (row) =>
       (party === ALL || !report.partyKey || row[report.partyKey] === party) &&
-      (!needle || report.columns.some((column) => String(row[column.key] ?? "").toLowerCase().includes(needle)))
-    );
-  });
+      (!needle || report.columns.some((column) => String(row[column.key] ?? "").toLowerCase().includes(needle))),
+  );
   const totalled = report.columns.filter((column) => (column.kind === "money" || column.kind === "quantity") && column.total !== false);
   const totalOf = (key: string) => Math.round(visible.reduce((sum, row) => sum + Number(row[key] ?? 0), 0) * 100) / 100;
 
@@ -62,7 +68,7 @@ export function ReportView({ report }: { report: Report }) {
     const url = URL.createObjectURL(new Blob([`﻿${lines.join("\r\n")}`], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${report.id}${from ? `-from-${from}` : ""}${to ? `-to-${to}` : ""}.csv`;
+    link.download = `${report.id}${data?.from ? `-from-${data.from}` : ""}${data?.to ? `-to-${data.to}` : ""}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -70,7 +76,7 @@ export function ReportView({ report }: { report: Report }) {
   return (
     <div className="flex flex-col gap-3.5">
       <GlassCard className="flex flex-wrap items-end gap-3">
-        {report.dateKey && (
+        {report.period && (
           <>
             <div className="w-[150px]">
               <TextField label="From" type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
@@ -107,49 +113,53 @@ export function ReportView({ report }: { report: Report }) {
           <CardTitle>{report.title}</CardTitle>
           <p className="text-sm font-medium text-muted">
             {report.description}
-            {(from || to) && ` Period ${from ? formatDate(from) : "start"} to ${to ? formatDate(to) : "today"}.`}
+            {data?.from && data.to && ` Period ${formatDate(data.from)} to ${formatDate(data.to)}.`}
+            {data && !report.period && " As it stands today."}
           </p>
         </div>
-        <GlassTable className="min-w-[760px]">
-          <thead>
-            <tr>
-              {report.columns.map((column) => (
-                <th key={column.key} scope="col" className={column.kind === "text" || column.kind === "date" ? "text-left" : "text-right"}>
-                  {column.label}
-                </th>
+        {!data && <LoadNotice error={error} what="the report" />}
+        {data && (
+          <GlassTable className="min-w-[760px]">
+            <thead>
+              <tr>
+                {report.columns.map((column) => (
+                  <th key={column.key} scope="col" className={column.kind === "text" || column.kind === "date" ? "text-left" : "text-right"}>
+                    {column.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="font-semibold tabular-nums">
+              {visible.map((row: ReportRow, index) => (
+                <tr key={index}>
+                  {report.columns.map((column, columnIndex) => (
+                    <td key={column.key} className={column.kind === "text" || column.kind === "date" ? "text-left" : "text-right"}>
+                      {columnIndex === 1 && row.href ? (
+                        <Link href={row.href} className="font-semibold hover:text-brand hover:underline">
+                          {show(column, row[column.key])}
+                        </Link>
+                      ) : (
+                        show(column, row[column.key])
+                      )}
+                    </td>
+                  ))}
+                </tr>
               ))}
-            </tr>
-          </thead>
-          <tbody className="font-semibold tabular-nums">
-            {visible.map((row: ReportRow, index) => (
-              <tr key={index}>
-                {report.columns.map((column, columnIndex) => (
-                  <td key={column.key} className={column.kind === "text" || column.kind === "date" ? "text-left" : "text-right"}>
-                    {columnIndex === 1 && row.href ? (
-                      <Link href={row.href} className="font-semibold hover:text-brand hover:underline">
-                        {show(column, row[column.key])}
-                      </Link>
-                    ) : (
-                      show(column, row[column.key])
-                    )}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-          {totalled.length > 0 && (
-            <tfoot className="font-semibold tabular-nums">
-              <tr className="border-t border-line">
-                {report.columns.map((column, index) => (
-                  <td key={column.key} className={column.kind === "text" || column.kind === "date" ? "text-left" : "text-right"}>
-                    {totalled.includes(column) ? show(column, totalOf(column.key)) : index === 0 ? "Total" : ""}
-                  </td>
-                ))}
-              </tr>
-            </tfoot>
-          )}
-        </GlassTable>
-        {visible.length === 0 && <p className="py-6 text-center text-[13px] text-muted">No rows in this period.</p>}
+            </tbody>
+            {totalled.length > 0 && (
+              <tfoot className="font-semibold tabular-nums">
+                <tr className="border-t border-line">
+                  {report.columns.map((column, index) => (
+                    <td key={column.key} className={column.kind === "text" || column.kind === "date" ? "text-left" : "text-right"}>
+                      {totalled.includes(column) ? show(column, totalOf(column.key)) : index === 0 ? "Total" : ""}
+                    </td>
+                  ))}
+                </tr>
+              </tfoot>
+            )}
+          </GlassTable>
+        )}
+        {data && visible.length === 0 && <p className="py-6 text-center text-[13px] text-muted">{report.period ? "No rows in this period." : "No rows."}</p>}
       </GlassCard>
     </div>
   );

@@ -1,12 +1,11 @@
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
-import { formatQuantity } from "@/lib/format";
 import { REPORT_GROUPS, type Report } from "./types";
 
 // Reports & MIS (SOW 16): every report, grouped, each opening in the same
 // viewer with filters, totals, print and CSV download.
-export function ReportsCatalogue({ reports }: { reports: Pick<Report, "id" | "title" | "group" | "description" | "rows">[] }) {
+export function ReportsCatalogue({ reports }: { reports: Pick<Report, "id" | "title" | "group" | "description" | "period">[] }) {
   return (
     <div className="flex flex-col gap-3.5">
       {REPORT_GROUPS.map((group) => {
@@ -24,7 +23,7 @@ export function ReportsCatalogue({ reports }: { reports: Pick<Report, "id" | "ti
                       <ArrowRight aria-hidden="true" className="ml-auto size-5 text-muted transition-transform group-hover:translate-x-0.5" />
                     </div>
                     <p className="text-sm font-medium text-muted">{report.description}</p>
-                    <p className="mt-auto text-xs font-semibold text-ink-soft">{formatQuantity(report.rows.length)} rows in the sample</p>
+                    <p className="mt-auto text-xs font-semibold text-ink-soft">{report.period ? "This financial year, or pick a period" : "As it stands today"}</p>
                   </GlassCard>
                 </Link>
               ))}

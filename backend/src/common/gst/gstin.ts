@@ -1,5 +1,6 @@
 // GSTIN format and check digit, and the GST state codes. The frontend has the
 // same rules in features/gst/gstin.ts and indian-states.ts.
+import { STATE_NAMES } from './state-names.js';
 
 // 15 characters: state code (2), PAN (10), entity number (1), "Z", check character (1).
 const GSTIN_PATTERN = /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
@@ -31,22 +32,5 @@ export function gstinProblem(gstin: string): string | null {
 export const gstinStateCode = (gstin: string) => gstin.slice(0, 2);
 export const gstinPan = (gstin: string) => gstin.slice(2, 12);
 
-/** GST state codes in use. 25 (Daman & Diu) merged into 26 in 2020; 97 is Other Territory. */
-export const STATE_CODES = new Set([
-  ...Array.from({ length: 24 }, (_, index) =>
-    String(index + 1).padStart(2, '0'),
-  ),
-  '26',
-  '27',
-  '29',
-  '30',
-  '31',
-  '32',
-  '33',
-  '34',
-  '35',
-  '36',
-  '37',
-  '38',
-  '97',
-]);
+/** GST state codes in use (state-names.ts). */
+export const STATE_CODES = new Set(Object.keys(STATE_NAMES));
