@@ -8,6 +8,7 @@
 // trading account) and the loss or gain lands in net profit. Transfers move
 // stock between godowns at cost and post nothing. Pure.
 import type { Posting } from './statements.js';
+import { SEEDED_NAMES } from './system-ledgers.js';
 
 export interface PostedAdjustment {
   direction: 'IN' | 'OUT';
@@ -22,9 +23,9 @@ export interface StockLedgerNames {
 }
 
 export const DEFAULT_STOCK_LEDGERS: StockLedgerNames = {
-  writeOff: 'Stock Written Off',
-  found: 'Stock Excess Found',
-  adjustment: 'Stock Adjustment',
+  writeOff: SEEDED_NAMES.STOCK_WRITE_OFF,
+  found: SEEDED_NAMES.STOCK_FOUND,
+  adjustment: SEEDED_NAMES.STOCK_ADJUSTMENT,
 };
 
 const round2 = (value: number) => Math.round(value * 100) / 100;

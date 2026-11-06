@@ -132,6 +132,8 @@ export interface StatementLine {
   /** In the side's normal sign: expenses and assets as debits, incomes and liabilities as credits. */
   amount: number;
   group?: GroupBalance;
+  /** A sub-group shown on the other side because its balance runs the other way (the primary group it belongs to). */
+  movedFrom?: string;
 }
 
 export interface ProfitAndLoss {
@@ -150,6 +152,29 @@ export interface ProfitAndLoss {
 type GroupMeta = Map<string, GroupNode>;
 
 const line = (group: GroupBalance, sign: 1 | -1): StatementLine => ({ name: group.name, amount: round2(sign * group.closing), group });
+
+/**
+ * A sub-group whose balance runs against its side (input GST above output
+ * GST under Duties & Taxes, advances to vendors under Sundry Creditors,
+ * advances from customers under Sundry Debtors) is not a liability or an
+ * asset of that side: the sheet shows it on the other side, as Schedule III
+ * presents it, instead of a minus figure. Both totals change by the same
+ * amount, so the sheet still balances. `sign` is the side's normal sign.
+ */
+function splitWrongSide(group: GroupBalance, sign: 1 | -1): { kept: GroupBalance; moved: GroupBalance[] } {
+  const moved = group.groups.filter((child) => sign * child.closing < 0);
+  if (!moved.length) return { kept: group, moved };
+  const less = (field: 'opening' | 'debit' | 'credit' | 'closing') => round2(group[field] - moved.reduce((total, child) => total + child[field], 0));
+  const kept = {
+    ...group,
+    opening: less('opening'),
+    debit: less('debit'),
+    credit: less('credit'),
+    closing: less('closing'),
+    groups: group.groups.filter((child) => !moved.includes(child)),
+  };
+  return { kept, moved };
+}
 
 /**
  * Tally's horizontal P&L with gross profit: Opening Stock, Purchase Accounts
@@ -203,14 +228,21 @@ export interface BalanceSheet {
  */
 export function balanceSheet(trial: TrialBalance, meta: GroupMeta, netProfit: number, stock: { opening: number; closing: number }): BalanceSheet {
   const sheet = trial.groups.filter((group) => isBalanceSheet(placeOf(meta, group.id).nature));
-  const liabilities = sheet.filter((group) => placeOf(meta, group.id).nature === 'LIABILITY').map((group) => line(group, -1));
+  const liabilityGroups = sheet.filter((group) => placeOf(meta, group.id).nature === 'LIABILITY').map((group) => splitWrongSide(group, -1));
+  const assetGroups = sheet.filter((group) => placeOf(meta, group.id).nature === 'ASSET').map((group) => splitWrongSide(group, 1));
+  const movedLine = (child: GroupBalance, from: GroupBalance, sign: 1 | -1): StatementLine => ({ ...line(child, sign), movedFrom: from.name });
+  const liabilities = [
+    ...liabilityGroups.map(({ kept }) => line(kept, -1)),
+    ...assetGroups.flatMap(({ kept, moved }) => moved.map((child) => movedLine(child, kept, -1))),
+  ];
   // Opening stock sits in Stock-in-Hand's opening; the sheet carries closing stock instead.
-  const assets = sheet
-    .filter((group) => placeOf(meta, group.id).nature === 'ASSET')
-    .map((group) => {
-      const assetLine = line(group, 1);
-      return group.name === 'Current Assets' ? { ...assetLine, amount: round2(assetLine.amount - stock.opening + stock.closing) } : assetLine;
-    });
+  const assets = [
+    ...assetGroups.map(({ kept }) => {
+      const assetLine = line(kept, 1);
+      return kept.name === 'Current Assets' ? { ...assetLine, amount: round2(assetLine.amount - stock.opening + stock.closing) } : assetLine;
+    }),
+    ...liabilityGroups.flatMap(({ kept, moved }) => moved.map((child) => movedLine(child, kept, 1))),
+  ];
   const opening = round2(-(trial.profitAndLoss?.closing ?? 0));
   const profit = { opening, currentPeriod: round2(netProfit), total: round2(opening + netProfit) };
   // Openings that run debit-heavy need the same amount on the credit side, and the other way round.

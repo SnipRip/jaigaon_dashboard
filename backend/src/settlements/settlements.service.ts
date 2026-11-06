@@ -3,7 +3,9 @@ import { randomUUID } from 'node:crypto';
 import { dateOnly, isoDate, todayInIndia } from '../common/dates.js';
 import { toNumber } from '../common/decimal.js';
 import { PrismaService } from '../database/prisma.service.js';
+import { customerOwes } from '../invoices/invoice-rules.js';
 import type { Prisma, SettlementDirection } from '../generated/prisma/client.js';
+import type { SaleRegime } from '../generated/prisma/enums.js';
 import { NumberSeriesService } from '../number-series/number-series.service.js';
 import type { AllocationDto, ApplyAdvanceDto, SettlementDto } from './dto/settlement.dto.js';
 import {
@@ -29,6 +31,9 @@ type Db = Tx | PrismaService;
 const money = (value: number) => Math.round(value * 100) / 100;
 /** An aggregate's sum, 0 when there were no rows. */
 const sumOf = (value: Prisma.Decimal | null) => (value ? value.toNumber() : 0);
+/** What a customer settles on an invoice (goods value only on an export with IGST paid). */
+const owedOn = (invoice: { regime: SaleRegime; total: Prisma.Decimal; igst: Prisma.Decimal }) =>
+  customerOwes({ regime: invoice.regime, total: toNumber(invoice.total), igst: toNumber(invoice.igst) });
 const fail = (message: string | null) => {
   if (message) throw new BadRequestException(message);
 };
@@ -194,7 +199,7 @@ export class SettlementsService {
     if (direction === 'RECEIPT') {
       const invoices = await this.prisma.invoice.findMany({
         where: { status: 'ISSUED', partyId },
-        select: { id: true, number: true, date: true, kind: true, total: true, partyId: true, party: { select: { displayName: true, creditDays: true } } },
+        select: { id: true, number: true, date: true, kind: true, regime: true, total: true, igst: true, partyId: true, party: { select: { displayName: true, creditDays: true } } },
         orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
       });
       for (const invoice of invoices) {
@@ -207,7 +212,7 @@ export class SettlementsService {
           dueDate: invoiceDueDate(date, invoice.party.creditDays),
           partyId: invoice.partyId,
           partyName: invoice.party.displayName,
-          total: toNumber(invoice.total),
+          total: owedOn(invoice),
           flag: invoice.kind === 'EXPORT' ? 'EXPORT' : null,
         });
       }
@@ -278,7 +283,7 @@ export class SettlementsService {
     if (billIds.length) await tx.$queryRaw`SELECT 1 FROM "PurchaseBill" WHERE "id" = ANY(${billIds}::uuid[]) ORDER BY "id" FOR UPDATE`;
 
     const invoices = new Map(
-      (await tx.invoice.findMany({ where: { id: { in: invoiceIds } }, select: { id: true, number: true, partyId: true, status: true, kind: true, total: true } })).map((row) => [row.id, row]),
+      (await tx.invoice.findMany({ where: { id: { in: invoiceIds } }, select: { id: true, number: true, partyId: true, status: true, kind: true, regime: true, total: true, igst: true } })).map((row) => [row.id, row]),
     );
     const bills = new Map(
       (await tx.purchaseBill.findMany({ where: { id: { in: billIds } }, select: { id: true, reference: true, vendorId: true, status: true, payable: true } })).map((row) => [row.id, row]),
@@ -291,7 +296,7 @@ export class SettlementsService {
         const invoice = invoices.get(allocation.documentId);
         if (!invoice || invoice.partyId !== partyId) fail('One of the invoices is not this customer’s');
         if (invoice!.status !== 'ISSUED') fail(`Invoice ${invoice!.number} is cancelled`);
-        return { allocation, label: invoice!.number, amount: allocation.amount, balance: balanceOf(toNumber(invoice!.total), done), exportInvoice: invoice!.kind === 'EXPORT' };
+        return { allocation, label: invoice!.number, amount: allocation.amount, balance: balanceOf(owedOn(invoice!), done), exportInvoice: invoice!.kind === 'EXPORT' };
       }
       if (allocation.kind === 'BILL') {
         const bill = bills.get(allocation.documentId);

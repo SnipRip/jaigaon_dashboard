@@ -71,12 +71,21 @@ export interface GroupBalanceView {
 
 export interface BooksBasis {
   asOf: string;
-  /** Closing: opening less stock written off, plus stock added (bills and invoices do not post yet). */
+  /** Closing: opening plus bills' landed cost and stock added, less stock written off and the cost of goods invoiced. */
   stock: { opening: number; closing: number };
   /** Loan vouchers. */
   voucherCount: number;
   /** Stock adjustments posted (not cancelled). */
   stockAdjustmentCount: number;
+  /** Issued invoices, open bills, live receipts and payments posted up to the date. */
+  documentCounts: { invoices: number; bills: number; receipts: number; payments: number };
+}
+
+/** A bank or cash account's balance on a date: opening plus everything posted through it. */
+export interface BankCashBalanceView {
+  accountId: string;
+  asOf: string;
+  balance: number;
 }
 
 export interface TrialBalanceView extends BooksBasis {
@@ -93,6 +102,8 @@ export interface StatementLineView {
   /** In the side's normal sign. */
   amount: number;
   group?: GroupBalanceView;
+  /** A sub-group shown on the other side because its balance runs the other way: the primary group it belongs to. */
+  movedFrom?: string;
 }
 
 export interface ProfitAndLossView extends BooksBasis {

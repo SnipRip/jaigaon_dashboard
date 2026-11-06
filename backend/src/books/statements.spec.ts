@@ -69,6 +69,28 @@ describe('books', () => {
     expect(pl.netProfit).toBe(14_000);
   });
 
+  it('shows a sub-group whose balance runs the other way on the other side', () => {
+    const tree = [...groups, { id: 'Duties & Taxes', name: 'Duties & Taxes', parentId: 'Current Liabilities', nature: null, affectsGrossProfit: false, isPredefined: true, position: 99, behavesAsSubLedger: false }];
+    const treeMeta = new Map<string, GroupNode>(tree.map((group) => [group.id, group]));
+    const ledgers = [
+      ledger("Owner's Capital", 'Capital Account', -100_000),
+      ledger('SBI Current', 'Bank Accounts', 100_000),
+      ledger('Input IGST', 'Duties & Taxes'),
+      ledger('Output IGST', 'Duties & Taxes'),
+      ledger('Tata Steel', 'Current Liabilities'),
+      ledger('Profit & Loss A/c', null),
+    ];
+    // Input credit 1,800 against output 900: Duties & Taxes is 900 Dr.
+    const moves = [...post('Input IGST', 'Tata Steel', 1_800), ...post('SBI Current', 'Output IGST', 900)];
+    const balances = ledgerBalances(ledgers, moves, treeMeta);
+    const trial = trialBalance(groupTree(tree, balances), balances);
+    const sheet = balanceSheet(trial, treeMeta, 0, { opening: 0, closing: 0 });
+    expect(sheet.liabilities.find((item) => item.name === 'Current Liabilities')?.amount).toBe(1_800);
+    expect(sheet.assets.find((item) => item.name === 'Duties & Taxes')).toMatchObject({ amount: 900, movedFrom: 'Current Liabilities' });
+    expect(sheet.totalLiabilities).toBe(101_800);
+    expect(sheet.totalAssets).toBe(101_800);
+  });
+
   it('balances the sheet, carrying a loss to the assets', () => {
     const { sheet, pl } = books(withLedgers, vouchers);
     expect(pl.netProfit).toBe(-1_000);

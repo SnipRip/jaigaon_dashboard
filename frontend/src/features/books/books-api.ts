@@ -3,7 +3,7 @@
 import { formatRate } from "@/lib/format";
 import type { LedgerBalanceView, LedgerSource } from "@/types/ledger";
 
-export const booksPath = (statement: "trial-balance" | "profit-and-loss" | "balance-sheet", asOf: string) => `/books/${statement}?asOf=${asOf}`;
+export const booksPath = (statement: "trial-balance" | "profit-and-loss" | "balance-sheet" | "bank-cash-balances", asOf: string) => `/books/${statement}?asOf=${asOf}`;
 
 /** "₹1,200.00 Dr" / "₹1,200.00 Cr"; zero is a dash. */
 export const drCr = (amount: number) => (amount ? `${formatRate(Math.abs(amount))} ${amount > 0 ? "Dr" : "Cr"}` : "–");

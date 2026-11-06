@@ -9,6 +9,8 @@ import { financialYearOf } from "@/lib/financial-year";
 import { formatDate, formatInr, formatQuantity, formatRate } from "@/lib/format";
 import { useToday } from "@/lib/use-today";
 import type { BankCashAccountView } from "@/types/bank-cash";
+import type { BankCashBalanceView } from "@/types/ledger";
+import { booksPath } from "../books/books-api";
 import { BANK_CASH_PATH, bankCashPersistence, toMoneyAccount, withArchived } from "./masters-api";
 import { RecordMaster } from "./record-master";
 import type { MoneyAccount } from "./types";
@@ -27,20 +29,29 @@ const LEDGER_NAME_MESSAGE = "2 to 60 letters, digits, spaces and & . , ( ) / ' -
 /** 1 April of the financial year a date falls in: the usual opening-balance date. */
 const yearStart = (isoDate: string) => `${financialYearOf(isoDate).slice(0, 4)}-04-01`;
 
-// Bank, overdraft and cash books: each becomes a Tally ledger. Balances are
-// opening balances until receipts and payments are stored.
+// Bank, overdraft and cash books: each becomes a Tally ledger. The balance
+// today comes from the books: the opening plus receipts, vendor payments and
+// loan entries through the account.
 export function BankCashMaster() {
   const { data, error, mutate } = useSWR<BankCashAccountView[]>(withArchived(BANK_CASH_PATH), apiGet);
   const accounts = useMemo(() => data?.map(toMoneyAccount), [data]);
   const today = useToday();
+  const balances = useSWR<BankCashBalanceView[]>(today ? booksPath("bank-cash-balances", today) : null, apiGet);
+  const balanceOf = useMemo(() => new Map(balances.data?.map((row) => [row.accountId, row.balance])), [balances.data]);
   if (!accounts) return <LoadNotice error={error} what="bank and cash accounts" />;
 
-  const sum = (records: MoneyAccount[]) => records.reduce((total, account) => total + account.openingBalance, 0);
+  /** Today's balance from the books; the opening while it loads (or when this role cannot see the books). */
+  const now = (account: MoneyAccount) => balanceOf.get(account.id) ?? account.openingBalance;
+  const sum = (records: MoneyAccount[]) => records.reduce((total, account) => total + now(account), 0);
+  const refresh = () => {
+    void mutate();
+    void balances.mutate();
+  };
   return (
     <RecordMaster
       noun={["account", "bank and cash accounts"]}
       initialRecords={accounts}
-      persist={bankCashPersistence(() => void mutate())}
+      persist={bankCashPersistence(refresh)}
       nameKey="name"
       blank={{ kind: "bank", showOnInvoice: false, openingBalance: 0, openingDate: today ? yearStart(today) : undefined }}
       fields={[
@@ -80,6 +91,20 @@ export function BankCashMaster() {
             </span>
           ),
         },
+        {
+          label: "Balance today",
+          align: "right",
+          render: (account) => {
+            const balance = balanceOf.get(account.id);
+            if (balance === undefined) return <span className="text-muted">–</span>;
+            return (
+              <span className={balance < 0 ? "text-danger-strong" : undefined}>
+                {formatRate(balance)}
+                {balance < 0 && <span className="block text-xs font-medium text-muted">{account.kind === "overdraft" ? "overdraft drawn" : "below zero"}</span>}
+              </span>
+            );
+          },
+        },
         { label: "Invoices", render: (account) => (account.showOnInvoice ? <StatusChip tone="brand">Printed</StatusChip> : null) },
       ]}
       searchText={(account) => `${account.name} ${account.bankName ?? ""} ${account.accountNumber ?? ""} ${account.ifsc ?? ""} ${account.tallyLedgerName ?? ""}`}
@@ -90,12 +115,12 @@ export function BankCashMaster() {
       ]}
       stats={(records) => [
         { label: "Accounts", value: formatQuantity(records.length) },
-        { label: "Opening in bank", value: formatInr(sum(records.filter((account) => account.kind === "bank"))) },
-        { label: "Overdraft drawn", value: formatInr(Math.abs(sum(records.filter((account) => account.kind === "overdraft" && account.openingBalance < 0)))), tone: "warning" },
-        { label: "Opening cash", value: formatInr(sum(records.filter((account) => account.kind === "cash"))) },
+        { label: "In bank today", value: formatInr(sum(records.filter((account) => account.kind === "bank"))) },
+        { label: "Overdraft drawn", value: formatInr(Math.abs(sum(records.filter((account) => account.kind === "overdraft" && now(account) < 0)))), tone: "warning" },
+        { label: "Cash today", value: formatInr(sum(records.filter((account) => account.kind === "cash"))) },
       ]}
       importMaster="bank-cash"
-      footnote="Receipts and payments will go through these accounts. Each is a Tally ledger under the group shown; balances are opening balances until postings exist."
+      footnote="Each account is a Tally ledger under the group shown. The balance today is the opening plus every receipt, vendor payment and loan entry through it (cancelled ones left out)."
     />
   );
 }

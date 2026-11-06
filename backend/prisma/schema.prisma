@@ -1126,6 +1126,8 @@ enum LedgerRole {
   STOCK_WRITE_OFF
   STOCK_FOUND
   STOCK_ADJUSTMENT
+  // Added 7 Nov 2026: TDS we deduct when paying vendors (src/books/settlement-postings.ts).
+  TDS_PAYABLE_VENDOR
 }
 
 // Duties & Taxes ledgers: which tax they hold (Tally's type of duty / tax).

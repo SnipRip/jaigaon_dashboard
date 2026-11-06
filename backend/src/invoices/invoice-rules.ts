@@ -1,5 +1,5 @@
 // What an invoice may be, before it is priced and stock is drawn. Pure.
-import type { GstTreatment, InvoiceKind, NumberedKind, QuotationStatus } from '../generated/prisma/enums.js';
+import type { GstTreatment, InvoiceKind, NumberedKind, QuotationStatus, SaleRegime } from '../generated/prisma/enums.js';
 
 /** Local tax invoices and export invoices have separate series that share one uniqueness scope. */
 export const SERIES_OF: Record<InvoiceKind, NumberedKind> = { LOCAL: 'SALES_INVOICE', EXPORT: 'EXPORT_INVOICE' };
@@ -21,3 +21,11 @@ export function conversionProblem(status: QuotationStatus): string | null {
 
 /** Each line takes its quantity plus the free units schemes gave out of stock. */
 export const quantityOut = (line: { quantity: number; freeQuantity: number }) => Math.round((line.quantity + line.freeQuantity) * 1000) / 1000;
+
+/**
+ * What the customer owes on an invoice. With IGST paid on an export the
+ * buyer pays only the goods value: we pay the IGST and claim it back
+ * (agent/context.md, "Export routes"), so it is not theirs to settle.
+ */
+export const customerOwes = (invoice: { regime: SaleRegime; total: number; igst: number }) =>
+  invoice.regime === 'EXPORT_IGST' ? Math.round((invoice.total - invoice.igst) * 100) / 100 : invoice.total;

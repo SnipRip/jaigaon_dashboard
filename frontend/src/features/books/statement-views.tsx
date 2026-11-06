@@ -10,7 +10,9 @@ const detailsOf = (group: GroupBalanceView | undefined, sign: 1 | -1) =>
     : [];
 
 const itemsOf = (lines: StatementLineView[], sign: 1 | -1): StatementItem[] =>
-  lines.filter((line) => line.amount !== 0).map((line) => ({ name: line.name, amount: line.amount, details: detailsOf(line.group, sign) }));
+  lines
+    .filter((line) => line.amount !== 0)
+    .map((line) => ({ name: line.movedFrom ? `${line.name} (${sign > 0 ? "Dr" : "Cr"} balance, from ${line.movedFrom})` : line.name, amount: line.amount, details: detailsOf(line.group, sign) }));
 
 // Tally's Profit & Loss with gross profit: the trading part (stock,
 // purchases, direct expenses against sales, direct incomes) carries gross
@@ -64,7 +66,8 @@ export function ProfitAndLossStatement({ pl }: { pl: ProfitAndLossView }) {
 
 // Tally's Balance Sheet: liabilities with Profit & Loss A/c and any
 // difference in opening balances, against assets with closing stock. A loss
-// and a debit difference sit with the assets.
+// and a debit difference sit with the assets, and so does a liability
+// sub-group with a debit balance (and the other way round).
 export function BalanceSheetStatement({ sheet }: { sheet: BalanceSheetView }) {
   const profit = sheet.profitAndLoss;
   const profitDetails = [
@@ -72,12 +75,12 @@ export function BalanceSheetStatement({ sheet }: { sheet: BalanceSheetView }) {
     { name: "Current period", amount: profit.currentPeriod },
   ];
   const difference = sheet.differenceInOpening;
+  // Closing stock takes Stock-in-Hand's place under Current Assets; that row
+  // is hidden when the opening stock is zero, so the line is added then.
+  const closingStock = sheet.closingStock ? [{ name: "Closing Stock", amount: sheet.closingStock }] : [];
   const assets = itemsOf(sheet.assets, 1).map((item) =>
     item.name === "Current Assets"
-      ? {
-          ...item,
-          details: (item.details ?? []).map((detail) => (detail.name === "Stock-in-Hand" ? { name: "Closing Stock", amount: sheet.closingStock } : detail)),
-        }
+      ? { ...item, details: [...(item.details ?? []).filter((detail) => detail.name !== "Stock-in-Hand"), ...closingStock] }
       : item,
   );
   return (

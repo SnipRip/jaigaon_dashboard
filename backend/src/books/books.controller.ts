@@ -3,7 +3,7 @@ import { IsOptional } from 'class-validator';
 import { RequireAccess } from '../common/decorators/require-access.decorator.js';
 import { todayInIndia } from '../common/dates.js';
 import { IsIsoDate } from '../common/dto/field-validators.js';
-import { BooksService, type BalanceSheetView, type ProfitAndLossView, type TrialBalanceView } from './books.service.js';
+import { BooksService, type BalanceSheetView, type BankCashBalanceView, type ProfitAndLossView, type TrialBalanceView } from './books.service.js';
 
 class AsOfQueryDto {
   /** Defaults to today in India. */
@@ -35,5 +35,12 @@ export class BooksController {
   @Get('balance-sheet')
   balanceSheet(@Query() query: AsOfQueryDto): Promise<BalanceSheetView> {
     return this.books.balanceSheet(query.asOf ?? todayInIndia());
+  }
+
+  /** Balances move with entries, so they show to whoever may see the bank & cash master. */
+  @RequireAccess('/masters/bank-cash', 'view')
+  @Get('bank-cash-balances')
+  bankCashBalances(@Query() query: AsOfQueryDto): Promise<BankCashBalanceView[]> {
+    return this.books.bankCashBalances(query.asOf ?? todayInIndia());
   }
 }

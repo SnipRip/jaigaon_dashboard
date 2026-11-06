@@ -34,6 +34,7 @@ export const SYSTEM_HOMES: Record<LedgerRole, TallyGroupName | null> = {
   STOCK_FOUND: 'Indirect Incomes',
   // The trading side of an adjustment: takes the stock's cost out of (or into) the goods sold, as Tally credits a purchase ledger.
   STOCK_ADJUSTMENT: 'Purchase Accounts',
+  TDS_PAYABLE_VENDOR: 'Duties & Taxes',
 };
 
 /** The fields a ledger save looks at, after a change is merged onto the stored ledger. */
