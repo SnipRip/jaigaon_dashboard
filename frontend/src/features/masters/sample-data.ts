@@ -1,8 +1,9 @@
 // SAMPLE DATA for the smaller masters. Brand names are from the brochure;
-// bank accounts, transporters, vehicles and phone numbers are invented.
+// bank accounts, vehicles and phone numbers are invented. The sample
+// vehicles stay only for global search (still sample).
 // Bank & cash is real since 3 Nov 2026: `moneyAccounts` is no longer shown
 // there, but the sample expense and payment screens still read it.
-import type { Brand, Godown, MoneyAccount, Transporter, Unit, Vehicle } from "./types";
+import type { Brand, Godown, MoneyAccount, Unit, Vehicle } from "./types";
 
 export const brands: Brand[] = [
   { id: "hind-tmt", name: "Hind TMT", categoryId: "iron-steel", authorised: true, notes: "Hind Steel, Durgapur" },
@@ -38,12 +39,6 @@ export const moneyAccounts: MoneyAccount[] = [
   { id: "sbi-current", name: "SBI current account", kind: "bank", bankName: "State Bank of India (sample)", accountNumber: "00000000000101", ifsc: "SBIN0000001", branch: "Jaigaon", openingBalance: 450000, openingDate: "2026-04-01", showOnInvoice: true },
   { id: "hdfc-od", name: "HDFC OD account", kind: "overdraft", bankName: "HDFC Bank (sample)", accountNumber: "00000000000202", ifsc: "HDFC0000002", branch: "Siliguri", openingBalance: -150000, openingDate: "2026-04-01", showOnInvoice: false },
   { id: "cash", name: "Cash in hand", kind: "cash", openingBalance: 25000, openingDate: "2026-04-01", showOnInvoice: false },
-];
-
-export const transporters: Transporter[] = [
-  { id: "royal-transport", name: "Royal Transport Lines", transporterId: "19ZZRTL0007G1ZH", phone: "+919800000010", isGta: true, vendorId: "royal-transport", notes: "Siliguri and Durgapur runs" },
-  { id: "dooars-carriers", name: "Dooars Carriers", transporterId: "19ZZDCR0011K1Z2", phone: "+919800000013", isGta: true, notes: "Local runs to the border" },
-  { id: "bhutan-freight", name: "Phuentsholing Freight (Bhutan)", transporterId: "88AAAPF0000A1Z0", phone: "+97517000001", isGta: false, notes: "Bhutan-side carrier after the border" },
 ];
 
 export const vehicles: Vehicle[] = [

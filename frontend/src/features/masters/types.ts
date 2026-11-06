@@ -61,18 +61,6 @@ export interface MoneyAccount extends MasterRecord {
   tallyGroup?: string;
 }
 
-export interface Transporter extends MasterRecord {
-  name: string;
-  /** GSTIN, or the 15-character TRANSIN for an unregistered transporter: goes on the e-way bill. */
-  transporterId: string;
-  phone?: string;
-  /** Bills as a goods transport agency: freight under reverse charge. */
-  isGta: boolean;
-  /** The vendor record its bills are entered against. */
-  vendorId?: string;
-  notes?: string;
-}
-
 export interface Vehicle extends MasterRecord {
   number: string;
   type: "truck-10" | "truck-6" | "trailer" | "pickup";
