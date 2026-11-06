@@ -71,6 +71,8 @@ export interface Item {
   stockCost?: number;
   preferredSupplier?: string;
   stock: number;
+  /** On hand per godown, godowns with none left out (backend items only). */
+  stockByGodown?: { godownId: string; quantity: number }[];
   reorderLevel: number;
   /** The item's pictures for sending to clients, the cover first (backend items only). */
   pictures?: ItemPicture[];

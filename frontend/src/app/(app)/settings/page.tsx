@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import { PasswordForm } from "@/features/settings/password-form";
 import { ProfileForm } from "@/features/settings/profile-form";
+import { SalesSettingsCard } from "@/features/settings/sales-settings-card";
 import { SessionsList } from "@/features/settings/sessions-list";
 import { SettingsSectionNav } from "@/features/settings/settings-section-nav";
 
 export const metadata: Metadata = { title: "Settings" };
 
-// The signed-in user's own account. Everything here reads and writes real
-// data through /api/users/me and /api/auth/sessions.
+// The signed-in user's own account, then company-wide sales settings.
+// Everything here reads and writes real data through /api/users/me,
+// /api/auth/sessions and /api/sales-settings.
 export default function SettingsPage() {
   return (
     <div className="flex flex-wrap items-start gap-3.5">
@@ -18,6 +20,7 @@ export default function SettingsPage() {
         <ProfileForm />
         <PasswordForm />
         <SessionsList />
+        <SalesSettingsCard />
       </div>
     </div>
   );

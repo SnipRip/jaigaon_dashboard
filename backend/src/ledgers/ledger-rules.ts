@@ -30,6 +30,10 @@ export const SYSTEM_HOMES: Record<LedgerRole, TallyGroupName | null> = {
   TDS_RECEIVABLE: 'Loans & Advances (Asset)',
   IGST_REFUND: 'Loans & Advances (Asset)',
   ROUND_OFF: 'Indirect Expenses',
+  STOCK_WRITE_OFF: 'Indirect Expenses',
+  STOCK_FOUND: 'Indirect Incomes',
+  // The trading side of an adjustment: takes the stock's cost out of (or into) the goods sold, as Tally credits a purchase ledger.
+  STOCK_ADJUSTMENT: 'Purchase Accounts',
 };
 
 /** The fields a ledger save looks at, after a change is merged onto the stored ledger. */

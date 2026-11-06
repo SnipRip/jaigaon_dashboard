@@ -1,6 +1,6 @@
 import { toNumber } from '../common/decimal.js';
 import type { Item, ItemOpeningStock, ItemUnitConversion } from '../generated/prisma/client.js';
-import { itemCostSource, itemCosts, stockOnHand, type CostSource, type ItemCosts } from './item-costs.js';
+import { itemCostSource, itemCosts, stockByGodown, stockOnHand, type CostSource, type GodownSource, type ItemCosts } from './item-costs.js';
 
 // An item as the API returns it: numbers instead of Decimal strings, and
 // stock on hand worked out from its rows.
@@ -25,8 +25,10 @@ export interface ItemView extends ItemCosts {
   createdAt: Date;
   alternateUnits: { unitId: string; baseQuantity: number }[];
   openingStock: { godownId: string; quantity: number; value: number }[];
-  /** Opening stock only, until purchases, sales and stock journals are stored. */
+  /** On hand in all godowns: opening stock less sales, plus what is left of each bill batch. */
   stock: number;
+  /** On hand per godown; godowns with none are left out. */
+  stockByGodown: { godownId: string; quantity: number }[];
   /** The item's picture ids, oldest (the cover) first; each goes into its picture URL. */
   pictureIds: string[];
 }
@@ -34,7 +36,7 @@ export interface ItemView extends ItemCosts {
 export type ItemRow = Item & {
   alternateUnits: ItemUnitConversion[];
   openingStock: ItemOpeningStock[];
-  stockBatches: CostSource['stockBatches'];
+  stockBatches: CostSource['stockBatches'] & GodownSource['stockBatches'];
   pictures: { id: string }[];
 };
 
@@ -78,6 +80,7 @@ export function toItemView(item: ItemRow): ItemView {
     })),
     openingStock,
     stock: stockOnHand(item),
+    stockByGodown: stockByGodown(item),
     pictureIds: item.pictures.map((picture) => picture.id),
   };
 }

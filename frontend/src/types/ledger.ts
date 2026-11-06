@@ -71,8 +71,12 @@ export interface GroupBalanceView {
 
 export interface BooksBasis {
   asOf: string;
+  /** Closing: opening less stock written off, plus stock added (bills and invoices do not post yet). */
   stock: { opening: number; closing: number };
+  /** Loan vouchers. */
   voucherCount: number;
+  /** Stock adjustments posted (not cancelled). */
+  stockAdjustmentCount: number;
 }
 
 export interface TrialBalanceView extends BooksBasis {

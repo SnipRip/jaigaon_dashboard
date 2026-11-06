@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GroupNode } from '../ledgers/ledger-group-rules.js';
 import { balanceSheet, groupTree, ledgerBalances, profitAndLoss, trialBalance, type BookLedger, type Posting } from './statements.js';
+import { DEFAULT_STOCK_LEDGERS, stockAdjustmentPostings } from './stock-adjustment-postings.js';
 
 // A slice of Tally's groups, enough for a small set of books.
 const rows: [string, string | null, GroupNode['nature'], boolean][] = [
@@ -88,5 +89,40 @@ describe('books', () => {
   it('keeps a voucher line no master has, under its group or Suspense', () => {
     const balances = ledgerBalances(opening, post('Mystery', 'SBI Current', 10, 'Nowhere'), meta);
     expect(balances.find((item) => item.name === 'Mystery')).toMatchObject({ groupId: 'Suspense A/c', source: 'unlisted', closing: 10 });
+  });
+});
+
+describe('stock adjustments in the books', () => {
+  const stockLedgers = [
+    ledger('Stock Written Off', 'Indirect Expenses'),
+    ledger('Stock Excess Found', 'Indirect Incomes'),
+    ledger('Stock Adjustment', 'Purchase Accounts'),
+  ];
+
+  it('takes a write-off out of net profit and closing stock, not gross profit', () => {
+    const before = books(withLedgers, vouchers);
+    const { postings, closingChange } = stockAdjustmentPostings([{ direction: 'OUT', value: 1_260 }], DEFAULT_STOCK_LEDGERS);
+    const after = books([...withLedgers, ...stockLedgers], [...vouchers, ...postings], { opening: 30_000, closing: 30_000 + closingChange });
+    expect(closingChange).toBe(-1_260);
+    expect(after.pl.grossProfit).toBe(before.pl.grossProfit);
+    expect(after.pl.netProfit).toBe(before.pl.netProfit - 1_260);
+    expect(after.trial.totalDebit).toBe(after.trial.totalCredit);
+    expect(after.sheet.totalAssets).toBe(after.sheet.totalLiabilities);
+  });
+
+  it('adds stock found to net profit and closing stock', () => {
+    const before = books(withLedgers, vouchers);
+    const { postings, closingChange } = stockAdjustmentPostings(
+      [
+        { direction: 'IN', value: 250 },
+        { direction: 'OUT', value: 100 },
+      ],
+      DEFAULT_STOCK_LEDGERS,
+    );
+    const after = books([...withLedgers, ...stockLedgers], [...vouchers, ...postings], { opening: 30_000, closing: 30_000 + closingChange });
+    expect(closingChange).toBe(150);
+    expect(after.pl.grossProfit).toBe(before.pl.grossProfit);
+    expect(after.pl.netProfit).toBe(before.pl.netProfit + 150);
+    expect(after.sheet.totalAssets).toBe(after.sheet.totalLiabilities);
   });
 });

@@ -8,6 +8,8 @@ import { AuthModule } from './auth/auth.module.js';
 import { BankCashAccountsModule } from './bank-cash-accounts/bank-cash-accounts.module.js';
 import { BrandsModule } from './brands/brands.module.js';
 import { CompanyProfileModule } from './company-profile/company-profile.module.js';
+import { SalesSettingsModule } from './sales-settings/sales-settings.module.js';
+import { StockMovesModule } from './stock-moves/stock-moves.module.js';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter.js';
 import { AccessGuard } from './common/guards/access.guard.js';
 import { OriginGuard } from './common/guards/origin.guard.js';
@@ -61,7 +63,9 @@ import { WhatsappOptInsModule } from './whatsapp-optins/whatsapp-optins.module.j
     PurchasesModule,
     QuotationsModule,
     InvoicesModule,
+    StockMovesModule,
     CompanyProfileModule,
+    SalesSettingsModule,
     LutsModule,
     NumberSeriesModule,
     BankCashAccountsModule,

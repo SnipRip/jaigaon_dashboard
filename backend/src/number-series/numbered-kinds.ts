@@ -68,9 +68,14 @@ export const KIND_RULES: Record<NumberedKind, KindRules> = {
   // Entries where no money moves, such as interest credited to a loan.
   JOURNAL: { label: 'journal', ...OTHER_DOCUMENT, scope: 'JOURNAL' },
   STOCK_JOURNAL: {
-    label: 'stock journal',
+    label: 'stock adjustment',
     ...OTHER_DOCUMENT,
     scope: 'STOCK_JOURNAL',
+  },
+  STOCK_TRANSFER: {
+    label: 'stock transfer',
+    ...OTHER_DOCUMENT,
+    scope: 'STOCK_TRANSFER',
   },
   SHIPMENT: { label: 'shipment', ...OTHER_DOCUMENT, scope: 'SHIPMENT' },
   EXPENSE: { label: 'expense', ...OTHER_DOCUMENT, scope: 'EXPENSE' },

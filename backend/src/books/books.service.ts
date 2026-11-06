@@ -7,6 +7,7 @@ import { PrismaService } from '../database/prisma.service.js';
 import { groupMap } from '../ledgers/ledger-views.js';
 import { loanGroup } from '../loans/loan-kinds.js';
 import { LOAN_INCLUDE, toLoanDetailView } from '../loans/loan-view.js';
+import { dateOnly } from '../common/dates.js';
 import {
   balanceSheet,
   groupTree,
@@ -19,14 +20,17 @@ import {
   type ProfitAndLoss,
   type TrialBalance,
 } from './statements.js';
+import { DEFAULT_STOCK_LEDGERS, stockAdjustmentPostings } from './stock-adjustment-postings.js';
 
 /** What every statement says about the data it was built from. */
 export interface BooksBasis {
   asOf: string;
-  /** Opening stock at cost from the items; closing stock equals it until stock moves are stored. */
+  /** Opening stock at cost from the items; closing stock is that, less stock written off, plus stock added (bills and invoices do not post yet). */
   stock: { opening: number; closing: number };
-  /** Vouchers counted (loan first entries and entries up to the date). */
+  /** Loan vouchers counted (first entries and entries up to the date). */
   voucherCount: number;
+  /** Stock adjustments posted up to the date (not cancelled). */
+  stockAdjustmentCount: number;
 }
 
 export interface TrialBalanceView extends TrialBalance, BooksBasis {}
@@ -35,15 +39,16 @@ export interface BalanceSheetView extends BalanceSheet, BooksBasis {}
 
 // The books from the start to `asOf`, as Tally shows them by default: every
 // ledger every master owns with its opening balance, and the vouchers the
-// app records. Invoices, bills, expenses and receipts post nothing until
-// they are saved for real (agent/accounts-plan.md, "Statements").
+// app records: loan entries and stock adjustments (stock-adjustment-postings.ts).
+// Invoices, bills, expenses and receipts post nothing until they are saved
+// for real (agent/accounts-plan.md, "Statements").
 @Injectable()
 export class BooksService {
   constructor(private readonly prisma: PrismaService) {}
 
   private async load(asOf: string) {
     const db = this.prisma;
-    const [groups, ledgers, heads, accounts, loans, parties, stock] = await Promise.all([
+    const [groups, ledgers, heads, accounts, loans, parties, stock, adjustments] = await Promise.all([
       db.ledgerGroup.findMany(),
       db.ledger.findMany(),
       db.accountHead.findMany(),
@@ -51,6 +56,7 @@ export class BooksService {
       db.loan.findMany({ include: LOAN_INCLUDE }),
       db.party.findMany({ select: { id: true, displayName: true, isCustomer: true, openingBalance: true, openingBalanceSide: true } }),
       db.itemOpeningStock.aggregate({ _sum: { value: true } }),
+      db.stockAdjustment.findMany({ where: { status: 'POSTED', date: { lte: dateOnly(asOf) } }, select: { direction: true, value: true } }),
     ]);
     const idOf = new Map(groups.map((group) => [group.name, group.id]));
     const under = (name: TallyGroupName) => idOf.get(name) ?? null;
@@ -101,10 +107,23 @@ export class BooksService {
     const openingStock = toNumber(stock._sum.value ?? null) ?? 0;
     book.push({ name: 'Opening Stock', groupId: under('Stock-in-Hand'), source: 'stock', sourceId: null, opening: openingStock });
 
+    // Stock adjustments post a journal each, to the system ledgers found by role.
+    const roleName = (role: string, fallback: string) => ledgers.find((ledger) => ledger.systemRole === role)?.name ?? fallback;
+    const stockMoves = stockAdjustmentPostings(
+      adjustments.map((adjustment) => ({ direction: adjustment.direction, value: toNumber(adjustment.value) })),
+      {
+        writeOff: roleName('STOCK_WRITE_OFF', DEFAULT_STOCK_LEDGERS.writeOff),
+        found: roleName('STOCK_FOUND', DEFAULT_STOCK_LEDGERS.found),
+        adjustment: roleName('STOCK_ADJUSTMENT', DEFAULT_STOCK_LEDGERS.adjustment),
+      },
+    );
+    postings.push(...stockMoves.postings);
+    const closingStock = Math.round((openingStock + stockMoves.closingChange) * 100) / 100;
+
     const meta = groupMap(groups);
     const balances = ledgerBalances(book, postings, meta);
     const trial = trialBalance(groupTree(groups, balances), balances);
-    const basis: BooksBasis = { asOf, stock: { opening: openingStock, closing: openingStock }, voucherCount };
+    const basis: BooksBasis = { asOf, stock: { opening: openingStock, closing: closingStock }, voucherCount, stockAdjustmentCount: adjustments.length };
     return { meta, trial, basis };
   }
 

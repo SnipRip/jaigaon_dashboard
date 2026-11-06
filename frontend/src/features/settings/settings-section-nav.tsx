@@ -6,6 +6,7 @@ const SECTIONS = [
   { id: "settings-profile", label: "Profile" },
   { id: "settings-password", label: "Password" },
   { id: "settings-sessions", label: "Signed-in devices" },
+  { id: "settings-sales", label: "Sales" },
 ];
 
 export function SettingsSectionNav() {

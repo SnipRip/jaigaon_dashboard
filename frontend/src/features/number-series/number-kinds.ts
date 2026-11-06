@@ -27,6 +27,7 @@ export const KINDS: Record<NumberedKind, KindInfo> = {
   JOURNAL: { label: "Journal (interest added to loans)", group: "Purchases and payments", gst: false, suggested: yearly("JV/{FY}/{SEQ:4}") },
   EXPENSE: { label: "Expense", group: "Purchases and payments", gst: false, suggested: yearly("EXPN/{FY}/{SEQ:4}") },
   STOCK_JOURNAL: { label: "Stock adjustment", group: "Stock and export", gst: false, suggested: yearly("SJ/{FY}/{SEQ:4}") },
+  STOCK_TRANSFER: { label: "Stock transfer", group: "Stock and export", gst: false, suggested: yearly("ST/{FY}/{SEQ:4}") },
   SHIPMENT: { label: "Shipment", group: "Stock and export", gst: false, suggested: yearly("SHP/{FY}/{SEQ:4}") },
   CUSTOMER_CODE: { label: "Customer code", group: "Master codes", gst: false, suggested: never("C{SEQ:5}") },
   VENDOR_CODE: { label: "Vendor code", group: "Master codes", gst: false, suggested: never("V{SEQ:5}") },

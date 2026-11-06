@@ -1,18 +1,13 @@
 // Sales invoices as the backend returns them (backend/src/invoices).
 import type { LineRateSourceView, SaleRegimeView } from "./quotation";
 import type { AppliedSchemeView } from "./scheme";
+import type { StockDrawView } from "./stock-moves";
 
 export type InvoiceKindView = "LOCAL" | "EXPORT";
 export type InvoiceStatusView = "ISSUED" | "CANCELLED";
 
-/** One FIFO slice of a line's goods: a bill batch, or the opening stock (no bill). */
-export interface InvoiceDrawView {
-  quantity: number;
-  rate: number;
-  billId: string | null;
-  billReference: string | null;
-  batchDate: string | null;
-}
+/** One FIFO slice of a line's goods, with where it came from (a bill, a transfer in, an adjustment, the opening stock). */
+export type InvoiceDrawView = StockDrawView;
 
 export interface InvoiceLineView {
   id: string;

@@ -12,6 +12,7 @@ import type { DispatchDocumentKind, Invoice, InvoiceKind, InvoiceLine } from "./
 
 const money = (value: number) => Math.round(value * 100) / 100;
 
+
 /**
  * The tax regime of an invoice. A local invoice uses its own place of supply
  * (it can differ from the party's, e.g. delivery to another state); an export

@@ -5,6 +5,7 @@ import { isoDate } from '../common/dates.js';
 import { toNumber } from '../common/decimal.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import type { AppliedScheme } from '../schemes/scheme-rules.js';
+import { batchSourceSelect, drawSource } from '../stock/draw-source.js';
 
 export const invoiceInclude = {
   party: { select: { displayName: true } },
@@ -13,9 +14,7 @@ export const invoiceInclude = {
   lines: {
     orderBy: { position: 'asc' },
     include: {
-      draws: {
-        select: { quantity: true, rate: true, batch: { select: { date: true, billLine: { select: { bill: { select: { id: true, reference: true } } } } } } },
-      },
+      draws: { select: { quantity: true, rate: true, batch: batchSourceSelect } },
     },
   },
 } as const satisfies Prisma.InvoiceInclude;
@@ -75,15 +74,14 @@ export const toInvoiceView = (invoice: InvoiceRow) => ({
     taxable: toNumber(line.taxable),
     tax: toNumber(line.tax),
     costOfGoods: toNumber(line.costOfGoods),
-    /** Oldest first; no bill means the opening stock. Empty once cancelled (the stock went back). */
+    /** Oldest first, with where each slice came from. Empty once cancelled (the stock went back). */
     draws: line.draws
       .map((draw) => ({
-      quantity: toNumber(draw.quantity),
-      rate: toNumber(draw.rate),
-      billId: draw.batch?.billLine.bill.id ?? null,
-      billReference: draw.batch?.billLine.bill.reference ?? null,
-      batchDate: draw.batch ? isoDate(draw.batch.date) : null,
-    }))
+        quantity: toNumber(draw.quantity),
+        rate: toNumber(draw.rate),
+        source: drawSource(draw.batch),
+        batchDate: draw.batch ? isoDate(draw.batch.date) : null,
+      }))
       .sort((a, b) => (a.batchDate ?? '').localeCompare(b.batchDate ?? '')),
   })),
   cancelledAt: invoice.cancelledAt,

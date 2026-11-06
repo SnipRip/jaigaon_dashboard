@@ -60,6 +60,9 @@ model User {
   quotationsMade Quotation[] @relation("QuotationCreatedBy")
   invoicesMade   Invoice[]   @relation("InvoiceCreatedBy")
 
+  stockTransfersMade   StockTransfer[]   @relation("StockTransferCreatedBy")
+  stockAdjustmentsMade StockAdjustment[] @relation("StockAdjustmentCreatedBy")
+
   @@index([accessRoleId])
 }
 
@@ -170,6 +173,10 @@ model Godown {
   purchaseBills  PurchaseBill[]
   stockBatches   StockBatch[]
   invoices       Invoice[]
+
+  transfersOut     StockTransfer[]   @relation("StockTransferFrom")
+  transfersIn      StockTransfer[]   @relation("StockTransferTo")
+  stockAdjustments StockAdjustment[]
 }
 
 // Both category levels. A row with no parent is a category; a row with a
@@ -274,6 +281,9 @@ model Item {
 
   quotationLines QuotationLine[]
   invoiceLines   InvoiceLine[]
+
+  stockTransferLines   StockTransferLine[]
+  stockAdjustmentLines StockAdjustmentLine[]
 
   @@index([categoryId])
   @@index([subCategoryId])
@@ -574,6 +584,17 @@ model CompanyProfile {
   updatedAt          DateTime      @updatedAt
 }
 
+// How sales screens behave, for the whole company (one row, id 1, created by
+// its migration). Changed by an administrator on the Settings page.
+model SalesSettings {
+  id                 Int      @id @default(1)
+  // The invoice item picker lists only items with stock in the chosen
+  // godown. Off by default: every item is listed, and issuing still refuses
+  // more than the godown holds (src/stock/stock-out.ts).
+  invoiceInStockOnly Boolean  @default(false)
+  updatedAt          DateTime @updatedAt
+}
+
 // One financial year's export registrations: the LUT (form RFD-11 on the GST
 // portal), which lets an export go out without IGST, and the AD code, which
 // the client says is issued afresh every year (28 Oct 2026). An export
@@ -614,6 +635,8 @@ enum NumberedKind {
   ITEM_SKU
   // Added 5 Nov 2026, at the end so existing values keep their order.
   PURCHASE_ORDER
+  // Added 6 Nov 2026: moving stock between godowns.
+  STOCK_TRANSFER
 }
 
 // Tally's voucher numbering methods. Automatic: the number is always taken
@@ -1093,6 +1116,10 @@ enum LedgerRole {
   TDS_RECEIVABLE
   IGST_REFUND
   ROUND_OFF
+  // Added 6 Nov 2026: stock adjustments post a journal (src/books/stock-adjustment-postings.ts).
+  STOCK_WRITE_OFF
+  STOCK_FOUND
+  STOCK_ADJUSTMENT
 }
 
 // Duties & Taxes ledgers: which tax they hold (Tally's type of duty / tax).
@@ -1438,23 +1465,38 @@ model PurchaseBillCharge {
 // Stock that came in, one batch per goods bill line. Sales will draw the
 // oldest first (FIFO) by lowering `remaining`. Opening stock stays in
 // ItemOpeningStock.
+// Stock that came in, drawn FIFO by sales and other stock out. Exactly one
+// source (CHECK in 20261106130000_stock_moves): a goods bill line, a stock
+// transfer line (the slice it moved, from `sourceBatchId`, or the source
+// godown's opening stock when that is null) or an adjustment line that added
+// stock.
 model StockBatch {
-  id         String           @id @default(uuid()) @db.Uuid
-  itemId     String           @db.Uuid
-  item       Item             @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  godownId   String           @db.Uuid
-  godown     Godown           @relation(fields: [godownId], references: [id], onDelete: Restrict)
-  billLineId String           @unique @db.Uuid
-  billLine   PurchaseBillLine @relation(fields: [billLineId], references: [id], onDelete: Cascade)
-  date       DateTime         @db.Date
-  quantity   Decimal          @db.Decimal(14, 3)
-  remaining  Decimal          @db.Decimal(14, 3)
-  landedRate Decimal          @db.Decimal(14, 4)
-  createdAt  DateTime         @default(now())
+  id               String               @id @default(uuid()) @db.Uuid
+  itemId           String               @db.Uuid
+  item             Item                 @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  godownId         String               @db.Uuid
+  godown           Godown               @relation(fields: [godownId], references: [id], onDelete: Restrict)
+  billLineId       String?              @unique @db.Uuid
+  billLine         PurchaseBillLine?    @relation(fields: [billLineId], references: [id], onDelete: Cascade)
+  transferLineId   String?              @db.Uuid
+  transferLine     StockTransferLine?   @relation(fields: [transferLineId], references: [id], onDelete: Restrict)
+  sourceBatchId    String?              @db.Uuid
+  sourceBatch      StockBatch?          @relation("BatchMovedFrom", fields: [sourceBatchId], references: [id], onDelete: Restrict)
+  movedTo          StockBatch[]         @relation("BatchMovedFrom")
+  adjustmentLineId String?              @unique @db.Uuid
+  adjustmentLine   StockAdjustmentLine? @relation(fields: [adjustmentLineId], references: [id], onDelete: Restrict)
+  date             DateTime             @db.Date
+  quantity         Decimal              @db.Decimal(14, 3)
+  remaining        Decimal              @db.Decimal(14, 3)
+  landedRate       Decimal              @db.Decimal(14, 4)
+  createdAt        DateTime             @default(now())
 
-  draws InvoiceStockDraw[]
+  draws     InvoiceStockDraw[]
+  moveDraws StockMoveDraw[]
 
   @@index([itemId, date])
+  @@index([transferLineId])
+  @@index([sourceBatchId])
 }
 
 // ---------------------------------------------------------------------------
@@ -1711,5 +1753,148 @@ model InvoiceStockDraw {
   rate          Decimal     @db.Decimal(14, 4)
 
   @@index([invoiceLineId])
+  @@index([batchId])
+}
+
+// ---------------------------------------------------------------------------
+// Stock transfers and adjustments (6 Nov 2026). Both draw stock FIFO through
+// src/stock/stock-out.ts like a sale, keep their draws (StockMoveDraw) so a
+// cancel puts them back, and are cancelled, never edited.
+
+enum StockMoveStatus {
+  POSTED
+  CANCELLED
+}
+
+// Stock moved from one godown to another at what it cost. Numbered from the
+// STOCK_TRANSFER series. Each line's draws become batches in the destination
+// godown at the same rate, dated the transfer.
+model StockTransfer {
+  id             String          @id @default(uuid()) @db.Uuid
+  number         String
+  issuedNumberId String          @unique @db.Uuid
+  date           DateTime        @db.Date
+  fromGodownId   String          @db.Uuid
+  fromGodown     Godown          @relation("StockTransferFrom", fields: [fromGodownId], references: [id], onDelete: Restrict)
+  toGodownId     String          @db.Uuid
+  toGodown       Godown          @relation("StockTransferTo", fields: [toGodownId], references: [id], onDelete: Restrict)
+  status         StockMoveStatus @default(POSTED)
+  // Cost of everything moved.
+  value          Decimal         @db.Decimal(14, 2)
+  vehicleNumber  String?
+  notes          String?
+  cancelledAt    DateTime?
+  cancelReason   String?
+  createdById    String?         @db.Uuid
+  createdBy      User?           @relation("StockTransferCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime        @default(now())
+
+  lines StockTransferLine[]
+
+  @@index([number])
+  @@index([date])
+}
+
+model StockTransferLine {
+  id         String        @id @default(uuid()) @db.Uuid
+  transferId String        @db.Uuid
+  transfer   StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  position   Int
+  itemId     String        @db.Uuid
+  item       Item          @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  // Base unit symbol when saved, as on invoice lines.
+  unit       String
+  quantity   Decimal       @db.Decimal(14, 3)
+  // Cost of what this line moved, from its draws.
+  value      Decimal       @db.Decimal(14, 2)
+
+  draws   StockMoveDraw[]
+  batches StockBatch[]
+
+  @@index([transferId])
+  @@index([itemId])
+}
+
+// Tally's stock journal for stock that is not bought or sold.
+enum StockAdjustmentReason {
+  DAMAGED
+  LOST
+  CONSUMED
+  COUNT_SHORT
+  COUNT_EXCESS
+  FOUND
+  OTHER
+}
+
+enum StockAdjustmentDirection {
+  // Stock added: a batch at the rate typed.
+  IN
+  // Stock written off: drawn FIFO at what it cost.
+  OUT
+}
+
+// Numbered from the STOCK_JOURNAL series. The reason fixes the direction
+// except OTHER (src/stock-moves/stock-move-rules.ts).
+model StockAdjustment {
+  id             String                   @id @default(uuid()) @db.Uuid
+  number         String
+  issuedNumberId String                   @unique @db.Uuid
+  date           DateTime                 @db.Date
+  godownId       String                   @db.Uuid
+  godown         Godown                   @relation(fields: [godownId], references: [id], onDelete: Restrict)
+  direction      StockAdjustmentDirection
+  reason         StockAdjustmentReason
+  status         StockMoveStatus          @default(POSTED)
+  // Value added (IN) or written off (OUT).
+  value          Decimal                  @db.Decimal(14, 2)
+  notes          String?
+  cancelledAt    DateTime?
+  cancelReason   String?
+  createdById    String?                  @db.Uuid
+  createdBy      User?                    @relation("StockAdjustmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime                 @default(now())
+
+  lines StockAdjustmentLine[]
+
+  @@index([number])
+  @@index([date])
+}
+
+model StockAdjustmentLine {
+  id           String          @id @default(uuid()) @db.Uuid
+  adjustmentId String          @db.Uuid
+  adjustment   StockAdjustment @relation(fields: [adjustmentId], references: [id], onDelete: Cascade)
+  position     Int
+  itemId       String          @db.Uuid
+  item         Item            @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  // Base unit symbol when saved, as on invoice lines.
+  unit         String
+  quantity     Decimal         @db.Decimal(14, 3)
+  // IN: the rate typed per base unit. OUT: null (each draw has its rate).
+  rate         Decimal?        @db.Decimal(14, 4)
+  value        Decimal         @db.Decimal(14, 2)
+
+  draws StockMoveDraw[]
+  batch StockBatch?
+
+  @@index([adjustmentId])
+  @@index([itemId])
+}
+
+// One FIFO slice a transfer or write-off took: a batch, or the godown's
+// opening stock when batchId is null. Exactly one parent line (CHECK).
+model StockMoveDraw {
+  id               String               @id @default(uuid()) @db.Uuid
+  transferLineId   String?              @db.Uuid
+  transferLine     StockTransferLine?   @relation(fields: [transferLineId], references: [id], onDelete: Cascade)
+  adjustmentLineId String?              @db.Uuid
+  adjustmentLine   StockAdjustmentLine? @relation(fields: [adjustmentLineId], references: [id], onDelete: Cascade)
+  batchId          String?              @db.Uuid
+  batch            StockBatch?          @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  quantity         Decimal              @db.Decimal(14, 3)
+  rate             Decimal              @db.Decimal(14, 4)
+
+  @@index([transferLineId])
+  @@index([adjustmentLineId])
   @@index([batchId])
 }

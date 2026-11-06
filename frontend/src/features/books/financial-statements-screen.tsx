@@ -112,7 +112,9 @@ function Basis({ basis, difference = 0 }: { basis: BooksBasis; difference?: numb
     <div className="flex flex-col gap-2">
       <p className="text-xs font-semibold text-muted">
         From the start of the books to {formatDate(basis.asOf)}: opening balances of every master, opening stock at cost ({formatRate(basis.stock.opening)}) and{" "}
-        {formatQuantity(basis.voucherCount)} loan voucher{basis.voucherCount === 1 ? "" : "s"}. Invoices, bills, expenses and receipts post here once they are saved for real; until stock moves are stored, closing stock equals opening stock.
+        {formatQuantity(basis.voucherCount)} loan voucher{basis.voucherCount === 1 ? "" : "s"}, and {formatQuantity(basis.stockAdjustmentCount)} stock adjustment
+        {basis.stockAdjustmentCount === 1 ? "" : "s"} (written off to Stock Written Off, added to Stock Excess Found). Closing stock ({formatRate(basis.stock.closing)}) is the
+        opening stock less stock written off, plus stock added. Invoices, bills, expenses and receipts post here once they are saved for real.
       </p>
       {difference !== 0 && (
         <p className="rounded-(--radius-tile) bg-warning-tint px-4 py-2.5 text-sm font-semibold">

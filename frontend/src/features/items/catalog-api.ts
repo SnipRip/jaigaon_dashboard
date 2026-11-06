@@ -77,6 +77,7 @@ const toItem = (view: ItemView, units: UnitView[], brands: BrandView[]): Item =>
   stockCost: view.stockCost ?? undefined,
   preferredSupplier: view.preferredSupplier ?? undefined,
   stock: view.stock,
+  stockByGodown: view.stockByGodown,
   reorderLevel: view.reorderLevel,
   pictures: view.pictureIds.map((id) => ({ id, url: itemPictureUrl(view.id, id) })),
 });

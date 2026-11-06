@@ -17,6 +17,7 @@ import { ApiError } from "@/lib/api-client";
 import { formatDate, formatInr, formatPercent, formatQuantity, formatRate } from "@/lib/format";
 import { DispatchDocumentsPanel } from "./dispatch-documents-panel";
 import { InvoiceDocument, type Issuer } from "./invoice-document";
+import { DrawSourceLink } from "@/features/stock-moves/draw-source-link";
 import { invoiceStage, invoiceTax, invoiceTotals, needsEinvoice } from "./invoice-rules";
 import { InvoiceStageChip } from "./invoice-stage-chip";
 import { cancelInvoice } from "./invoices-api";
@@ -118,13 +119,7 @@ export function InvoiceDetail({ initialInvoice, party, issuer, onChanged }: Invo
                           line.draws.map((draw, index) => (
                             <div key={index}>
                               {formatQuantity(draw.quantity)} {line.unit} ·{" "}
-                              {draw.billId ? (
-                                <Link href={`/purchases/${draw.billId}`} className="text-brand hover:underline">
-                                  {draw.billReference}
-                                </Link>
-                              ) : (
-                                "Opening stock"
-                              )}{" "}
+                              <DrawSourceLink source={draw.source} />{" "}
                               @ {formatRate(draw.rate)}
                             </div>
                           ))

@@ -254,12 +254,14 @@ async function main() {
 
   // Number formats the documents below need, from the start of this financial
   // year; a series that already has a format is left alone.
-  const FORMATS: { kind: 'PURCHASE_ORDER' | 'PURCHASE' | 'QUOTATION' | 'SALES_INVOICE' | 'EXPORT_INVOICE'; pattern: string }[] = [
+  const FORMATS: { kind: 'PURCHASE_ORDER' | 'PURCHASE' | 'QUOTATION' | 'SALES_INVOICE' | 'EXPORT_INVOICE' | 'STOCK_TRANSFER' | 'STOCK_JOURNAL'; pattern: string }[] = [
     { kind: 'PURCHASE_ORDER', pattern: 'PO/{FY}/{SEQ:4}' },
     { kind: 'PURCHASE', pattern: 'PUR/{FY}/{SEQ:4}' },
     { kind: 'QUOTATION', pattern: 'QT/{FY}/{SEQ:4}' },
     { kind: 'SALES_INVOICE', pattern: 'INV/{FY}/{SEQ:4}' },
     { kind: 'EXPORT_INVOICE', pattern: 'EXP/{FY}/{SEQ:4}' },
+    { kind: 'STOCK_TRANSFER', pattern: 'ST/{FY}/{SEQ:4}' },
+    { kind: 'STOCK_JOURNAL', pattern: 'SJ/{FY}/{SEQ:4}' },
   ];
   for (const format of FORMATS) {
     const series = await prisma.numberSeries.findUnique({ where: { kind: format.kind }, select: { id: true, _count: { select: { formats: true } } } });

@@ -6,6 +6,7 @@ import { LoadNotice } from "@/components/ui/load-notice";
 import { useCompanyProfile } from "@/features/company/use-company-profile";
 import { useItemMasters } from "@/features/items/catalog-api";
 import { PARTIES_PATH, toParty } from "@/features/parties/parties-api";
+import { useSalesSettings } from "@/features/sales-settings/sales-settings-api";
 import { issuerOf, QUOTATIONS_PATH } from "@/features/quotations/quotations-api";
 import { quotationLabel } from "@/features/quotations/quotation-rules";
 import { LUTS_PATH, toLut } from "@/features/tax-export/luts-api";
@@ -61,7 +62,9 @@ export function InvoicesListScreen() {
 export function NewInvoiceScreen({ kind, quotationId }: { kind: InvoiceKind; quotationId?: string }) {
   const { data, error, reload } = useInvoiceData();
   const quotation = useSWR<QuotationView>(quotationId ? `${QUOTATIONS_PATH}/${quotationId}` : null, apiGet);
-  if (!data || (quotationId && !quotation.data && !quotation.error)) return <LoadNotice error={error} what="the invoice form" />;
+  // Sales settings failing to load must not stop billing: every item is then listed.
+  const { settings, error: settingsError } = useSalesSettings();
+  if (!data || (quotationId && !quotation.data && !quotation.error) || (!settings && !settingsError)) return <LoadNotice error={error} what="the invoice form" />;
   const from = quotation.data;
   return (
     <InvoiceForm
@@ -71,6 +74,7 @@ export function NewInvoiceScreen({ kind, quotationId }: { kind: InvoiceKind; quo
       godowns={data.masters.godowns.filter((godown) => !godown.isArchived)}
       luts={data.luts}
       companyState={data.issuer.stateCode}
+      inStockOnly={settings?.invoiceInStockOnly ?? false}
       fromQuotation={
         from && {
           id: from.id,

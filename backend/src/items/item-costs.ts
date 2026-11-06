@@ -17,9 +17,9 @@ export interface ItemCosts {
 
 /** The rows `itemCosts` and `stockOnHand` read, to add to an item query's `select` or `include`. */
 export const itemCostSource = {
-  openingStock: { select: { quantity: true, value: true, drawn: true } },
+  openingStock: { select: { godownId: true, quantity: true, value: true, drawn: true } },
   stockBatches: {
-    select: { quantity: true, remaining: true, landedRate: true, date: true, createdAt: true },
+    select: { godownId: true, billLineId: true, quantity: true, remaining: true, landedRate: true, date: true, createdAt: true },
     orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
   },
 } as const satisfies Prisma.ItemInclude;
@@ -27,18 +27,33 @@ export const itemCostSource = {
 export interface CostSource {
   /** `drawn`: sold out of it so far (missing counts as none). */
   openingStock: { quantity: Prisma.Decimal; value: Prisma.Decimal; drawn?: Prisma.Decimal }[];
-  /** Newest first, as itemCostSource orders them. */
-  stockBatches: { remaining: Prisma.Decimal; landedRate: Prisma.Decimal }[];
+  /** Newest first, as itemCostSource orders them. `billLineId` null: moved in by a transfer or added by an adjustment. */
+  stockBatches: { remaining: Prisma.Decimal; landedRate: Prisma.Decimal; billLineId?: string | null }[];
 }
 
 const paise = (value: number) => Math.round(value * 100) / 100;
 
+const thousandths = (value: Prisma.Decimal) => Math.round(toNumber(value) * 1000);
+
 /** Quantity on hand, in thousandths so 0.1 + 0.2 kg stays 0.3. */
 export function stockOnHand(source: CostSource): number {
-  const thousandths = (value: Prisma.Decimal) => Math.round(toNumber(value) * 1000);
   const opening = source.openingStock.reduce((sum, row) => sum + thousandths(row.quantity) - (row.drawn ? thousandths(row.drawn) : 0), 0);
   const batches = source.stockBatches.reduce((sum, row) => sum + thousandths(row.remaining), 0);
   return (opening + batches) / 1000;
+}
+
+export interface GodownSource {
+  openingStock: { godownId: string; quantity: Prisma.Decimal; drawn?: Prisma.Decimal }[];
+  stockBatches: { godownId: string; remaining: Prisma.Decimal }[];
+}
+
+/** Quantity on hand in each godown that holds some (nothing listed for an empty godown). */
+export function stockByGodown(source: GodownSource): { godownId: string; quantity: number }[] {
+  const held = new Map<string, number>();
+  const add = (godownId: string, amount: number) => held.set(godownId, (held.get(godownId) ?? 0) + amount);
+  for (const row of source.openingStock) add(row.godownId, thousandths(row.quantity) - (row.drawn ? thousandths(row.drawn) : 0));
+  for (const batch of source.stockBatches) add(batch.godownId, thousandths(batch.remaining));
+  return [...held].filter(([, amount]) => amount > 0).map(([godownId, amount]) => ({ godownId, quantity: amount / 1000 }));
 }
 
 /** Per base unit, rounded to paise. */
@@ -62,7 +77,9 @@ export function itemCosts(source: CostSource): ItemCosts {
     quantity += remaining;
     value += remaining * toNumber(batch.landedRate);
   }
-  const newest = source.stockBatches[0];
+  // What restocking costs: the newest goods bill. A transfer only moves old
+  // stock, and an adjustment's rate is typed, so neither counts.
+  const newest = source.stockBatches.find((batch) => batch.billLineId !== null);
   return {
     lastLandedCost: newest ? paise(toNumber(newest.landedRate)) : openingRate === null ? null : paise(openingRate),
     stockCost: quantity > 0 ? paise(value / quantity) : null,

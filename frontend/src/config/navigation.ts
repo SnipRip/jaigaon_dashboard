@@ -1,4 +1,5 @@
 import {
+  ArrowLeftRight,
   BadgeCheck,
   ClipboardList,
   BadgePercent,
@@ -25,6 +26,7 @@ import {
   Scale,
   Search,
   Settings,
+  SlidersHorizontal,
   ShieldCheck,
   ShoppingCart,
   Tag,
@@ -85,6 +87,18 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: "Stock",
+    items: [
+      { href: "/stock-transfers", label: "Stock transfers", icon: ArrowLeftRight, summary: "Move stock from one godown to another at what it cost" },
+      {
+        href: "/stock-adjustments",
+        label: "Stock adjustments",
+        icon: SlidersHorizontal,
+        summary: "Write off damaged, lost or used stock, and correct stock after a count",
+      },
+    ],
+  },
+  {
     label: "Bhutan export",
     items: [
       { href: "/shipments", label: "Shipments", icon: Truck, summary: "Trucks to Bhutan: invoices carried, vehicle, border stage and shipment-wise profit" },
@@ -128,7 +142,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle, summary: "Send messages, message templates, opt-ins and message history" },
       { href: "/users", label: "Users & roles", icon: ShieldCheck, summary: "Staff accounts, role-based access, module permissions and activity history" },
-      { href: "/settings", label: "Settings", icon: Settings, summary: "Your profile, password and preferences" },
+      { href: "/settings", label: "Settings", icon: Settings, summary: "Your profile, password and devices, and sales settings" },
     ],
   },
 ];

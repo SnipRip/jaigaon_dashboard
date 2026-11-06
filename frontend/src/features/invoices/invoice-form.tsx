@@ -30,6 +30,7 @@ import { apiGet, ApiError } from "@/lib/api-client";
 import { formatDate, formatQuantity, formatRate } from "@/lib/format";
 import { useToday } from "@/lib/use-today";
 import type { GodownView } from "@/types/item-master";
+import { itemsInStock, stockIn } from "@/features/items/item-stock";
 import { exportDeclaration, invoiceTax } from "./invoice-rules";
 import { invoiceSchema, type InvoiceFormValues } from "./invoice-schema";
 import { InvoiceTotalsCard } from "./invoice-totals-card";
@@ -44,6 +45,8 @@ interface InvoiceFormProps {
   godowns: GodownView[];
   luts: Lut[];
   companyState: string;
+  /** Sales setting: the item picker lists only items with stock in the chosen godown. */
+  inStockOnly: boolean;
   /** Converting a quotation: its customer and lines; it is marked converted on save. */
   fromQuotation?: { id: string; label: string; partyId: string; lines: { itemId: string; quantity: number; rate: number; discountPct: number }[] };
   onSaved: () => Promise<void>;
@@ -62,7 +65,7 @@ const emptyLine = { itemId: "", quantity: "", rate: "", discountPct: "" };
 // customer. Schemes in force show as they would apply. On save the backend
 // prices every line again, takes the number from the series and draws the
 // goods out of the godown's stock, oldest first; it refuses more than is there.
-export function InvoiceForm({ kind, customers, catalog, godowns, luts, companyState, fromQuotation, onSaved }: InvoiceFormProps) {
+export function InvoiceForm({ kind, customers, catalog, godowns, luts, companyState, inStockOnly, fromQuotation, onSaved }: InvoiceFormProps) {
   const isExport = kind === "export";
   const eligible = customers.filter((party) => (isExport ? party.treatment === "overseas" || party.treatment === "sez" : party.treatment !== "overseas"));
   const today = useToday();
@@ -240,7 +243,9 @@ export function InvoiceForm({ kind, customers, catalog, godowns, luts, companySt
     () => setResult({ tone: "error", text: "Some fields need attention. See the ones marked in red above." }),
   );
 
-  const itemOptions = catalog.items.map((item) => ({ value: item.id, label: `${item.name} · ${item.sku}` }));
+  const godownName = godownId ? (godowns.find((godown) => godown.id === godownId)?.name ?? "the chosen godown") : undefined;
+  const pickable = inStockOnly ? itemsInStock(catalog.items, godownId, itemIds) : catalog.items;
+  const itemOptions = pickable.map((item) => ({ value: item.id, label: `${item.name} · ${item.sku}` }));
 
   return (
     <form onSubmit={onSubmit} noValidate className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -375,6 +380,12 @@ export function InvoiceForm({ kind, customers, catalog, godowns, luts, companySt
 
         <GlassCard className="flex flex-col gap-3.5">
           <CardTitle>Items</CardTitle>
+          {inStockOnly && (
+            <p className="text-xs font-semibold text-muted">
+              Listing only items in stock {godownName ? `in ${godownName}` : "in any godown"} (Settings → Sales).
+              {pickable.length === 0 && " None has stock there."}
+            </p>
+          )}
           {lineFields.fields.map((field, index) => {
             const row = rows[index];
             const pricedRow = priced.find((candidate) => candidate.key === String(index));
@@ -422,8 +433,9 @@ export function InvoiceForm({ kind, customers, catalog, godowns, luts, companySt
                 )}
                 {row && (
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs font-semibold text-muted">
-                    <span className={row.quantity + (pricedRow?.freeQuantity ?? 0) > row.item.stock ? "text-danger-strong" : undefined}>
-                      Stock {formatQuantity(row.item.stock)} {row.unit} in all godowns
+                    {/* The godown's own stock: issuing draws only from it. */}
+                    <span className={row.quantity + (pricedRow?.freeQuantity ?? 0) > stockIn(row.item, godownId) ? "text-danger-strong" : undefined}>
+                      Stock {formatQuantity(stockIn(row.item, godownId))} {row.unit} {godownName ? `in ${godownName}` : "in all godowns"}
                     </span>
                     <span>HSN {row.hsn}</span>
                     <span>GST {row.gstRatePct}% → {describeComponents(row.gstRatePct, tax.regime)}</span>
@@ -472,7 +484,7 @@ export function InvoiceForm({ kind, customers, catalog, godowns, luts, companySt
             Place of supply {stateName(placeOfSupply)}: {placeOfSupply === companyState ? "same state, CGST + SGST" : "other state, IGST"}.
           </p>
         )}
-        {godownId && <p className="px-2 text-xs font-semibold text-muted">Stock is drawn from {godowns.find((godown) => godown.id === godownId)?.name}.</p>}
+        {godownName && <p className="px-2 text-xs font-semibold text-muted">Stock is drawn from {godownName}.</p>}
       </div>
     </form>
   );

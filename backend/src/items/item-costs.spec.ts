@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Prisma } from '../generated/prisma/client.js';
-import { itemCosts, stockOnHand } from './item-costs.js';
+import { itemCosts, stockByGodown, stockOnHand } from './item-costs.js';
 
 const opening = (quantity: number, value: number, drawn = 0) => ({
   quantity: new Prisma.Decimal(quantity),
@@ -56,5 +56,35 @@ describe("itemCosts after sales", () => {
     expect(itemCosts(source([opening(100, 5000, 60)], [batch(100, 56)]))).toEqual({ lastLandedCost: 56, stockCost: 54.29 });
     // Sold out: no stock cost, the opening rate stays the last cost.
     expect(itemCosts(source([opening(10, 500, 10)]))).toEqual({ lastLandedCost: 50, stockCost: null });
+  });
+});
+
+describe('lastLandedCost', () => {
+  it('skips batches a transfer moved in or an adjustment added', () => {
+    const moved = { ...batch(50, 40), billLineId: null };
+    const billed = { ...batch(10, 56), billLineId: 'line' };
+    expect(itemCosts(source([], [moved, billed])).lastLandedCost).toBe(56);
+  });
+});
+
+describe('stockByGodown', () => {
+  const d = (value: string) => new Prisma.Decimal(value);
+  it('adds opening stock left and batches per godown, leaving out empty godowns', () => {
+    expect(
+      stockByGodown({
+        openingStock: [
+          { godownId: 'a', quantity: d('10.1'), drawn: d('0.1') },
+          { godownId: 'b', quantity: d('5'), drawn: d('5') },
+        ],
+        stockBatches: [
+          { godownId: 'a', remaining: d('0.2') },
+          { godownId: 'c', remaining: d('3') },
+          { godownId: 'b', remaining: d('0') },
+        ],
+      }),
+    ).toEqual([
+      { godownId: 'a', quantity: 10.2 },
+      { godownId: 'c', quantity: 3 },
+    ]);
   });
 });
