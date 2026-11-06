@@ -82,6 +82,11 @@ export class AccountHeadsService {
           `Loan entries post to "${stored.name}": it keeps its name, stays an ${isExpense(stored.nature) ? 'expense' : 'income'} head and cannot be archived`,
         );
       }
+      // Expenses and bill charges book to the head by id: it stays an expense head.
+      if (isExpense(stored.nature) && !isExpense(data.nature)) {
+        const [expenses, charges] = await Promise.all([tx.expense.count({ where: { headId: id } }), tx.purchaseBillCharge.count({ where: { headId: id } })]);
+        if (expenses + charges > 0) throw new ConflictException(`Expenses or bills are booked under "${stored.name}": it stays an expense head`);
+      }
       return toAccountHeadView(await tx.accountHead.update({ where: { id }, data }));
     });
   }

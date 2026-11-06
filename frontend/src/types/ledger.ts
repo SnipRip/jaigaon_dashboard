@@ -78,7 +78,7 @@ export interface BooksBasis {
   /** Stock adjustments posted (not cancelled). */
   stockAdjustmentCount: number;
   /** Issued invoices, open bills, live receipts and payments posted up to the date. */
-  documentCounts: { invoices: number; bills: number; receipts: number; payments: number };
+  documentCounts: { invoices: number; bills: number; receipts: number; payments: number; expenses: number };
 }
 
 /** A bank or cash account's balance on a date: opening plus everything posted through it. */

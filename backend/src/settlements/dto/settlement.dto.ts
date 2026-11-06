@@ -10,9 +10,9 @@ export const MAX_ALLOCATIONS = 200;
 // Field formats only; settlements.service.ts checks the party, the account,
 // the balances and the BRC.
 export class AllocationDto {
-  /** INVOICE for receipts, BILL for payments, OPENING for the party's opening balance. */
-  @IsIn(['INVOICE', 'BILL', 'OPENING'])
-  kind: 'INVOICE' | 'BILL' | 'OPENING';
+  /** INVOICE for receipts, BILL or EXPENSE (bought on credit) for payments, OPENING for the party's opening balance. */
+  @IsIn(['INVOICE', 'BILL', 'EXPENSE', 'OPENING'])
+  kind: 'INVOICE' | 'BILL' | 'EXPENSE' | 'OPENING';
 
   /** The invoice or bill; for OPENING the party's own id. */
   @IsUUID()

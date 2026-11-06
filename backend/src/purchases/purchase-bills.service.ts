@@ -6,17 +6,15 @@ import type { LandedCostMethod, Prisma } from '../generated/prisma/client.js';
 import { loadItemFacts } from '../items/item-document-facts.js';
 import { NumberSeriesService } from '../number-series/number-series.service.js';
 import { liveSettlementNumbers } from '../settlements/settlements.service.js';
-import { restateBatchCost } from '../stock/stock-out.js';
 import type { CreatePurchaseBillDto, LastPurchaseRatesQueryDto, ListPurchaseBillsQueryDto } from './dto/purchase-bill.dto.js';
+import { landBill } from './landed-cost.js';
 import { companyState, liveGodown, liveVendor } from './purchase-context.js';
 import {
-  allocateLandedCost,
   billDueDays,
   billFigures,
   billTax,
   chargeRate,
   lineWeightKg,
-  money,
   pendingQuantity,
   type BillLineInput,
 } from './purchase-rules.js';
@@ -28,11 +26,9 @@ const fail = (message: string): never => {
   throw new BadRequestException(message);
 };
 
-const LANDED_METHOD_TEXT: Record<LandedCostMethod, string> = { VALUE: 'value', QUANTITY: 'quantity', WEIGHT: 'weight' };
-
 // Vendor bills. A goods bill brings its lines into stock (one batch per line)
 // at the landed rate: the line's own cost plus its share of the freight on
-// the bill and of every charges bill tagged to it. Tagging, voiding or
+// the bill, of every charges bill tagged to it and of expenses allocated to it. Tagging, voiding or
 // changing the spread re-works the landed rates of that goods bill and its
 // batches in the same transaction. Bills are not edited once saved: void and
 // enter again, as the vendor's paper does not change.
@@ -196,8 +192,8 @@ export class PurchaseBillsService {
         },
         select: { id: true },
       });
-      if (goods) await this.land(tx, bill.id);
-      if (dto.landedCostForId) await this.land(tx, dto.landedCostForId);
+      if (goods) await landBill(tx, bill.id);
+      if (dto.landedCostForId) await landBill(tx, dto.landedCostForId);
       return toBillView(await tx.purchaseBill.findUniqueOrThrow({ where: { id: bill.id }, include: billInclude }));
     });
   }
@@ -208,7 +204,7 @@ export class PurchaseBillsService {
       const bill = await tx.purchaseBill.findUniqueOrThrow({ where: { id }, select: { kind: true, status: true } });
       if (bill.kind !== 'GOODS' || bill.status !== 'OPEN') fail('Only an open goods bill spreads landed cost');
       await tx.purchaseBill.update({ where: { id }, data: { allocation } });
-      await this.land(tx, id);
+      await landBill(tx, id);
       return toBillView(await tx.purchaseBill.findUniqueOrThrow({ where: { id }, include: billInclude }));
     });
   }
@@ -229,6 +225,8 @@ export class PurchaseBillsService {
       if (bill.kind === 'GOODS') {
         const tagged = await tx.purchaseBill.count({ where: { landedCostForId: id, status: 'OPEN' } });
         if (tagged > 0) throw new ConflictException('Freight, loading or labour bills are added to this purchase. Void them first.');
+        const expenses = await tx.expense.findMany({ where: { billId: id, cancelledAt: null }, select: { number: true } });
+        if (expenses.length) throw new ConflictException(`Expenses land on this purchase (${expenses.map((row) => row.number).join(', ')}). Cancel them first.`);
         const batches = await tx.stockBatch.findMany({ where: { billLine: { billId: id } }, select: { quantity: true, remaining: true } });
         if (batches.some((batch) => !batch.remaining.equals(batch.quantity))) {
           throw new ConflictException('Some of this stock has already gone out, so the bill cannot be voided');
@@ -237,7 +235,7 @@ export class PurchaseBillsService {
       }
       await tx.purchaseBill.update({ where: { id }, data: { status: 'VOID' } });
       if (bill.issuedNumberId) await this.numbers.cancel(tx, bill.issuedNumberId);
-      if (bill.landedCostForId) await this.land(tx, bill.landedCostForId);
+      if (bill.landedCostForId) await landBill(tx, bill.landedCostForId);
       return toBillView(await tx.purchaseBill.findUniqueOrThrow({ where: { id }, include: billInclude }));
     });
   }
@@ -296,61 +294,6 @@ export class PurchaseBillsService {
       const received = orderLine.billLines.reduce((sum, row) => sum + toNumber(row.quantity), 0);
       const pending = pendingQuantity(toNumber(orderLine.quantity), received);
       if (quantity > pending + 1e-9) fail(`More than order ${order.number} still has to come on a line (${pending} pending). Bill the extra without the order line.`);
-    }
-  }
-
-  /**
-   * Works out a goods bill's landed rates again: its own freight plus every
-   * open charges bill tagged to it, spread by the bill's method, then writes
-   * them to the lines and the stock batches (made here on first landing).
-   */
-  private async land(tx: Db, goodsBillId: string) {
-    const bill = await tx.purchaseBill.findUniqueOrThrow({
-      where: { id: goodsBillId },
-      select: {
-        reference: true,
-        status: true,
-        date: true,
-        godownId: true,
-        allocation: true,
-        chargesValue: true,
-        lines: { orderBy: { position: 'asc' }, include: { item: { select: { weightKg: true, name: true } }, batch: { select: { id: true } } } },
-        taggedCharges: { where: { status: 'OPEN' }, select: { cost: true } },
-      },
-    });
-    if (bill.status !== 'OPEN') return;
-    const charges = money(toNumber(bill.chargesValue) + bill.taggedCharges.reduce((sum, tagged) => sum + toNumber(tagged.cost), 0));
-    const lines = bill.lines.map((line) => ({
-      quantity: toNumber(line.quantity),
-      weightKg: lineWeightKg(toNumber(line.quantity), line.unit, toNumber(line.item.weightKg)),
-      taxable: toNumber(line.taxable),
-      ownCost: toNumber(line.ownCost),
-    }));
-    const rows = allocateLandedCost(lines, charges, bill.allocation);
-    if (!rows) {
-      const unknown = bill.lines.find((_, index) => lines[index].weightKg === null);
-      fail(`${bill.reference}: the weight of ${unknown?.item.name ?? 'an item'} is unknown, so it cannot be spread by ${LANDED_METHOD_TEXT[bill.allocation]}. Set its weight per unit, or spread by value.`);
-    }
-    for (const [index, line] of bill.lines.entries()) {
-      const row = rows![index];
-      await tx.purchaseBillLine.update({ where: { id: line.id }, data: row });
-      if (line.batch) {
-        await tx.stockBatch.update({ where: { id: line.batch.id }, data: { landedRate: row.landedRate } });
-        // Goods already sold from this batch now cost the new rate on their invoices.
-        await restateBatchCost(tx, line.batch.id, row.landedRate);
-      } else {
-        await tx.stockBatch.create({
-          data: {
-            itemId: line.itemId,
-            godownId: bill.godownId!,
-            billLineId: line.id,
-            date: bill.date,
-            quantity: line.quantity,
-            remaining: line.quantity,
-            landedRate: row.landedRate,
-          },
-        });
-      }
     }
   }
 }

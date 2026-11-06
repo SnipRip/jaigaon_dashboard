@@ -2,58 +2,66 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
+import useSWR from "swr";
 import { Button, buttonClasses } from "@/components/ui/button";
-import { FilePicker } from "@/components/ui/file-picker";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { FilterGroup } from "@/components/ui/filter-group";
 import { FormMessage } from "@/components/ui/form-message";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
-import { SelectField, type SelectOption } from "@/components/ui/select-field";
 import { LoadNotice } from "@/components/ui/load-notice";
+import { SelectField, type SelectOption } from "@/components/ui/select-field";
 import { StatusChip } from "@/components/ui/status-chip";
+import { TextArea } from "@/components/ui/text-area";
 import { TextField } from "@/components/ui/text-field";
 import { expenseHeadsOf } from "@/features/masters/account-head-rules";
 import { ALLOCATIONS } from "@/features/masters/expense-heads-master";
 import { useAccountHeads } from "@/features/masters/use-account-heads";
+import type { Party } from "@/features/parties/types";
+import { MODE_OPTIONS } from "@/features/payments/settlements-api";
+import { ApiError, apiGet } from "@/lib/api-client";
 import { formatRate } from "@/lib/format";
 import { useToday } from "@/lib/use-today";
-import { expenseGst, expenseTotal } from "./expense-rules";
+import type { BankCashAccountView } from "@/types/bank-cash";
+import type { ExpenseView } from "@/types/expense";
 import { expenseSchema, type ExpenseFormValues } from "./expense-schema";
-import type { ExpenseAllocation } from "./types";
-
-export interface AllocationTarget {
-  kind: ExpenseAllocation["kind"];
-  id: string;
-  label: string;
-}
+import { createExpense, decisionProblem, expenseDecision, expenseNumberPreviewPath, expensePreview, TO_BACKEND } from "./expenses-api";
 
 interface ExpenseFormProps {
-  vendors: SelectOption[];
-  accounts: SelectOption[];
-  targets: AllocationTarget[];
-  suggestedNumber: string;
+  vendors: Party[];
+  accounts: BankCashAccountView[];
+  /** Open goods bills (item cost) and issued invoices, as options. */
+  bills: SelectOption[];
+  invoices: SelectOption[];
+  /** Our GST state, for a vendor's CGST + SGST or IGST. */
+  companyState?: string;
+  onSaved: (saved: ExpenseView) => Promise<void>;
 }
 
-const NOT_PAID = "unpaid";
-const RATES = [0, 5, 12, 18, 28, 40];
+/** Cash over ₹10,000 to one person in a day is not allowed as a business expense (Income-tax Act s.40A(3)). */
+const CASH_EXPENSE_LIMIT = 10000;
 
-// One expense: what it was, who was paid and from where, and whose profit it
-// reduces. The head fills in GST and allocation; both can be changed.
-export function ExpenseForm({ vendors, accounts, targets, suggestedNumber }: ExpenseFormProps) {
+// One expense: what it was, who was paid, from which account (or owed to
+// the vendor), and whose profit it reduces. The head decides GST and the
+// allocation; the vendor's registration decides whether there is GST and
+// how it splits. The backend works it all out again on save.
+export function ExpenseForm({ vendors, accounts, bills, invoices, companyState, onSaved }: ExpenseFormProps) {
+  const router = useRouter();
   const today = useToday();
   const { heads: allHeads, error: headsError } = useAccountHeads();
   const heads = expenseHeadsOf(allHeads ?? []);
-  const [file, setFile] = useState<File | null>(null);
-  const [result, setResult] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const liveAccounts = accounts.filter((account) => !account.isArchived);
+  const firstFor = (mode: string) => liveAccounts.find((account) => (mode === "CASH") === (account.kind === "CASH"))?.id ?? "";
   const {
     register,
     control,
     handleSubmit,
     setValue,
     getValues,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseSchema),
     defaultValues: {
@@ -61,14 +69,19 @@ export function ExpenseForm({ vendors, accounts, targets, suggestedNumber }: Exp
       headId: "",
       description: "",
       amount: "",
-      gstRatePct: "0",
+      gstRatePct: "18",
+      gstBill: true,
+      itcEligible: true,
       payeeKind: "other",
       vendorId: "",
       payee: "",
-      paidFrom: accounts[0]?.value ?? NOT_PAID,
+      paid: "now",
+      mode: "CASH",
+      accountId: firstFor("CASH"),
       reference: "",
       allocationKind: "overhead",
       targetId: "",
+      notes: "",
     },
   });
 
@@ -76,22 +89,67 @@ export function ExpenseForm({ vendors, accounts, targets, suggestedNumber }: Exp
     if (today && !getValues("date")) setValue("date", today);
   }, [today, getValues, setValue]);
 
-  const [headId, amount, gstRatePct, payeeKind, allocationKind] = useWatch({ control, name: ["headId", "amount", "gstRatePct", "payeeKind", "allocationKind"] });
+  const [date, headId, amount, gstRatePct, gstBill, itcEligible, payeeKind, vendorId, paid, mode, allocationKind] = useWatch({
+    control,
+    name: ["date", "headId", "amount", "gstRatePct", "gstBill", "itcEligible", "payeeKind", "vendorId", "paid", "mode", "allocationKind"],
+  });
+  const { data: nextNumber } = useSWR<{ number: string | null }>(date ? expenseNumberPreviewPath(date) : null, apiGet);
   const head = heads.find((candidate) => candidate.id === headId);
-  const figures = { amount: Number(amount) || 0, gstRatePct: Number(gstRatePct) || 0 };
+  const vendor = payeeKind === "vendor" ? vendors.find((candidate) => candidate.id === vendorId) : undefined;
+  const decision = expenseDecision(companyState, vendor, gstBill);
+  const refused = decisionProblem(decision);
+  const preview = expensePreview(Number(amount) || 0, decision, head, Number(gstRatePct) || 0, itcEligible);
+  const indirect = head?.nature === "indirect-expense";
+  const allocations = ALLOCATIONS.filter((option) => (indirect ? option.value === "overhead" : option.value !== "item-cost" || head?.allocation === "item-cost"));
+  const accountOptions = liveAccounts.filter((account) => (mode === "CASH") === (account.kind === "CASH")).map((account) => ({ value: account.id, label: account.name }));
 
   const pickHead = (id: string) => {
     const picked = heads.find((candidate) => candidate.id === id);
     setValue("headId", id, { shouldValidate: true });
     if (!picked) return;
-    setValue("gstRatePct", String(picked.gst === "own-rate" ? (picked.gstRatePct ?? 0) : picked.gst === "none" ? 0 : 18));
+    if (picked.gst === "own-rate" && picked.gstRatePct !== undefined) setValue("gstRatePct", String(picked.gstRatePct));
     setValue("allocationKind", picked.allocation ?? "overhead");
     setValue("targetId", "");
   };
+  const pickMode = (next: ExpenseFormValues["mode"]) => {
+    setValue("mode", next);
+    const current = liveAccounts.find((account) => account.id === getValues("accountId"));
+    if (!current || (next === "CASH") !== (current.kind === "CASH")) setValue("accountId", firstFor(next), { shouldValidate: true });
+  };
 
   const onSubmit = handleSubmit(
-    () => setResult({ tone: "success", text: "The expense checks out. Saving switches on when expenses are connected to the database." }),
-    () => setResult({ tone: "error", text: "Some fields need attention. See the ones marked in red above." }),
+    async (values) => {
+      setProblem(null);
+      if (refused) {
+        setProblem(refused);
+        return;
+      }
+      try {
+        const now = values.paid === "now";
+        const saved = await createExpense({
+          date: values.date,
+          headId: values.headId,
+          description: values.description,
+          amount: Number(values.amount),
+          gstRatePct: preview.rate,
+          gstBill: values.gstBill,
+          itcEligible: values.itcEligible,
+          vendorId: values.payeeKind === "vendor" ? values.vendorId : null,
+          payee: values.payeeKind === "other" ? values.payee : null,
+          accountId: now ? values.accountId : null,
+          mode: now ? values.mode : null,
+          allocation: TO_BACKEND[values.allocationKind],
+          targetId: values.allocationKind === "item-cost" || values.allocationKind === "invoice" ? values.targetId : null,
+          reference: values.reference || null,
+          notes: values.notes || null,
+        });
+        await onSaved(saved);
+        router.push(`/expenses/${saved.id}`);
+      } catch (error) {
+        setProblem(error instanceof ApiError ? error.message : "Could not save. Check the connection and try again.");
+      }
+    },
+    () => setProblem("Some fields need attention. See the ones marked in red above."),
   );
   const errorText = (message?: string) => message && <p className="text-xs font-semibold text-danger-strong">{message}</p>;
 
@@ -103,43 +161,30 @@ export function ExpenseForm({ vendors, accounts, targets, suggestedNumber }: Exp
         <GlassCard className="flex flex-col gap-3.5">
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle>New expense</CardTitle>
-            <StatusChip tone="neutral">{suggestedNumber}</StatusChip>
+            {nextNumber?.number && <StatusChip tone="neutral">{nextNumber.number}</StatusChip>}
           </div>
+          {date && nextNumber && !nextNumber.number && (
+            <FormMessage tone="error">
+              {"No number format for expenses on this date. Add one under Masters, Number series first."}
+            </FormMessage>
+          )}
           <div className="grid gap-3.5 @xl:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <SelectField
-                label="Expense head"
-                options={heads.map((candidate) => ({ value: candidate.id, label: candidate.name }))}
-                value={headId || undefined}
-                onValueChange={pickHead}
-              />
+              <SelectField label="Expense head" options={heads.map((candidate) => ({ value: candidate.id, label: candidate.name }))} value={headId || undefined} onValueChange={pickHead} />
               {errorText(errors.headId?.message)}
-              {head?.notes && <p className="text-xs font-semibold text-muted">{head.notes}</p>}
+              {head && <p className="text-xs font-semibold text-muted">{[head.tallyGroup, head.notes].filter(Boolean).join(" · ")}</p>}
             </div>
-            <TextField label="Date" type="date" error={errors.date?.message} {...register("date")} />
+            <TextField label="Date" type="date" max={today ?? undefined} error={errors.date?.message} {...register("date")} />
           </div>
           <TextField label="What it was for" placeholder="Truck to Thimphu, yard rent October" error={errors.description?.message} {...register("description")} />
-          <div className="grid gap-3.5 @xl:grid-cols-3">
+          <div className="grid gap-3.5 @xl:grid-cols-2">
             <TextField label="Amount before GST (₹)" inputMode="decimal" error={errors.amount?.message} {...register("amount")} />
-            <Controller
-              control={control}
-              name="gstRatePct"
-              render={({ field }) => (
-                <SelectField
-                  label="GST on the bill"
-                  options={RATES.map((rate) => ({ value: String(rate), label: rate ? `${rate}%` : "No GST" }))}
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  disabled={head?.gst === "none"}
-                />
-              )}
-            />
             <TextField label="Payee's slip or bill number" error={errors.reference?.message} {...register("reference")} />
           </div>
         </GlassCard>
 
         <GlassCard className="flex flex-col gap-3.5">
-          <CardTitle>Who was paid</CardTitle>
+          <CardTitle>Who was paid, and how</CardTitle>
           <Controller
             control={control}
             name="payeeKind"
@@ -148,38 +193,131 @@ export function ExpenseForm({ vendors, accounts, targets, suggestedNumber }: Exp
                 <FilterChip selected={field.value === "vendor"} onClick={() => field.onChange("vendor")}>
                   A vendor on record
                 </FilterChip>
-                <FilterChip selected={field.value === "other"} onClick={() => field.onChange("other")}>
+                <FilterChip
+                  selected={field.value === "other"}
+                  onClick={() => {
+                    field.onChange("other");
+                    setValue("paid", "now");
+                  }}
+                >
                   Someone else (cash slip)
                 </FilterChip>
               </FilterGroup>
             )}
           />
-          <div className="grid gap-3.5 @xl:grid-cols-2">
-            {payeeKind === "vendor" ? (
+          {payeeKind === "vendor" ? (
+            <div className="flex flex-col gap-1.5">
+              <Controller
+                control={control}
+                name="vendorId"
+                render={({ field }) => (
+                  <SelectField label="Vendor" options={vendors.map((candidate) => ({ value: candidate.id, label: candidate.displayName }))} value={field.value || undefined} onValueChange={field.onChange} />
+                )}
+              />
+              {errorText(errors.vendorId?.message)}
+            </div>
+          ) : (
+            <TextField label="Paid to" placeholder="Name on the slip" error={errors.payee?.message} {...register("payee")} />
+          )}
+          <Controller
+            control={control}
+            name="paid"
+            render={({ field }) => (
+              <FilterGroup label="Payment">
+                <FilterChip selected={field.value === "now"} onClick={() => field.onChange("now")}>
+                  Paid now
+                </FilterChip>
+                <FilterChip selected={field.value === "credit"} onClick={() => field.onChange("credit")} disabled={payeeKind !== "vendor"}>
+                  Not paid yet: owed to the vendor
+                </FilterChip>
+              </FilterGroup>
+            )}
+          />
+          {errorText(errors.paid?.message)}
+          {paid === "now" ? (
+            <div className="grid gap-3.5 @xl:grid-cols-2">
+              <SelectField label="How it was paid" options={MODE_OPTIONS} value={mode} onValueChange={(value) => pickMode(value as ExpenseFormValues["mode"])} />
               <div className="flex flex-col gap-1.5">
                 <Controller
                   control={control}
-                  name="vendorId"
-                  render={({ field }) => <SelectField label="Vendor" options={vendors} value={field.value || undefined} onValueChange={field.onChange} />}
+                  name="accountId"
+                  render={({ field }) => <SelectField label="From account" options={accountOptions} value={field.value || undefined} onValueChange={field.onChange} />}
                 />
-                {errorText(errors.vendorId?.message)}
+                {errorText(errors.accountId?.message)}
               </div>
-            ) : (
-              <TextField label="Paid to" placeholder="Name on the slip" error={errors.payee?.message} {...register("payee")} />
-            )}
-            <Controller
-              control={control}
-              name="paidFrom"
-              render={({ field }) => (
-                <SelectField
-                  label="Paid from"
-                  options={[...accounts, { value: NOT_PAID, label: "Not paid yet: owed to the payee" }]}
-                  value={field.value}
-                  onValueChange={field.onChange}
+            </div>
+          ) : (
+            <p className="text-sm font-medium text-muted">It goes on the vendor&apos;s account and is paid later from Payments, like a bill.</p>
+          )}
+          {paid === "now" && mode === "CASH" && preview.total > CASH_EXPENSE_LIMIT && (
+            <FormMessage tone="error">Cash over ₹10,000 to one person in a day is not allowed as a business expense (Income-tax Act s.40A(3)). Pay by bank if you can.</FormMessage>
+          )}
+        </GlassCard>
+
+        <GlassCard className="flex flex-col gap-3.5">
+          <CardTitle>GST</CardTitle>
+          {refused ? (
+            <FormMessage tone="error">{refused}</FormMessage>
+          ) : (
+            <>
+              {payeeKind === "other" && (
+                <Controller
+                  control={control}
+                  name="gstBill"
+                  render={({ field }) => (
+                    <FilterGroup label="The payee gave">
+                      <FilterChip selected={field.value} onClick={() => field.onChange(true)}>
+                        A GST tax invoice
+                      </FilterChip>
+                      <FilterChip selected={!field.value} onClick={() => field.onChange(false)}>
+                        A slip without GST
+                      </FilterChip>
+                    </FilterGroup>
+                  )}
                 />
               )}
-            />
-          </div>
+              <div className="grid gap-3.5 @xl:grid-cols-2">
+                {preview.rule.fixed === undefined ? (
+                  <Controller
+                    control={control}
+                    name="gstRatePct"
+                    render={({ field }) => (
+                      <SelectField
+                        label="GST on the bill"
+                        options={[0, ...preview.rule.options].map((rate) => ({ value: String(rate), label: rate ? `${rate}%` : "No GST" }))}
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      />
+                    )}
+                  />
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[13px] font-semibold">GST on the bill</span>
+                    <p className="text-sm font-medium text-muted">
+                      {preview.rate ? `${preview.rate}%` : "No GST"} ·{" "}
+                      {decision.regime === "no-gst" ? (vendor ? "the vendor does not charge GST" : "no GST bill") : head?.gst === "none" ? "the head has no GST" : "the head's own rate"}
+                    </p>
+                  </div>
+                )}
+                {preview.tax > 0 && (
+                  <Controller
+                    control={control}
+                    name="itcEligible"
+                    render={({ field }) => (
+                      <FilterGroup label="Input credit">
+                        <FilterChip selected={field.value} onClick={() => field.onChange(true)}>
+                          Claimed
+                        </FilterChip>
+                        <FilterChip selected={!field.value} onClick={() => field.onChange(false)}>
+                          Blocked (17(5))
+                        </FilterChip>
+                      </FilterGroup>
+                    )}
+                  />
+                )}
+              </div>
+            </>
+          )}
         </GlassCard>
 
         <GlassCard className="flex flex-col gap-3.5">
@@ -189,7 +327,7 @@ export function ExpenseForm({ vendors, accounts, targets, suggestedNumber }: Exp
             name="allocationKind"
             render={({ field }) => (
               <FilterGroup label="Where the cost lands">
-                {ALLOCATIONS.map((option) => (
+                {allocations.map((option) => (
                   <FilterChip
                     key={option.value}
                     selected={field.value === option.value}
@@ -204,16 +342,20 @@ export function ExpenseForm({ vendors, accounts, targets, suggestedNumber }: Exp
               </FilterGroup>
             )}
           />
-          <p className="-mt-2 text-sm font-medium text-muted">{ALLOCATIONS.find((option) => option.value === allocationKind)?.hint}.</p>
-          {allocationKind !== "overhead" && (
+          <p className="-mt-2 text-sm font-medium text-muted">
+            {indirect ? "An indirect expense is always a general overhead" : ALLOCATIONS.find((option) => option.value === allocationKind)?.hint}.
+            {allocationKind === "shipment" && " Shipments are not stored yet: the expense is saved now and linked to its shipment once they are."}
+            {allocationKind === "item-cost" && " The purchase's landed cost and its stock are worked out again."}
+          </p>
+          {(allocationKind === "item-cost" || allocationKind === "invoice") && (
             <div className="flex flex-col gap-1.5">
               <Controller
                 control={control}
                 name="targetId"
                 render={({ field }) => (
                   <SelectField
-                    label={allocationKind === "item-cost" ? "Purchase (goods bill)" : allocationKind === "invoice" ? "Invoice" : "Shipment"}
-                    options={targets.filter((target) => target.kind === allocationKind).map((target) => ({ value: target.id, label: target.label }))}
+                    label={allocationKind === "item-cost" ? "Purchase (goods bill)" : "Invoice"}
+                    options={allocationKind === "item-cost" ? bills : invoices}
                     value={field.value || undefined}
                     onValueChange={field.onChange}
                   />
@@ -225,11 +367,11 @@ export function ExpenseForm({ vendors, accounts, targets, suggestedNumber }: Exp
         </GlassCard>
 
         <GlassCard className="flex flex-col gap-3">
-          <FilePicker label="Bill or slip" accept="application/pdf,image/*" file={file} onChange={setFile} hint="Kept with the expense once file storage is chosen." />
-          {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
+          <TextArea label="Notes" rows={2} {...register("notes")} />
+          {problem && <FormMessage tone="error">{problem}</FormMessage>}
           <div className="flex flex-wrap gap-2.5">
-            <Button type="submit" size="lg">
-              Save expense
+            <Button type="submit" size="lg" disabled={isSubmitting}>
+              {isSubmitting ? "Saving…" : "Save expense"}
             </Button>
             <Link href="/expenses" className={buttonClasses("neutral", "ml-auto", "lg")}>
               Back to expenses
@@ -243,22 +385,40 @@ export function ExpenseForm({ vendors, accounts, targets, suggestedNumber }: Exp
         <dl className="flex flex-col gap-1.5 text-sm font-semibold">
           <div className="flex justify-between">
             <dt>Before GST</dt>
-            <dd className="tabular-nums">{formatRate(figures.amount)}</dd>
+            <dd className="tabular-nums">{formatRate(Number(amount) || 0)}</dd>
           </div>
-          <div className="flex justify-between">
-            <dt>GST {figures.gstRatePct}%</dt>
-            <dd className="tabular-nums">{formatRate(expenseGst(figures))}</dd>
-          </div>
+          {preview.cgst > 0 && (
+            <div className="flex justify-between">
+              <dt>CGST + SGST {preview.rate}%</dt>
+              <dd className="tabular-nums">{formatRate(preview.cgst + preview.sgst)}</dd>
+            </div>
+          )}
+          {preview.igst > 0 && (
+            <div className="flex justify-between">
+              <dt>IGST {preview.rate}%</dt>
+              <dd className="tabular-nums">{formatRate(preview.igst)}</dd>
+            </div>
+          )}
           <div className="my-1 border-t border-line" />
           <div className="flex justify-between text-lg font-semibold">
-            <dt>Paid</dt>
-            <dd className="tabular-nums">{formatRate(expenseTotal(figures))}</dd>
+            <dt>{paid === "now" ? "Paid" : "Owed"}</dt>
+            <dd className="tabular-nums">{formatRate(preview.total)}</dd>
+          </div>
+          <div className="flex justify-between text-muted">
+            <dt>Reduces profit by</dt>
+            <dd className="tabular-nums">{formatRate(preview.cost)}</dd>
           </div>
         </dl>
         <p className="text-xs font-semibold text-muted">
-          {figures.gstRatePct
-            ? "GST on a proper tax invoice is claimed back as input credit, so only the amount before GST reduces profit."
-            : "No GST: the whole amount reduces profit."}
+          {preview.tax === 0
+            ? "No GST: the whole amount is the cost."
+            : preview.claimable
+              ? "The GST is claimed back as input credit, so only the amount before GST is the cost."
+              : "The GST cannot be claimed, so it is part of the cost."}
+        </p>
+        <p className="text-xs font-semibold text-muted">
+          Posts a {paid === "now" ? "Payment" : "Purchase"} voucher: Dr {head?.name ?? "the head"}
+          {preview.tax > 0 && preview.claimable ? ", Dr Input GST" : ""}, Cr {paid === "now" ? "the account" : (vendor?.displayName ?? "the vendor")}.
         </p>
       </GlassCard>
     </form>

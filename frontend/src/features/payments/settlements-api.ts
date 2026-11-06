@@ -32,9 +32,15 @@ export const CASH_RECEIPT_LIMIT = 200000;
 
 const money = (value: number) => Math.round(value * 100) / 100;
 
-/** Where an invoice, bill or opening balance opens in the app. */
+/** Where an invoice, bill, expense or opening balance opens in the app. */
 export const documentHref = (document: Pick<OpenDocumentView, "kind" | "id" | "partyId">) =>
-  document.kind === "INVOICE" ? `/invoices/${document.id}` : document.kind === "BILL" ? `/purchases/${document.id}` : `/payments/ledger/${document.partyId}`;
+  document.kind === "INVOICE"
+    ? `/invoices/${document.id}`
+    : document.kind === "BILL"
+      ? `/purchases/${document.id}`
+      : document.kind === "EXPENSE"
+        ? `/expenses/${document.id}`
+        : `/payments/ledger/${document.partyId}`;
 
 /** Days left before an MSME bill passes its 45-day limit (negative once late). */
 export const msmeDaysLeft = (document: Pick<OpenDocumentView, "dueDate">, today: string) => (document.dueDate ? daysBetween(today, document.dueDate) : 0);

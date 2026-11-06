@@ -55,7 +55,8 @@ interface Target extends AllocationPlan {
 const OPENING_SIDE = { RECEIPT: 'RECEIVABLE', PAYMENT: 'PAYABLE' } as const;
 const SERIES = { RECEIPT: 'RECEIPT', PAYMENT: 'PAYMENT' } as const;
 
-// Receipts from customers and payments to vendors. In one transaction: the
+// Receipts from customers and payments to vendors (applied to bills and to
+// expenses bought on credit). In one transaction: the
 // party row is locked (so two cash receipts the same day, or two settlements
 // of the same opening balance, cannot cross), then each invoice or bill it is
 // applied to (so a cancel or void, or another settlement, waits); balances
@@ -222,6 +223,24 @@ export class SettlementsService {
         select: { id: true, reference: true, vendorBillNumber: true, date: true, dueDate: true, payable: true, vendorId: true, vendor: { select: { displayName: true, udyamNumber: true } } },
         orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
       });
+      const expenses = await this.prisma.expense.findMany({
+        where: { cancelledAt: null, accountId: null, vendorId: partyId ?? { not: null } },
+        select: { id: true, number: true, description: true, date: true, dueDate: true, total: true, vendorId: true, vendor: { select: { displayName: true, udyamNumber: true } } },
+        orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
+      });
+      for (const expense of expenses) {
+        rows.push({
+          kind: 'EXPENSE',
+          id: expense.id,
+          number: `${expense.number} (${expense.description})`,
+          date: isoDate(expense.date),
+          dueDate: isoDate(expense.dueDate!),
+          partyId: expense.vendorId!,
+          partyName: expense.vendor!.displayName,
+          total: toNumber(expense.total),
+          flag: expense.vendor!.udyamNumber ? 'MSME' : null,
+        });
+      }
       for (const bill of bills) {
         const date = isoDate(bill.date);
         const msme = Boolean(bill.vendor.udyamNumber);
@@ -272,7 +291,7 @@ export class SettlementsService {
   private async targets(tx: Tx, direction: SettlementDirection, partyId: string, party: PartyFacts, allocations: AllocationDto[]): Promise<Target[]> {
     const seen = new Set<string>();
     for (const allocation of allocations) {
-      if (!targetFits(direction, allocation.kind)) fail(direction === 'RECEIPT' ? 'A receipt is applied to invoices' : 'A payment is applied to bills');
+      if (!targetFits(direction, allocation.kind)) fail(direction === 'RECEIPT' ? 'A receipt is applied to invoices' : 'A payment is applied to bills and expenses');
       if (allocation.kind === 'OPENING' && allocation.documentId !== partyId) fail('Only this party’s own opening balance can be settled');
       if (seen.has(allocation.documentId)) fail('Each document is listed once');
       seen.add(allocation.documentId);
@@ -281,12 +300,17 @@ export class SettlementsService {
     const billIds = allocations.filter((allocation) => allocation.kind === 'BILL').map((allocation) => allocation.documentId).sort();
     if (invoiceIds.length) await tx.$queryRaw`SELECT 1 FROM "Invoice" WHERE "id" = ANY(${invoiceIds}::uuid[]) ORDER BY "id" FOR UPDATE`;
     if (billIds.length) await tx.$queryRaw`SELECT 1 FROM "PurchaseBill" WHERE "id" = ANY(${billIds}::uuid[]) ORDER BY "id" FOR UPDATE`;
+    const expenseIds = allocations.filter((allocation) => allocation.kind === 'EXPENSE').map((allocation) => allocation.documentId).sort();
+    if (expenseIds.length) await tx.$queryRaw`SELECT 1 FROM "Expense" WHERE "id" = ANY(${expenseIds}::uuid[]) ORDER BY "id" FOR UPDATE`;
 
     const invoices = new Map(
       (await tx.invoice.findMany({ where: { id: { in: invoiceIds } }, select: { id: true, number: true, partyId: true, status: true, kind: true, regime: true, total: true, igst: true } })).map((row) => [row.id, row]),
     );
     const bills = new Map(
       (await tx.purchaseBill.findMany({ where: { id: { in: billIds } }, select: { id: true, reference: true, vendorId: true, status: true, payable: true } })).map((row) => [row.id, row]),
+    );
+    const expenses = new Map(
+      (await tx.expense.findMany({ where: { id: { in: expenseIds } }, select: { id: true, number: true, vendorId: true, accountId: true, cancelledAt: true, total: true } })).map((row) => [row.id, row]),
     );
     const settled = await settledOf(tx, allocations.map((allocation) => ({ kind: allocation.kind, id: allocation.documentId })));
 
@@ -303,6 +327,12 @@ export class SettlementsService {
         if (!bill || bill.vendorId !== partyId) fail('One of the bills is not this vendor’s');
         if (bill!.status !== 'OPEN') fail(`Bill ${bill!.reference} is void`);
         return { allocation, label: bill!.reference, amount: allocation.amount, balance: balanceOf(toNumber(bill!.payable), done), exportInvoice: false };
+      }
+      if (allocation.kind === 'EXPENSE') {
+        const expense = expenses.get(allocation.documentId);
+        if (!expense || expense.vendorId !== partyId || expense.accountId) fail('One of the expenses is not owed to this vendor');
+        if (expense!.cancelledAt) fail(`Expense ${expense!.number} is cancelled`);
+        return { allocation, label: expense!.number, amount: allocation.amount, balance: balanceOf(toNumber(expense!.total), done), exportInvoice: false };
       }
       const opening = party.openingBalanceSide === OPENING_SIDE[direction] ? toNumber(party.openingBalance) : 0;
       if (opening <= 0) fail(`This party has no opening balance to ${direction === 'RECEIPT' ? 'collect' : 'pay'}`);
@@ -321,6 +351,7 @@ async function lockParty(tx: Tx, partyId: string): Promise<PartyFacts | null> {
 const allocationData = (allocation: AllocationDto) => ({
   invoiceId: allocation.kind === 'INVOICE' ? allocation.documentId : null,
   billId: allocation.kind === 'BILL' ? allocation.documentId : null,
+  expenseId: allocation.kind === 'EXPENSE' ? allocation.documentId : null,
   openingPartyId: allocation.kind === 'OPENING' ? allocation.documentId : null,
   amount: allocation.amount,
 });
@@ -328,22 +359,24 @@ const allocationData = (allocation: AllocationDto) => ({
 /** What live (not cancelled) settlements applied to each target, keyed by its id. */
 export async function settledOf(db: Db, targets: { kind: string; id: string }[]): Promise<Map<string, number>> {
   const ids = (kind: string) => targets.filter((target) => target.kind === kind).map((target) => target.id);
-  const [invoiceIds, billIds, partyIds] = [ids('INVOICE'), ids('BILL'), ids('OPENING')];
+  const [invoiceIds, billIds, partyIds, expenseIds] = [ids('INVOICE'), ids('BILL'), ids('OPENING'), ids('EXPENSE')];
   const where = { settlement: { cancelledAt: null } };
-  const [invoices, bills, openings] = await Promise.all([
+  const [invoices, bills, openings, expenses] = await Promise.all([
     invoiceIds.length ? db.settlementAllocation.groupBy({ by: ['invoiceId'], where: { ...where, invoiceId: { in: invoiceIds } }, _sum: { amount: true } }) : [],
     billIds.length ? db.settlementAllocation.groupBy({ by: ['billId'], where: { ...where, billId: { in: billIds } }, _sum: { amount: true } }) : [],
     partyIds.length ? db.settlementAllocation.groupBy({ by: ['openingPartyId'], where: { ...where, openingPartyId: { in: partyIds } }, _sum: { amount: true } }) : [],
+    expenseIds.length ? db.settlementAllocation.groupBy({ by: ['expenseId'], where: { ...where, expenseId: { in: expenseIds } }, _sum: { amount: true } }) : [],
   ]);
   const result = new Map<string, number>();
   for (const row of invoices) result.set(row.invoiceId!, sumOf(row._sum.amount));
   for (const row of bills) result.set(row.billId!, sumOf(row._sum.amount));
   for (const row of openings) result.set(row.openingPartyId!, sumOf(row._sum.amount));
+  for (const row of expenses) result.set(row.expenseId!, sumOf(row._sum.amount));
   return result;
 }
 
 /** Live receipts or payments applied to a document, for the refusal when it is cancelled or voided. */
-export async function liveSettlementNumbers(tx: Tx, target: { invoiceId?: string; billId?: string }): Promise<string[]> {
+export async function liveSettlementNumbers(tx: Tx, target: { invoiceId?: string; billId?: string; expenseId?: string }): Promise<string[]> {
   const rows = await tx.settlementAllocation.findMany({
     where: { ...target, settlement: { cancelledAt: null } },
     select: { settlement: { select: { number: true } } },

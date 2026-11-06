@@ -46,10 +46,11 @@ export function cashLimitProblem(direction: SettlementDirection, mode: PaymentMo
   return null;
 }
 
-export type TargetKind = 'INVOICE' | 'BILL' | 'OPENING';
+export type TargetKind = 'INVOICE' | 'BILL' | 'EXPENSE' | 'OPENING';
 
-/** What a direction may be applied to: receipts to invoices, payments to bills; either to the opening balance. */
-export const targetFits = (direction: SettlementDirection, kind: TargetKind) => kind === 'OPENING' || (direction === 'RECEIPT' ? kind === 'INVOICE' : kind === 'BILL');
+/** What a direction may be applied to: receipts to invoices, payments to bills and expenses bought on credit; either to the opening balance. */
+export const targetFits = (direction: SettlementDirection, kind: TargetKind) =>
+  kind === 'OPENING' || (direction === 'RECEIPT' ? kind === 'INVOICE' : kind === 'BILL' || kind === 'EXPENSE');
 
 export interface AllocationPlan {
   label: string;

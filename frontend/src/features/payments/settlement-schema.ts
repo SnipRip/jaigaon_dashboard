@@ -5,7 +5,7 @@ const optionalAmount = z.union([z.literal(""), amount]);
 
 /** One row of "apply to": the document, what is open on it, what to apply (blank = nothing). */
 export const allocationRow = z.object({
-  kind: z.enum(["INVOICE", "BILL", "OPENING"]),
+  kind: z.enum(["INVOICE", "BILL", "EXPENSE", "OPENING"]),
   documentId: z.string(),
   balance: z.number(),
   amount: optionalAmount,

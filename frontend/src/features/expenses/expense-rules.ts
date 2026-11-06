@@ -53,6 +53,3 @@ export function expensesByHead(expenses: Expense[], heads: AccountHead[]): HeadT
 
 /** The expenses-by-head report's rows (reports/report-definitions.ts). */
 export const expenseRows = (expenses: Expense[], heads: AccountHead[]) => expensesByHead(expenses, heads).map((total) => ({ ...total }));
-
-export const expenseNumber = (financialYear: string, sequence: number) =>
-  `EXPN/${financialYear.replace("-", "").slice(2)}/${String(sequence).padStart(4, "0")}`;

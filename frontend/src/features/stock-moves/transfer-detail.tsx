@@ -8,7 +8,7 @@ import { GlassTable } from "@/components/ui/glass-table";
 import { StatusChip } from "@/components/ui/status-chip";
 import { formatDate, formatInr, formatQuantity, formatRate } from "@/lib/format";
 import type { StockTransferView } from "@/types/stock-moves";
-import { CancelStockMove } from "./cancel-stock-move";
+import { CancelDocument } from "@/components/ui/cancel-document";
 import { StockDrawsList } from "./stock-draws-list";
 import { STATUS_TEXT } from "./stock-move-rules";
 import { cancelTransfer } from "./stock-moves-api";
@@ -77,7 +77,7 @@ export function TransferDetail({ transfer, onChanged }: { transfer: StockTransfe
         </dl>
         {transfer.notes && <p className="text-sm font-semibold text-muted">{transfer.notes}</p>}
         {posted ? (
-          <CancelStockMove
+          <CancelDocument
             noun="transfer"
             effect={`The stock comes out of ${transfer.toGodownName} and goes back to ${transfer.fromGodownName}. The number is cancelled for good.`}
             blocked={

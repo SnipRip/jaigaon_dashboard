@@ -133,6 +133,8 @@ export class InvoicesService {
       if (current.status === 'CANCELLED') throw new ConflictException('This invoice is already cancelled');
       const receipts = await liveSettlementNumbers(tx, { invoiceId: id });
       if (receipts.length) throw new ConflictException(`Receipts are applied to this invoice (${receipts.join(', ')}). Cancel them first.`);
+      const expenses = await tx.expense.findMany({ where: { invoiceId: id, cancelledAt: null }, select: { number: true } });
+      if (expenses.length) throw new ConflictException(`Expenses are allocated to this invoice (${expenses.map((row) => row.number).join(', ')}). Cancel them first.`);
       await returnStock(tx, id);
       await this.numbers.cancel(tx, current.issuedNumberId);
       if (current.quotationId) {

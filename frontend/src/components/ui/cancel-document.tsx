@@ -6,19 +6,20 @@ import { FormMessage } from "@/components/ui/form-message";
 import { TextField } from "@/components/ui/text-field";
 import { ApiError } from "@/lib/api-client";
 
-interface CancelStockMoveProps {
-  /** "transfer", "adjustment": for the button words. */
+interface CancelDocumentProps {
+  /** "transfer", "adjustment", "expense": for the button words. */
   noun: string;
-  /** What a cancel does to the stock, under the reason. */
+  /** What a cancel does, under the reason. */
   effect: string;
   /** Why it cannot be cancelled any more, if so. */
   blocked?: string;
   onCancel: (reason: string) => Promise<unknown>;
 }
 
-// Cancelling a transfer or adjustment, with the reason it is kept under.
-// The backend checks again that the stock can still be put back.
-export function CancelStockMove({ noun, effect, blocked, onCancel }: CancelStockMoveProps) {
+// Cancelling a saved document (transfer, adjustment, expense), with the
+// reason it is kept under.
+// The backend checks again that it can still be cancelled.
+export function CancelDocument({ noun, effect, blocked, onCancel }: CancelDocumentProps) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);

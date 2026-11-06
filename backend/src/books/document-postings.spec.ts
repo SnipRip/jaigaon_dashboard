@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { customerOwes } from '../invoices/invoice-rules.js';
 import { billPostings, type PostedBill } from './bill-postings.js';
 import { closingStock } from './closing-stock.js';
+import { expensePostings } from './expense-postings.js';
 import { invoicePostings } from './invoice-postings.js';
 import { settlementPostings } from './settlement-postings.js';
 import type { Posting } from './statements.js';
@@ -160,5 +161,20 @@ describe('settlement postings', () => {
 describe('closing stock', () => {
   it('is opening plus purchased plus adjusted less sold', () => {
     expect(closingStock({ opening: 50_000, purchased: 12_340.5, adjusted: -1_260, sold: 30_000.25 })).toBe(31_080.25);
+  });
+});
+
+describe('expense postings', () => {
+  const rent = { ledger: 'Rent', group: 'Indirect Expenses' };
+
+  it('books a paid expense to its head and input GST against the bank', () => {
+    const lines = expensePostings({ cgst: 1_620, sgst: 1_620, igst: 0, itcEligible: true, total: 21_240, cost: 18_000 }, rent, bank, ledgers);
+    expect(byLedger(lines)).toEqual({ Rent: 18_000, 'Input CGST': 1_620, 'Input SGST': 1_620, 'SBI Current': -21_240 });
+    expect(imbalance(lines)).toBe(0);
+  });
+
+  it('books an expense on credit against the vendor, blocked GST on the head', () => {
+    const lines = expensePostings({ cgst: 0, sgst: 0, igst: 360, itcEligible: false, total: 2_360, cost: 2_360 }, rent, vendor, ledgers);
+    expect(byLedger(lines)).toEqual({ Rent: 2_360, 'Tata Steel Ltd': -2_360 });
   });
 });

@@ -22,6 +22,7 @@ import {
 } from './statements.js';
 import { billPostings } from './bill-postings.js';
 import { closingStock } from './closing-stock.js';
+import { expensePostings } from './expense-postings.js';
 import { invoicePostings } from './invoice-postings.js';
 import { settlementPostings } from './settlement-postings.js';
 import { stockAdjustmentPostings } from './stock-adjustment-postings.js';
@@ -36,8 +37,8 @@ export interface BooksBasis {
   voucherCount: number;
   /** Stock adjustments posted up to the date (not cancelled). */
   stockAdjustmentCount: number;
-  /** Documents posted up to the date: issued invoices, open bills, live receipts and payments. */
-  documentCounts: { invoices: number; bills: number; receipts: number; payments: number };
+  /** Documents posted up to the date: issued invoices, open bills, live receipts, payments and expenses. */
+  documentCounts: { invoices: number; bills: number; receipts: number; payments: number; expenses: number };
 }
 
 export interface TrialBalanceView extends TrialBalance, BooksBasis {}
@@ -66,8 +67,8 @@ const sum = (values: number[]) => values.reduce((total, value) => total + value,
 // The books from the start to `asOf`, as Tally shows them by default: every
 // ledger every master owns with its opening balance, and the vouchers the
 // app records: loan entries, stock adjustments, issued invoices, open vendor
-// bills, receipts and payments (the *-postings.ts files beside this one).
-// Cancelled and void documents post nothing. Expenses are still sample data
+// bills, receipts, payments and expenses (the *-postings.ts files beside
+// this one). Cancelled and void documents post nothing
 // (agent/accounts-plan.md, "Statements").
 @Injectable()
 export class BooksService {
@@ -77,7 +78,7 @@ export class BooksService {
     const db = this.prisma;
     const upTo = { lte: dateOnly(asOf) };
     const partyName = { select: { displayName: true, isCustomer: true } };
-    const [groups, ledgers, heads, accounts, loans, parties, stock, adjustments, invoices, bills, settlements] = await Promise.all([
+    const [groups, ledgers, heads, accounts, loans, parties, stock, adjustments, invoices, bills, settlements, expenses] = await Promise.all([
       db.ledgerGroup.findMany(),
       db.ledger.findMany(),
       db.accountHead.findMany(),
@@ -112,6 +113,21 @@ export class BooksService {
       db.settlement.findMany({
         where: { cancelledAt: null, date: upTo },
         select: { direction: true, amount: true, tds: true, party: partyName, account: { select: { name: true, tallyLedgerName: true, kind: true } } },
+      }),
+      db.expense.findMany({
+        where: { cancelledAt: null, date: upTo },
+        select: {
+          cgst: true,
+          sgst: true,
+          igst: true,
+          itcEligible: true,
+          total: true,
+          cost: true,
+          billId: true,
+          head: { select: { name: true, nature: true } },
+          vendor: partyName,
+          account: { select: { name: true, tallyLedgerName: true, kind: true } },
+        },
       }),
     ]);
     const idOf = new Map(groups.map((group) => [group.name, group.id]));
@@ -206,10 +222,29 @@ export class BooksService {
       postings.push(...settlementPostings(figures, partyLedger(settlement.party), account, role));
     }
 
+    for (const expense of expenses) {
+      // Paid: a Payment voucher against the account; on credit: a Purchase voucher against the vendor.
+      const creditTo = expense.account
+        ? { ledger: bankCashLedger(expense.account), group: BANK_CASH_GROUPS[expense.account.kind] }
+        : partyLedger(expense.vendor!);
+      const figures = {
+        cgst: toNumber(expense.cgst),
+        sgst: toNumber(expense.sgst),
+        igst: toNumber(expense.igst),
+        itcEligible: expense.itcEligible,
+        total: toNumber(expense.total),
+        cost: toNumber(expense.cost),
+      };
+      postings.push(...expensePostings(figures, { ledger: expense.head.name, group: HEAD_GROUPS[expense.head.nature] }, creditTo, role));
+    }
+
     const closing = closingStock({
       opening: openingStock,
       // A goods bill brings its stock in; a freight or labour bill added to it lands on the same stock.
-      purchased: sum(bills.filter((bill) => bill.kind === 'GOODS' || bill.landedCostForId).map((bill) => toNumber(bill.cost))),
+      // Expenses allocated to a purchase's items land on its stock the same way.
+      purchased:
+        sum(bills.filter((bill) => bill.kind === 'GOODS' || bill.landedCostForId).map((bill) => toNumber(bill.cost))) +
+        sum(expenses.filter((expense) => expense.billId).map((expense) => toNumber(expense.cost))),
       adjusted: stockMoves.closingChange,
       sold: sum(invoices.map((invoice) => toNumber(invoice.cost))),
     });
@@ -227,6 +262,7 @@ export class BooksService {
         bills: bills.length,
         receipts: settlements.filter((settlement) => settlement.direction === 'RECEIPT').length,
         payments: settlements.filter((settlement) => settlement.direction === 'PAYMENT').length,
+        expenses: expenses.length,
       },
     };
     return { meta, trial, balances, basis };
@@ -248,7 +284,7 @@ export class BooksService {
     return { ...balanceSheet(trial, meta, pl.netProfit, basis.stock), ...basis };
   }
 
-  /** Every bank, overdraft and cash account's balance on the date, with loan entries, receipts and payments through it. */
+  /** Every bank, overdraft and cash account's balance on the date, with loan entries, receipts, payments and expenses through it. */
   async bankCashBalances(asOf: string): Promise<BankCashBalanceView[]> {
     const { balances } = await this.load(asOf);
     return balances.filter((ledger) => ledger.source === 'bankCash' && ledger.sourceId).map((ledger) => ({ accountId: ledger.sourceId!, asOf, balance: ledger.closing }));

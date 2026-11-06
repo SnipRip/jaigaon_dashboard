@@ -12,47 +12,38 @@ import { ListToolbar } from "@/components/ui/list-toolbar";
 import { SearchField } from "@/components/ui/search-field";
 import { StatTile } from "@/components/ui/stat-tile";
 import { StatusChip } from "@/components/ui/status-chip";
-import { headName } from "@/features/masters/account-head-rules";
 import { ALLOCATIONS, allocationLabel } from "@/features/masters/expense-heads-master";
-import { useAccountHeads } from "@/features/masters/use-account-heads";
+import type { HeadAllocation } from "@/features/masters/types";
 import { formatDayMonth, formatInr } from "@/lib/format";
-import type { AllocationTarget } from "./expense-form";
-import { expenseGst, sumAmount } from "./expense-rules";
-import type { Expense, ExpenseAllocation } from "./types";
+import type { ExpenseView } from "@/types/expense";
+import { FROM_BACKEND, targetHref } from "./expenses-api";
 
-interface ExpensesWorkspaceProps {
-  expenses: Expense[];
-  /** Vendor and account id → name. */
-  names: Record<string, string>;
-  targets: AllocationTarget[];
-}
+const money = (value: number) => Math.round(value * 100) / 100;
+const sumCost = (expenses: ExpenseView[]) => money(expenses.reduce((sum, expense) => sum + expense.cost, 0));
 
-const TARGET_PATH: Record<ExpenseAllocation["kind"], string> = { "item-cost": "/purchases", invoice: "/invoices", shipment: "/shipments", overhead: "" };
-
-// Every expense with where its cost lands: on items (landed cost), one
-// invoice, one shipment, or general overhead.
-export function ExpensesWorkspace({ expenses, names, targets }: ExpensesWorkspaceProps) {
-  const [filter, setFilter] = useState<ExpenseAllocation["kind"] | "all">("all");
+// Every expense with where its cost lands: on a purchase's items (landed
+// cost), one invoice, one shipment, or general overhead. Cancelled ones are
+// struck through and count nowhere.
+export function ExpensesWorkspace({ expenses }: { expenses: ExpenseView[] }) {
+  const [filter, setFilter] = useState<HeadAllocation | "owed" | "all">("all");
   const [query, setQuery] = useState("");
-  const { heads } = useAccountHeads();
-  // Until the heads load, an expense shows the head name it was saved with.
-  const headOf = (expense: Expense) => headName(heads ?? [], expense.head);
-  const payeeOf = (expense: Expense) => (expense.vendorId ? names[expense.vendorId] : expense.payee) ?? "–";
+  const live = expenses.filter((expense) => !expense.cancelledAt);
   const needle = query.trim().toLowerCase();
   const visible = expenses.filter(
     (expense) =>
-      (filter === "all" || expense.allocation.kind === filter) &&
-      (!needle || `${expense.number} ${headOf(expense)} ${expense.description} ${payeeOf(expense)} ${expense.reference ?? ""}`.toLowerCase().includes(needle)),
+      (filter === "all" || (filter === "owed" ? !expense.cancelledAt && expense.balance > 0 : FROM_BACKEND[expense.allocation] === filter)) &&
+      (!needle || `${expense.number} ${expense.head.name} ${expense.description} ${expense.payeeName} ${expense.reference ?? ""} ${expense.target?.number ?? ""}`.toLowerCase().includes(needle)),
   );
-  const byKind = (kind: ExpenseAllocation["kind"]) => sumAmount(expenses.filter((expense) => expense.allocation.kind === kind));
+  const byKind = (kind: HeadAllocation) => sumCost(live.filter((expense) => FROM_BACKEND[expense.allocation] === kind));
+  const owed = money(live.reduce((sum, expense) => sum + expense.balance, 0));
 
   return (
     <div className="flex flex-col gap-3.5">
       <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
-        <StatTile label="Spent, before GST" value={formatInr(sumAmount(expenses))} />
+        <StatTile label="Cost, before claimable GST" value={formatInr(sumCost(live))} />
         <StatTile label="Landed on items" value={formatInr(byKind("item-cost"))} />
         <StatTile label="On invoices and shipments" value={formatInr(byKind("invoice") + byKind("shipment"))} />
-        <StatTile label="General overhead" value={formatInr(byKind("overhead"))} />
+        <StatTile label="Still owed to vendors" value={formatInr(owed)} />
       </div>
 
       <GlassCard className="flex flex-col gap-3.5">
@@ -88,6 +79,9 @@ export function ExpensesWorkspace({ expenses, names, targets }: ExpensesWorkspac
                 {option.label}
               </FilterChip>
             ))}
+            <FilterChip selected={filter === "owed"} onClick={() => setFilter("owed")}>
+              Owed
+            </FilterChip>
           </FilterGroup>
         </ListToolbar>
         <GlassTable className="min-w-[960px]">
@@ -103,40 +97,49 @@ export function ExpensesWorkspace({ expenses, names, targets }: ExpensesWorkspac
             </tr>
           </thead>
           <tbody className="text-right font-semibold tabular-nums">
-            {visible.map((expense) => {
-              const target = targets.find((candidate) => candidate.kind === expense.allocation.kind && candidate.id === expense.allocation.targetId);
-              return (
-                <tr key={expense.id} className="align-top">
-                  <td className="text-left">
-                    <span className="font-semibold">{expense.number}</span>
-                    <div className="text-xs text-muted">
-                      {formatDayMonth(expense.date)}
-                      {expense.reference && ` · ${expense.reference}`}
-                    </div>
-                  </td>
-                  <td className="text-left">
-                    <div className="font-semibold">{headOf(expense)}</div>
-                    <div className="text-xs text-muted">{expense.description}</div>
-                  </td>
-                  <td className="text-left">{payeeOf(expense)}</td>
-                  <td className="font-semibold">{formatInr(expense.amount)}</td>
-                  <td className="text-muted">{expense.gstRatePct ? formatInr(expenseGst(expense)) : "–"}</td>
-                  <td className="text-left">
-                    {target ? (
-                      <Link href={`${TARGET_PATH[target.kind]}/${target.id}`} className="font-semibold text-brand hover:underline">
-                        {target.label.split(" · ")[0]}
-                      </Link>
-                    ) : (
-                      <StatusChip tone="neutral">{allocationLabel(expense.allocation.kind)}</StatusChip>
-                    )}
-                  </td>
-                  <td className="text-left">{expense.paidFrom ? names[expense.paidFrom] : <span className="text-warning-strong">Not paid yet</span>}</td>
-                </tr>
-              );
-            })}
+            {visible.map((expense) => (
+              <tr key={expense.id} className={expense.cancelledAt ? "align-top text-muted line-through" : "align-top"}>
+                <td className="text-left">
+                  <Link href={`/expenses/${expense.id}`} className="font-semibold text-brand hover:underline">
+                    {expense.number}
+                  </Link>
+                  <div className="text-xs text-muted">
+                    {formatDayMonth(expense.date)}
+                    {expense.reference && ` · ${expense.reference}`}
+                  </div>
+                </td>
+                <td className="text-left">
+                  <div className="font-semibold">{expense.head.name}</div>
+                  <div className="text-xs text-muted">{expense.description}</div>
+                </td>
+                <td className="text-left">{expense.payeeName}</td>
+                <td>{formatInr(expense.amount)}</td>
+                <td className="text-muted">{expense.tax ? formatInr(expense.tax) : "–"}</td>
+                <td className="text-left">
+                  {expense.target ? (
+                    <Link href={targetHref(expense.target)} className="font-semibold text-brand hover:underline">
+                      {expense.target.number}
+                    </Link>
+                  ) : (
+                    <StatusChip tone="neutral">{allocationLabel(FROM_BACKEND[expense.allocation])}</StatusChip>
+                  )}
+                </td>
+                <td className="text-left">
+                  {expense.cancelledAt ? (
+                    "Cancelled"
+                  ) : expense.accountName ? (
+                    expense.accountName
+                  ) : expense.balance > 0 ? (
+                    <span className="text-warning-strong">Owed {formatInr(expense.balance)}</span>
+                  ) : (
+                    "Paid later"
+                  )}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </GlassTable>
-        {visible.length === 0 && <p className="py-6 text-center text-[13px] text-muted">No expenses match.</p>}
+        {visible.length === 0 && <p className="py-6 text-center text-[13px] text-muted">{expenses.length ? "No expenses match." : "No expenses yet."}</p>}
       </GlassCard>
     </div>
   );

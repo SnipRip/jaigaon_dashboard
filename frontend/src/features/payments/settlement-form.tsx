@@ -35,7 +35,7 @@ interface SettlementFormProps {
 
 const TEXT = {
   RECEIPT: { title: "Record a receipt", party: "Received from", applied: "Apply to invoices", document: "Invoice", submit: "Save receipt", tds: "TDS deducted by the customer (₹)", account: "Into account" },
-  PAYMENT: { title: "Pay a vendor", party: "Paid to", applied: "Apply to bills", document: "Bill", submit: "Save payment", tds: "TDS we deducted (₹)", account: "From account" },
+  PAYMENT: { title: "Pay a vendor", party: "Paid to", applied: "Apply to bills and expenses", document: "Bill or expense", submit: "Save payment", tds: "TDS we deducted (₹)", account: "From account" },
 };
 
 // Money in from a customer or out to a vendor through a real bank or cash

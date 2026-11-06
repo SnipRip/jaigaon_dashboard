@@ -15,6 +15,7 @@ export const settlementInclude = {
     include: {
       invoice: { select: { number: true, kind: true } },
       bill: { select: { reference: true, vendorBillNumber: true } },
+      expense: { select: { number: true } },
     },
   },
 } as const satisfies Prisma.SettlementInclude;
@@ -24,6 +25,7 @@ type SettlementRow = Prisma.SettlementGetPayload<{ include: typeof settlementInc
 const targetOf = (allocation: SettlementRow['allocations'][number]): { kind: TargetKind; documentId: string; number: string } => {
   if (allocation.invoiceId) return { kind: 'INVOICE', documentId: allocation.invoiceId, number: allocation.invoice!.number };
   if (allocation.billId) return { kind: 'BILL', documentId: allocation.billId, number: allocation.bill!.reference };
+  if (allocation.expenseId) return { kind: 'EXPENSE', documentId: allocation.expenseId, number: allocation.expense!.number };
   return { kind: 'OPENING', documentId: allocation.openingPartyId!, number: 'Opening balance' };
 };
 

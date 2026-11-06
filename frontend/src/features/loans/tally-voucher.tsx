@@ -2,7 +2,8 @@ import { formatDate, formatRate } from "@/lib/format";
 import type { VoucherView } from "@/types/loan";
 
 // One voucher as it will go to Tally: ledger, its group, debit and credit.
-export function TallyVoucher({ voucher }: { voucher: VoucherView }) {
+/** Loan vouchers, and any other document's voucher in the same shape (an expense's Payment or Purchase). */
+export function TallyVoucher({ voucher }: { voucher: Omit<VoucherView, "type"> & { type: string } }) {
   return (
     <div className="glass-inset flex flex-col gap-1.5 px-3 py-2.5 text-xs">
       <div className="font-semibold text-ink-soft">

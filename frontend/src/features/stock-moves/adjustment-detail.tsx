@@ -8,7 +8,7 @@ import { GlassTable } from "@/components/ui/glass-table";
 import { StatusChip } from "@/components/ui/status-chip";
 import { formatDate, formatInr, formatQuantity, formatRate } from "@/lib/format";
 import type { StockAdjustmentView } from "@/types/stock-moves";
-import { CancelStockMove } from "./cancel-stock-move";
+import { CancelDocument } from "@/components/ui/cancel-document";
 import { StockDrawsList } from "./stock-draws-list";
 import { reasonLabel, STATUS_TEXT } from "./stock-move-rules";
 import { cancelAdjustment } from "./stock-moves-api";
@@ -84,7 +84,7 @@ export function AdjustmentDetail({ adjustment, onChanged }: { adjustment: StockA
         </dl>
         {adjustment.notes && <p className="text-sm font-semibold text-muted">{adjustment.notes}</p>}
         {posted ? (
-          <CancelStockMove
+          <CancelDocument
             noun="adjustment"
             effect={
               adding

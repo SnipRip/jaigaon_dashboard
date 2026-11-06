@@ -115,9 +115,10 @@ function Basis({ basis, difference = 0 }: { basis: BooksBasis; difference?: numb
       <p className="text-xs font-semibold text-muted">
         From the start of the books to {formatDate(basis.asOf)}: opening balances of every master, opening stock at cost ({formatRate(basis.stock.opening)}),{" "}
         {counted(basis.documentCounts.invoices, "invoice")}, {counted(basis.documentCounts.bills, "vendor bill")}, {counted(basis.documentCounts.receipts, "receipt")},{" "}
-        {counted(basis.documentCounts.payments, "vendor payment")}, {counted(basis.voucherCount, "loan voucher")} and {counted(basis.stockAdjustmentCount, "stock adjustment")}.
+        {counted(basis.documentCounts.payments, "vendor payment")}, {counted(basis.documentCounts.expenses, "expense")}, {counted(basis.voucherCount, "loan voucher")} and{" "}
+        {counted(basis.stockAdjustmentCount, "stock adjustment")}.
         Cancelled and void documents post nothing. Closing stock ({formatRate(basis.stock.closing)}) is the opening stock plus what bills brought in at landed cost and stock
-        added, less stock written off and the cost of goods invoiced. Expenses post here once they are saved for real.
+        added, less stock written off and the cost of goods invoiced; expenses on a purchase&apos;s items land on its stock too.
       </p>
       {difference !== 0 && (
         <p className="rounded-(--radius-tile) bg-warning-tint px-4 py-2.5 text-sm font-semibold">

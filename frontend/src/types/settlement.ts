@@ -2,8 +2,8 @@
 
 export type SettlementDirectionView = "RECEIPT" | "PAYMENT";
 export type PaymentModeView = "BANK_TRANSFER" | "CHEQUE" | "UPI" | "CASH";
-/** What money is applied to: an invoice (receipts), a bill (payments) or the party's opening balance. */
-export type SettlementTargetView = "INVOICE" | "BILL" | "OPENING";
+/** What money is applied to: an invoice (receipts), a bill or an expense bought on credit (payments), or the party's opening balance. */
+export type SettlementTargetView = "INVOICE" | "BILL" | "EXPENSE" | "OPENING";
 export type AgeBucketView = "NOT_DUE" | "DAYS_1_30" | "DAYS_31_60" | "DAYS_61_90" | "OVER_90";
 
 export interface SettlementAllocationView {

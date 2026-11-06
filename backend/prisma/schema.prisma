@@ -61,6 +61,7 @@ model User {
   invoicesMade          Invoice[]         @relation("InvoiceCreatedBy")
   invoiceDocumentsSaved InvoiceDocument[] @relation("InvoiceDocumentSavedBy")
   settlementsMade       Settlement[]      @relation("SettlementCreatedBy")
+  expensesMade          Expense[]         @relation("ExpenseCreatedBy")
 
   stockTransfersMade   StockTransfer[]   @relation("StockTransferCreatedBy")
   stockAdjustmentsMade StockAdjustment[] @relation("StockAdjustmentCreatedBy")
@@ -437,6 +438,7 @@ model Party {
 
   settlements        Settlement[]
   openingAllocations SettlementAllocation[] @relation("OpeningAllocations")
+  expenses           Expense[]
 
   @@index([isCustomer])
   @@index([isVendor])
@@ -776,6 +778,7 @@ model BankCashAccount {
   loansRepaid    Loan[]       @relation("LoanRepaidThrough")
   loanEntries    LoanEntry[]
   settlements    Settlement[]
+  expenses       Expense[]
 
   @@unique([ifsc, accountNumber])
 }
@@ -991,6 +994,7 @@ model AccountHead {
   // Loans whose interest posts to this head.
   loans           Loan[]
   purchaseCharges PurchaseBillCharge[]
+  expenses        Expense[]
 }
 
 // ---------------------------------------------------------------------------
@@ -1412,6 +1416,8 @@ model PurchaseBill {
   lines       PurchaseBillLine[]
   charges     PurchaseBillCharge[]
   allocations SettlementAllocation[]
+  // Expenses whose cost lands on this purchase's items.
+  expenses    Expense[]
 
   // The same vendor bill is never entered twice.
   @@unique([vendorId, vendorBillNumber])
@@ -1706,6 +1712,7 @@ model Invoice {
   lines       InvoiceLine[]
   documents   InvoiceDocument[]
   allocations SettlementAllocation[]
+  expenses    Expense[]
 
   @@index([number])
   @@index([partyId, date])
@@ -2018,6 +2025,9 @@ model SettlementAllocation {
   // The party whose opening balance this settles (the settlement's own party).
   openingPartyId String?       @db.Uuid
   openingParty   Party?        @relation("OpeningAllocations", fields: [openingPartyId], references: [id], onDelete: Restrict)
+  // An expense bought on credit from this vendor (payments only).
+  expenseId      String?       @db.Uuid
+  expense        Expense?      @relation(fields: [expenseId], references: [id], onDelete: Restrict)
   amount         Decimal       @db.Decimal(14, 2)
   createdAt      DateTime      @default(now())
 
@@ -2025,4 +2035,73 @@ model SettlementAllocation {
   @@index([invoiceId])
   @@index([billId])
   @@index([openingPartyId])
+  @@index([expenseId])
+}
+
+// ---------------------------------------------------------------------------
+// Expenses (SOW 13): money spent that is not stock, under an expense head.
+// Paid from a bank or cash account (a Payment voucher), or owed to a vendor
+// on record (a Purchase voucher; vendor payments settle it). GST comes from
+// the head and the vendor (expense-rules.ts), never picked. The allocation
+// says whose profit the cost reduces: a goods bill's items (landed cost), an
+// issued invoice, a shipment (linked once shipments are stored) or overhead.
+// Never edited: cancelled with a reason and entered again. CHECKs in the
+// migration.
+// ---------------------------------------------------------------------------
+
+model Expense {
+  id             String           @id @default(uuid()) @db.Uuid
+  number         String
+  issuedNumberId String           @unique @db.Uuid
+  date           DateTime         @db.Date
+  headId         String           @db.Uuid
+  head           AccountHead      @relation(fields: [headId], references: [id], onDelete: Restrict)
+  description    String
+  // The payee's slip or bill number.
+  reference      String?
+  // Who was paid: a vendor on record, or a name for small cash payees.
+  vendorId       String?          @db.Uuid
+  vendor         Party?           @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  payee          String?
+  // The bank or cash account it was paid from; null when owed to the vendor.
+  accountId      String?          @db.Uuid
+  account        BankCashAccount? @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  mode           PaymentMode?
+  // On credit: when the vendor is to be paid (credit days; MSME at most 45).
+  dueDate        DateTime?        @db.Date
+  // INTRA (CGST + SGST), INTER (IGST) or NONE.
+  taxSplit       String
+  // Before GST.
+  amount         Decimal          @db.Decimal(14, 2)
+  gstRatePct     Decimal          @db.Decimal(5, 2)
+  cgst           Decimal          @db.Decimal(14, 2)
+  sgst           Decimal          @db.Decimal(14, 2)
+  igst           Decimal          @db.Decimal(14, 2)
+  tax            Decimal          @db.Decimal(14, 2)
+  // False under s.17(5) (blocked credit): the GST is part of the cost.
+  itcEligible    Boolean          @default(true)
+  // Paid or owed: amount + tax.
+  total          Decimal          @db.Decimal(14, 2)
+  // What reduces profit: amount plus GST that cannot be claimed.
+  cost           Decimal          @db.Decimal(14, 2)
+  allocation     HeadAllocation
+  billId         String?          @db.Uuid
+  bill           PurchaseBill?    @relation(fields: [billId], references: [id], onDelete: Restrict)
+  invoiceId      String?          @db.Uuid
+  invoice        Invoice?         @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  notes          String?
+  cancelledAt    DateTime?
+  cancelReason   String?
+  createdById    String?          @db.Uuid
+  createdBy      User?            @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime         @default(now())
+
+  allocations SettlementAllocation[]
+
+  @@index([number])
+  @@index([date])
+  @@index([vendorId, date])
+  @@index([accountId, date])
+  @@index([billId])
+  @@index([invoiceId])
 }

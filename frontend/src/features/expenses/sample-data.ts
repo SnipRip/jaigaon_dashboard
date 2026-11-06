@@ -16,4 +16,3 @@ export const expenses: Expense[] = [
   { id: "expn-0051", number: "EXPN/2627/0051", date: "2026-10-16", head: "Labour Charges", description: "Unloading bricks at yard", amount: 1600, gstRatePct: 0, vendorId: "jaigaon-loaders", paidFrom: "cash", allocation: { kind: "item-cost", targetId: "pur-2627-0015" } },
 ];
 
-export const nextExpenseSequence = 58;
