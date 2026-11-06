@@ -7,7 +7,7 @@ import type { AuthContext } from '../common/types/authenticated-request.js';
 import { HEAD_GROUPS } from '../account-heads/account-head-rules.js';
 import { PrismaService } from '../database/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
-import { itemCostSource, itemCosts, stockOnHand } from '../items/item-costs.js';
+import { itemCostSource, itemCosts, stockOnHand, stockValue } from '../items/item-costs.js';
 import { inherited } from '../items/item-rules.js';
 import { ProfitService } from '../profit/profit.service.js';
 import { quotationLabel } from '../sale-pricing/sale-rules.js';
@@ -239,7 +239,7 @@ export class ReportsService {
         stock,
         unit: inherited(item.unit?.symbol, item.group?.defaultUnit?.symbol, item.subCategory?.defaultUnit?.symbol, item.category.defaultUnit?.symbol) ?? '',
         cost,
-        value: paise(stock * cost),
+        value: stockValue(item),
         status: stockStatus(stock, n(item.reorderLevel)),
         href: `/items/${item.id}`,
       };

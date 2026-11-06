@@ -10,7 +10,9 @@ import type { PartyView } from "@/types/party";
 import { PARTIES_LIST_PATH, saveParty, setPartyArchived, toParty } from "./parties-api";
 import { PartiesWorkspace } from "./parties-workspace";
 import { PartyForm } from "./party-form";
-import { ROLE_TEXT } from "./party-rules";
+import { documentsPath } from "@/features/payments/settlements-api";
+import type { OpenDocumentView } from "@/types/settlement";
+import { openBalances, ROLE_TEXT } from "./party-rules";
 import type { PartyRole } from "./types";
 
 // The Customers and Vendors screens, loading parties from the backend. Both
@@ -27,8 +29,13 @@ function useParties() {
 export function PartiesScreen({ role }: { role: PartyRole }) {
   const { parties, error } = useParties();
   const { profile, error: profileError } = useCompanyProfile();
+  // Live balances from open documents; a role without Payments gets a 403 and
+  // the list falls back to opening balances.
+  const open = useSWR<OpenDocumentView[]>(documentsPath(role === "customer" ? "RECEIPT" : "PAYMENT"), apiGet, { shouldRetryOnError: false });
+  const balances = useMemo(() => (open.data ? openBalances(open.data) : undefined), [open.data]);
   if (!parties || !profile) return <LoadNotice error={error ?? profileError} what={ROLE_TEXT[role].many} />;
-  return <PartiesWorkspace role={role} parties={parties} companyState={profile.stateCode} />;
+  if (!balances && !open.error) return <LoadNotice what={ROLE_TEXT[role].many} />;
+  return <PartiesWorkspace role={role} parties={parties} companyState={profile.stateCode} balances={balances} />;
 }
 
 /** A new party when `partyId` is absent. */

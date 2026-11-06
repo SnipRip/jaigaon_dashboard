@@ -32,11 +32,15 @@ interface PartiesWorkspaceProps {
   role: PartyRole;
   parties: Party[];
   companyState: string;
+  /** Live balance per party id from its open documents; absent when the role may not open Payments. */
+  balances?: Map<string, number>;
 }
 
 // The customer list or the vendor list: one screen, two roles. Every row
 // shows the tax its documents will carry, decided by gst-rules.ts.
-export function PartiesWorkspace({ role, parties, companyState }: PartiesWorkspaceProps) {
+export function PartiesWorkspace({ role, parties, companyState, balances }: PartiesWorkspaceProps) {
+  const due = (party: Party) => (balances ? (balances.get(party.id) ?? 0) : dueFor(role, party));
+  const dueLabel = `${balances ? "" : "Opening "}${role === "customer" ? "receivable" : "payable"}`;
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<TreatmentFilter>("all");
   const text = ROLE_TEXT[role];
@@ -47,7 +51,7 @@ export function PartiesWorkspace({ role, parties, companyState }: PartiesWorkspa
   const allowed = FILTERS.find((option) => option.value === filter)?.treatments;
   const visible = shown.filter((party) => (!allowed || allowed.includes(party.treatment)) && matchesPartySearch(party, query));
 
-  const outstanding = mine.reduce((sum, party) => sum + dueFor(role, party), 0);
+  const outstanding = mine.reduce((sum, party) => sum + due(party), 0);
   const noCredit = mine.filter((party) => taxFor(role, companyState, party).itc === false).length;
   const overseas = mine.filter((party) => party.treatment === "overseas").length;
 
@@ -55,7 +59,7 @@ export function PartiesWorkspace({ role, parties, companyState }: PartiesWorkspa
     <div className="flex flex-col gap-3.5">
       <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
         <StatTile label={role === "customer" ? "Customers" : "Vendors"} value={formatQuantity(mine.length)} />
-        <StatTile label={role === "customer" ? "Receivable" : "Payable"} value={formatInr(outstanding)} />
+        <StatTile label={dueLabel.charAt(0).toUpperCase() + dueLabel.slice(1)} value={formatInr(outstanding)} />
         {role === "customer" ? (
           <StatTile label="Bhutan and overseas" value={formatQuantity(overseas)} />
         ) : (
@@ -136,7 +140,7 @@ export function PartiesWorkspace({ role, parties, companyState }: PartiesWorkspa
                     </div>
                   </td>
                   <td>{party.creditDays === 0 ? "Cash" : `${party.creditDays} days`}</td>
-                  <td className={dueFor(role, party) > 0 ? "font-semibold" : "text-muted"}>{formatInr(dueFor(role, party))}</td>
+                  <td className={due(party) > 0 ? "font-semibold" : "text-muted"}>{formatInr(due(party))}</td>
                 </tr>
               );
             })}

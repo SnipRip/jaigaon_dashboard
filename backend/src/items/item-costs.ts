@@ -62,27 +62,38 @@ export function stockByGodown(source: GodownSource): { godownId: string; quantit
   return [...held].filter(([, amount]) => amount > 0).map(([godownId, amount]) => ({ godownId, quantity: amount / 1000 }));
 }
 
-/** Per base unit, rounded to paise. */
-export function itemCosts(source: CostSource): ItemCosts {
-  // The opening stock's rate is its value over all of it; what is left is valued at that rate.
-  let openingQuantity = 0;
-  let openingValue = 0;
+/** Quantity left and its FIFO value, unrounded: the opening stock left at its own rate, each batch at its landed rate. */
+function stockHeld(source: CostSource): { quantity: number; value: number } {
   let quantity = 0;
   let value = 0;
   for (const row of source.openingStock) {
     const total = toNumber(row.quantity);
     const left = total - (row.drawn ? toNumber(row.drawn) : 0);
-    openingQuantity += total;
-    openingValue += toNumber(row.value);
     quantity += left;
     value += total > 0 ? (toNumber(row.value) * left) / total : 0;
   }
-  const openingRate = openingQuantity > 0 ? openingValue / openingQuantity : null;
   for (const batch of source.stockBatches) {
     const remaining = toNumber(batch.remaining);
     quantity += remaining;
     value += remaining * toNumber(batch.landedRate);
   }
+  return { quantity, value };
+}
+
+/**
+ * FIFO value of what is left, rounded to paise. Reports value stock with this,
+ * not quantity × stockCost: stockCost is already rounded, so multiplying it back
+ * up drifts from the batches (and from the books' closing stock).
+ */
+export const stockValue = (source: CostSource): number => paise(stockHeld(source).value);
+
+/** Per base unit, rounded to paise. */
+export function itemCosts(source: CostSource): ItemCosts {
+  // The opening stock's rate is its value over all of it; what is left is valued at that rate.
+  const openingQuantity = source.openingStock.reduce((sum, row) => sum + toNumber(row.quantity), 0);
+  const openingValue = source.openingStock.reduce((sum, row) => sum + toNumber(row.value), 0);
+  const openingRate = openingQuantity > 0 ? openingValue / openingQuantity : null;
+  const { quantity, value } = stockHeld(source);
   // What restocking costs: the newest goods bill. A transfer only moves old
   // stock, and an adjustment's rate is typed, so neither counts.
   const newest = source.stockBatches.find((batch) => batch.billLineId !== null);

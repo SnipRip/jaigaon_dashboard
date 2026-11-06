@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Prisma } from '../generated/prisma/client.js';
-import { itemCosts, stockByGodown, stockOnHand } from './item-costs.js';
+import { itemCosts, stockByGodown, stockOnHand, stockValue } from './item-costs.js';
 
 const opening = (quantity: number, value: number, drawn = 0) => ({
   quantity: new Prisma.Decimal(quantity),
@@ -38,6 +38,21 @@ describe('itemCosts', () => {
 
   it('keeps the last landed cost once a batch is sold out', () => {
     expect(itemCosts(source([], [batch(0, 61.2345)]))).toEqual({ lastLandedCost: 61.23, stockCost: null });
+  });
+});
+
+describe('stockValue', () => {
+  it('is the FIFO value of what is left, not quantity × the rounded average', () => {
+    // 32 kg at a landed rate of 71.30595: worth 2,281.79; 32 × 71.31 (stockCost) would say 2,281.92.
+    const held = source([], [batch(32, 71.30595)]);
+    expect(itemCosts(held).stockCost).toBe(71.31);
+    expect(stockValue(held)).toBe(2281.79);
+  });
+
+  it('values opening stock left at its own rate, plus each batch', () => {
+    // 100 opening at ₹5,000 with 40 sold: 60 × 50 = 3,000; batch 10 × 56.5.
+    expect(stockValue(source([opening(100, 5000, 40)], [batch(10, 56.5)]))).toBe(3565);
+    expect(stockValue(source([]))).toBe(0);
   });
 });
 

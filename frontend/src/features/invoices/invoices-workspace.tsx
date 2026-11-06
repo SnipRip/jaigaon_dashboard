@@ -52,7 +52,11 @@ export function InvoicesWorkspace({ invoices, parties, companyState }: InvoicesW
     <div className="flex flex-col gap-3.5">
       <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
         <StatTile label="Invoices" value={formatQuantity(rows.length)} />
-        <StatTile label="Billed" value={formatInr(rows.reduce((sum, row) => sum + row.totals.grandTotal, 0))} />
+        {/* Cancelled invoices were never billed: they stay in the list but not in the total. */}
+        <StatTile
+          label="Billed"
+          value={formatInr(rows.filter((row) => row.invoice.status === "issued").reduce((sum, row) => sum + row.totals.grandTotal, 0))}
+        />
         <StatTile label="Exports still open" value={formatQuantity(exportsOpen.length)} />
         <StatTile label="Waiting for BRC" value={formatQuantity(awaitingBrc)} />
       </div>

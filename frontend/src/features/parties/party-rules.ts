@@ -1,5 +1,6 @@
 import { purchaseTax, saleTax, treatmentLabel, type PartyTaxProfile } from "@/features/gst/gst-rules";
 import { stateName } from "@/features/gst/indian-states";
+import type { OpenDocumentView } from "@/types/settlement";
 import type { Party, PartyRole } from "./types";
 
 export const taxProfileOf = (party: Pick<Party, "treatment" | "placeOfSupply" | "exportRoute" | "isGta">): PartyTaxProfile => ({
@@ -18,8 +19,20 @@ export const placeOf = (party: Party) =>
   [party.billing.city, party.billing.country ?? stateName(party.billing.stateCode)].filter(Boolean).join(", ");
 
 /**
- * What is due in this list: receivable for customers, payable for vendors.
- * A party that is both shows its balance only in the list it runs towards.
+ * What each party owes us (customers) or we owe them (vendors) today: the
+ * balances of its open documents for that direction (invoices or bills and
+ * expenses, plus the opening balance), the same rows the Payments screen sums.
+ */
+export function openBalances(documents: Pick<OpenDocumentView, "partyId" | "balance">[]) {
+  const balances = new Map<string, number>();
+  for (const document of documents) balances.set(document.partyId, Math.round(((balances.get(document.partyId) ?? 0) + document.balance) * 100) / 100);
+  return balances;
+}
+
+/**
+ * The opening balance only, for a role that may not open Payments: receivable
+ * for customers, payable for vendors. A party that is both shows it only in
+ * the list it runs towards.
  */
 export function dueFor(role: PartyRole, party: Party) {
   if (!party.balanceSide) return party.outstanding;
