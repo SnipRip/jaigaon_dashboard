@@ -7,11 +7,11 @@ import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { GlassTable } from "@/components/ui/glass-table";
 import { StatTile } from "@/components/ui/stat-tile";
 import { ViewTabs } from "@/components/ui/view-tabs";
-import { formatInr, formatPercent } from "@/lib/format";
-import type { ProfitRow } from "./profit-report";
-import type { Profit } from "./profit-rules";
+import { formatDate, formatInr, formatPercent } from "@/lib/format";
+import type { ProfitReportView, ProfitRowKind, ProfitRowView } from "@/types/profit";
+import { profitRowHref } from "./profit-api";
 
-type View = "invoice" | "shipment" | "customer" | "item";
+type View = ProfitRowKind;
 
 const VIEWS: { value: View; label: string; first: string }[] = [
   { value: "invoice", label: "By invoice", first: "Invoice" },
@@ -22,27 +22,30 @@ const VIEWS: { value: View; label: string; first: string }[] = [
 
 type SortKey = "profit" | "marginPct" | "sales";
 
-interface ProfitWorkspaceProps {
-  rows: Record<View, ProfitRow[]>;
-  total: Profit;
-  overheads: number;
-}
+const ROWS: Record<View, (report: ProfitReportView) => ProfitRowView[]> = {
+  invoice: (report) => report.byInvoice,
+  shipment: (report) => report.byShipment,
+  customer: (report) => report.byCustomer,
+  item: (report) => report.byItem,
+};
 
 // Actual profit (SOW 15): sales value less purchase cost less the expenses
 // allocated to each sale, all before GST. Overheads come off once, at the end.
-export function ProfitWorkspace({ rows, total, overheads }: ProfitWorkspaceProps) {
+export function ProfitWorkspace({ report }: { report: ProfitReportView }) {
   const [view, setView] = useState<View>("invoice");
   const [sort, setSort] = useState<SortKey>("profit");
-  const visible = [...rows[view]].sort((a, b) => b[sort] - a[sort]);
+  const { total, overheads, unassigned, netProfit: net } = report;
+  // "Not on a truck" stays last whatever the sort.
+  const visible = [...ROWS[view](report)].sort((a, b) => Number(!a.kind) - Number(!b.kind) || b[sort] - a[sort]);
   const widest = Math.max(...visible.map((row) => Math.abs(row.profit)), 1);
-  const net = total.profit - overheads;
+  const offSales = overheads.total + unassigned.total;
 
   return (
     <div className="flex flex-col gap-3.5">
       <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
         <StatTile label="Sales, before GST" value={formatInr(total.sales)} />
-        <StatTile label="Profit on sales" value={formatInr(total.profit)} tone="success" />
-        <StatTile label="Overheads" value={formatInr(overheads)} />
+        <StatTile label="Profit on sales" value={formatInr(total.profit)} tone={total.profit < 0 ? "danger" : "success"} />
+        <StatTile label={unassigned.total ? "Overheads and unlinked" : "Overheads"} value={formatInr(offSales)} />
         <StatTile label="Net profit" value={formatInr(net)} tone={net < 0 ? "danger" : "success"} />
       </div>
 
@@ -63,11 +66,18 @@ export function ProfitWorkspace({ rows, total, overheads }: ProfitWorkspaceProps
             </tr>
           </thead>
           <tbody className="text-right font-semibold tabular-nums">
+            {visible.length === 0 && (
+              <tr>
+                <td colSpan={7} className="py-6 text-center text-sm font-medium text-muted">
+                  No issued invoices between {formatDate(report.from)} and {formatDate(report.to)}.
+                </td>
+              </tr>
+            )}
             {visible.map((row) => (
               <tr key={row.key}>
                 <td className="text-left">
-                  {row.href ? (
-                    <Link href={row.href} className="font-semibold hover:text-brand hover:underline">
+                  {profitRowHref(row) ? (
+                    <Link href={profitRowHref(row)!} className="font-semibold hover:text-brand hover:underline">
                       {row.label}
                     </Link>
                   ) : (
@@ -106,12 +116,58 @@ export function ProfitWorkspace({ rows, total, overheads }: ProfitWorkspaceProps
       </GlassCard>
 
       <GlassCard className="flex flex-col gap-2">
+        <CardTitle>Off net profit</CardTitle>
+        <GlassTable>
+          <tbody className="tabular-nums">
+            {overheads.byHead.map((row) => (
+              <tr key={row.head}>
+                <td>
+                  <span className="font-semibold">{row.head}</span>
+                  <div className="text-xs text-muted">
+                    {row.count} expense{row.count === 1 ? "" : "s"}, overhead
+                  </div>
+                </td>
+                <td className="text-right font-semibold">{formatInr(row.amount)}</td>
+              </tr>
+            ))}
+            {unassigned.count > 0 && (
+              <tr>
+                <td>
+                  <Link href="/expenses" className="font-semibold hover:text-brand hover:underline">
+                    Shipment expenses not linked to a truck
+                  </Link>
+                  <div className="text-xs text-muted">
+                    {unassigned.count} expense{unassigned.count === 1 ? "" : "s"}: link them from the shipment page to count them on its sales
+                  </div>
+                </td>
+                <td className="text-right font-semibold">{formatInr(unassigned.total)}</td>
+              </tr>
+            )}
+            {offSales === 0 && (
+              <tr>
+                <td colSpan={2} className="text-sm font-medium text-muted">
+                  No overheads in this period.
+                </td>
+              </tr>
+            )}
+          </tbody>
+          <tfoot className="tabular-nums">
+            <tr className="border-t border-line font-semibold">
+              <td>Profit on sales {formatInr(total.profit)} less {formatInr(offSales)}</td>
+              <td className={clsx("text-right", net < 0 && "text-danger-strong")}>{formatInr(net)}</td>
+            </tr>
+          </tfoot>
+        </GlassTable>
+      </GlassCard>
+
+      <GlassCard className="flex flex-col gap-2">
         <CardTitle>How this is worked out</CardTitle>
         <ul className="flex list-disc flex-col gap-1 pl-5 text-sm font-medium text-ink-soft">
           <li>Sales are the invoice value before GST; GST never counts as income or cost.</li>
-          <li>Purchase cost is each item&rsquo;s stock cost today. Once sales are recorded against batches it becomes the landed cost of the batches sold, first in, first out, with freight and unloading included.</li>
-          <li>Expenses booked on a shipment are shared over its invoices by value; those on an invoice over its items the same way.</li>
-          <li>Rent, salary and other overheads come off once, as net profit. Only issued invoices count.</li>
+          <li>Purchase cost is the landed cost of the batches each invoice drew, first in, first out: freight, unloading and other expenses booked on a purchase&rsquo;s items are already inside it, so they are not counted again.</li>
+          <li>Expenses are counted at their cost: the amount plus any GST that cannot be claimed.</li>
+          <li>Expenses booked on a shipment are shared over every invoice on the truck by value; those on an invoice over its items the same way. A truck whose invoices fall in two periods splits its expenses between them.</li>
+          <li>Rent, salary and other overheads, and shipment expenses not yet linked to a truck, come off once, as net profit. Only issued invoices count.</li>
         </ul>
       </GlassCard>
     </div>
