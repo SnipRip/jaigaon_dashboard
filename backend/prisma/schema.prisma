@@ -57,8 +57,9 @@ model User {
   purchaseOrdersMade PurchaseOrder[] @relation("PurchaseOrderCreatedBy")
   purchaseBillsMade  PurchaseBill[]  @relation("PurchaseBillCreatedBy")
 
-  quotationsMade Quotation[] @relation("QuotationCreatedBy")
-  invoicesMade   Invoice[]   @relation("InvoiceCreatedBy")
+  quotationsMade        Quotation[]       @relation("QuotationCreatedBy")
+  invoicesMade          Invoice[]         @relation("InvoiceCreatedBy")
+  invoiceDocumentsSaved InvoiceDocument[] @relation("InvoiceDocumentSavedBy")
 
   stockTransfersMade   StockTransfer[]   @relation("StockTransferCreatedBy")
   stockAdjustmentsMade StockAdjustment[] @relation("StockAdjustmentCreatedBy")
@@ -1694,7 +1695,8 @@ model Invoice {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  lines InvoiceLine[]
+  lines     InvoiceLine[]
+  documents InvoiceDocument[]
 
   @@index([number])
   @@index([partyId, date])
@@ -1702,36 +1704,73 @@ model Invoice {
   @@index([quotationId])
 }
 
+// The papers that follow an invoice, in the order they happen: e-invoice
+// registration, then the move (lorry hire challan, e-way bill), customs
+// (customs invoice, packing list, shipping bill, LEO) and the money (BRC).
+enum DispatchDocumentKind {
+  E_INVOICE
+  LORRY_CHALLAN
+  EWAY_BILL
+  CUSTOMS_INVOICE
+  PACKING_LIST
+  SHIPPING_BILL
+  LEO
+  BRC
+}
+
+// One per kind per invoice. Corrected in place (they are records of papers
+// issued elsewhere, not our documents); kept, read-only, once the invoice is
+// cancelled. An IRN and an e-way bill belong to one invoice only (partial
+// unique index in the migration); a shipping bill, LEO, challan or BRC may
+// cover several invoices.
+model InvoiceDocument {
+  id        String               @id @default(uuid()) @db.Uuid
+  invoiceId String               @db.Uuid
+  invoice   Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  kind      DispatchDocumentKind
+  number    String
+  date      DateTime             @db.Date
+  // Kind-specific fields (dispatch-document-rules.ts): amounts and weights as numbers, the rest as text.
+  details   Json                 @default("{}")
+  savedById String?              @db.Uuid
+  savedBy   User?                @relation("InvoiceDocumentSavedBy", fields: [savedById], references: [id], onDelete: SetNull)
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  @@unique([invoiceId, kind])
+  @@index([kind, number])
+}
+
 model InvoiceLine {
-  id             String             @id @default(uuid()) @db.Uuid
-  invoiceId      String             @db.Uuid
-  invoice        Invoice            @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  id             String         @id @default(uuid()) @db.Uuid
+  invoiceId      String         @db.Uuid
+  invoice        Invoice        @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   position       Int
   // Copied from the invoice so "last sold to this customer" needs no join.
-  partyId        String             @db.Uuid
-  date           DateTime           @db.Date
-  itemId         String             @db.Uuid
-  item           Item               @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  partyId        String         @db.Uuid
+  date           DateTime       @db.Date
+  itemId         String         @db.Uuid
+  item           Item           @relation(fields: [itemId], references: [id], onDelete: Restrict)
   description    String
   hsn            String
   unit           String
-  quantity       Decimal            @db.Decimal(14, 3)
-  rate           Decimal            @db.Decimal(12, 2)
-  discountPct    Decimal            @default(0) @db.Decimal(5, 2)
+  quantity       Decimal        @db.Decimal(14, 3)
+  rate           Decimal        @db.Decimal(12, 2)
+  discountPct    Decimal        @default(0) @db.Decimal(5, 2)
   rateSource     LineRateSource
-  suggestedRate  Decimal?           @db.Decimal(12, 2)
-  itemPriceId    String?            @db.Uuid
-  itemPrice      ItemPrice?         @relation(fields: [itemPriceId], references: [id], onDelete: Restrict)
-  specialRateId  String?            @db.Uuid
-  specialRate    SpecialRate?       @relation(fields: [specialRateId], references: [id], onDelete: Restrict)
-  schemeDiscount Decimal            @db.Decimal(14, 2)
-  freeQuantity   Decimal            @default(0) @db.Decimal(14, 3)
-  schemes        Json               @default("[]")
-  gstRatePct     Decimal            @db.Decimal(5, 2)
-  taxable        Decimal            @db.Decimal(14, 2)
-  tax            Decimal            @db.Decimal(14, 2)
+  suggestedRate  Decimal?       @db.Decimal(12, 2)
+  itemPriceId    String?        @db.Uuid
+  itemPrice      ItemPrice?     @relation(fields: [itemPriceId], references: [id], onDelete: Restrict)
+  specialRateId  String?        @db.Uuid
+  specialRate    SpecialRate?   @relation(fields: [specialRateId], references: [id], onDelete: Restrict)
+  schemeDiscount Decimal        @db.Decimal(14, 2)
+  freeQuantity   Decimal        @default(0) @db.Decimal(14, 3)
+  schemes        Json           @default("[]")
+  gstRatePct     Decimal        @db.Decimal(5, 2)
+  taxable        Decimal        @db.Decimal(14, 2)
+  tax            Decimal        @db.Decimal(14, 2)
   // Real cost of the goods this line sent out (quantity + free units), from its draws.
-  costOfGoods    Decimal            @db.Decimal(14, 2)
+  costOfGoods    Decimal        @db.Decimal(14, 2)
 
   draws InvoiceStockDraw[]
 

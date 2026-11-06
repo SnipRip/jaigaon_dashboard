@@ -32,6 +32,25 @@ export interface InvoiceLineView {
   draws: InvoiceDrawView[];
 }
 
+export type DispatchDocumentKindView =
+  | "E_INVOICE"
+  | "LORRY_CHALLAN"
+  | "EWAY_BILL"
+  | "CUSTOMS_INVOICE"
+  | "PACKING_LIST"
+  | "SHIPPING_BILL"
+  | "LEO"
+  | "BRC";
+
+/** One attached dispatch document; amounts and weights in `details` are numbers. */
+export interface InvoiceDocumentView {
+  kind: DispatchDocumentKindView;
+  number: string;
+  date: string;
+  details: Record<string, string | number>;
+  updatedAt: string;
+}
+
 export interface InvoiceView {
   id: string;
   kind: InvoiceKindView;
@@ -65,6 +84,8 @@ export interface InvoiceView {
     cost: number;
   };
   lines: InvoiceLineView[];
+  /** In the order they happen. */
+  documents: InvoiceDocumentView[];
   cancelledAt: string | null;
   cancelReason: string | null;
 }

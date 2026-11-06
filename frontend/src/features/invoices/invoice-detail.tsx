@@ -20,8 +20,9 @@ import { InvoiceDocument, type Issuer } from "./invoice-document";
 import { DrawSourceLink } from "@/features/stock-moves/draw-source-link";
 import { invoiceStage, invoiceTax, invoiceTotals, needsEinvoice } from "./invoice-rules";
 import { InvoiceStageChip } from "./invoice-stage-chip";
-import { cancelInvoice } from "./invoices-api";
+import { cancelInvoice, removeInvoiceDocument, saveInvoiceDocument, toInvoice } from "./invoices-api";
 import type { Invoice } from "./types";
+import type { InvoiceView } from "@/types/invoice";
 
 interface InvoiceDetailProps {
   initialInvoice: Invoice;
@@ -29,12 +30,15 @@ interface InvoiceDetailProps {
   issuer: Issuer;
   /** After a cancel is saved: reload the invoices and the items' stock. */
   onChanged: () => Promise<void>;
+  /** After a document is saved or removed: the invoice as the server now has it. */
+  onStored: (view: InvoiceView) => void;
 }
 
 // One invoice: the printable bill on the left; on the right its stage, what
 // it cost (the stock it drew, oldest first) and the documents that follow it.
-// Attached documents stay on this page only: they are not stored yet.
-export function InvoiceDetail({ initialInvoice, party, issuer, onChanged }: InvoiceDetailProps) {
+// Documents are saved one at a time while the invoice is issued; a cancelled
+// invoice shows the ones it had, read-only.
+export function InvoiceDetail({ initialInvoice, party, issuer, onChanged, onStored }: InvoiceDetailProps) {
   const [invoice, setInvoice] = useState(initialInvoice);
   const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [cancelling, setCancelling] = useState(false);
@@ -45,6 +49,11 @@ export function InvoiceDetail({ initialInvoice, party, issuer, onChanged }: Invo
   const stage = invoiceStage(invoice);
   const stored = invoice.stored;
   const profit = stored ? profitOf(stored.totals.taxable, stored.totals.cost, 0) : undefined;
+
+  const keep = (view: InvoiceView) => {
+    setInvoice(toInvoice(view));
+    onStored(view);
+  };
 
   const cancel = async () => {
     if (reason.trim().length < 2) {
@@ -205,16 +214,14 @@ export function InvoiceDetail({ initialInvoice, party, issuer, onChanged }: Invo
           {notice && <FormMessage tone={notice.tone}>{notice.text}</FormMessage>}
         </GlassCard>
 
-        {invoice.status === "issued" && (
-          <>
-            <DispatchDocumentsPanel
-              invoice={invoice}
-              grandTotal={totals.grandTotal}
-              einvoice={needsEinvoice(invoice, party)}
-              onChange={(kind, document) => setInvoice((current) => ({ ...current, documents: { ...current.documents, [kind]: document } }))}
-            />
-            <p className="px-2 text-xs font-semibold text-muted">Attached documents stay on this page only for now: storing them comes next.</p>
-          </>
+        {(invoice.status === "issued" || Object.keys(invoice.documents).length > 0) && (
+          <DispatchDocumentsPanel
+            invoice={invoice}
+            grandTotal={totals.grandTotal}
+            einvoice={needsEinvoice(invoice, party)}
+            onSave={async (kind, document) => keep(await saveInvoiceDocument(invoice.id, kind, document))}
+            onRemove={async (kind) => keep(await removeInvoiceDocument(invoice.id, kind))}
+          />
         )}
       </div>
     </div>

@@ -6,11 +6,15 @@ import { toNumber } from '../common/decimal.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import type { AppliedScheme } from '../schemes/scheme-rules.js';
 import { batchSourceSelect, drawSource } from '../stock/draw-source.js';
+import { DOCUMENT_RULES, type DocumentDetails } from './dispatch-document-rules.js';
+
+const DOCUMENT_ORDER = Object.keys(DOCUMENT_RULES);
 
 export const invoiceInclude = {
   party: { select: { displayName: true } },
   godown: { select: { name: true } },
   quotation: { select: { id: true, number: true, revision: true } },
+  documents: { select: { kind: true, number: true, date: true, details: true, updatedAt: true } },
   lines: {
     orderBy: { position: 'asc' },
     include: {
@@ -84,6 +88,16 @@ export const toInvoiceView = (invoice: InvoiceRow) => ({
       }))
       .sort((a, b) => (a.batchDate ?? '').localeCompare(b.batchDate ?? '')),
   })),
+  /** Attached dispatch documents, in the order they happen (enum order). */
+  documents: invoice.documents
+    .map((document) => ({
+      kind: document.kind,
+      number: document.number,
+      date: isoDate(document.date),
+      details: document.details as DocumentDetails,
+      updatedAt: document.updatedAt,
+    }))
+    .sort((a, b) => DOCUMENT_ORDER.indexOf(a.kind) - DOCUMENT_ORDER.indexOf(b.kind)),
   cancelledAt: invoice.cancelledAt,
   cancelReason: invoice.cancelReason,
   createdAt: invoice.createdAt,

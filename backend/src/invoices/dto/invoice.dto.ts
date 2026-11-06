@@ -1,5 +1,5 @@
 import { Transform, Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsEnum, IsOptional, IsString, IsUUID, Length, Matches, MaxLength, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsEnum, IsObject, IsOptional, IsString, IsUUID, Length, Matches, MaxLength, ValidateNested } from 'class-validator';
 import { IsIsoDate } from '../../common/dto/field-validators.js';
 import { codeOrNull, trim, trimToNull } from '../../common/dto/text-transforms.js';
 import { ExportRoute, InvoiceKind, PartyCurrency } from '../../generated/prisma/enums.js';
@@ -86,4 +86,19 @@ export class CancelInvoiceDto {
   @IsString()
   @Length(2, 200)
   reason: string;
+}
+
+/** A dispatch document's number, date and kind-specific fields; dispatch-document-rules.ts checks each kind. */
+export class InvoiceDocumentDto {
+  @Transform(trim)
+  @IsString()
+  @Length(1, 64)
+  number: string;
+
+  @IsIsoDate('Pick the document date')
+  date: string;
+
+  @IsOptional()
+  @IsObject()
+  details?: Record<string, unknown>;
 }

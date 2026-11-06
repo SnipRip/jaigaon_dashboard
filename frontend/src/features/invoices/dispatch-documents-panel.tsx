@@ -18,7 +18,9 @@ interface DispatchDocumentsPanelProps {
   grandTotal: number;
   /** B2B and export invoices need an IRN; see needsEinvoice. */
   einvoice: boolean;
-  onChange: (kind: DispatchDocumentKind, document: DispatchDocument) => void;
+  /** Saved on the server; a refusal throws and shows on the form. */
+  onSave: (kind: DispatchDocumentKind, document: DispatchDocument) => Promise<void>;
+  onRemove: (kind: DispatchDocumentKind) => Promise<void>;
 }
 
 const STAGES = ["E-invoice", "Dispatch", "Customs", "Payment"] as const;
@@ -26,7 +28,7 @@ const STAGES = ["E-invoice", "Dispatch", "Customs", "Payment"] as const;
 // Everything that follows the bill, in the order it happens. An export is
 // complete when every row is ticked; a local invoice only needs the e-way
 // bill above ₹50,000.
-export function DispatchDocumentsPanel({ invoice, grandTotal, einvoice, onChange }: DispatchDocumentsPanelProps) {
+export function DispatchDocumentsPanel({ invoice, grandTotal, einvoice, onSave, onRemove }: DispatchDocumentsPanelProps) {
   const [editing, setEditing] = useState<DispatchDocumentType | null>(null);
   const types = documentsFor(invoice.kind);
   const isRequired = (type: DispatchDocumentType) => isDocumentRequired(type.kind, invoice, grandTotal, einvoice);
@@ -53,7 +55,7 @@ export function DispatchDocumentsPanel({ invoice, grandTotal, einvoice, onChange
       <div className="h-2 overflow-hidden rounded-full bg-ink/10" aria-hidden="true">
         <div className="h-full rounded-full bg-success" style={{ width: `${required.length ? (done / required.length) * 100 : 100}%` }} />
       </div>
-      {!canAttach && <p className="text-sm font-semibold text-muted">Documents are attached once the invoice is issued.</p>}
+      {!canAttach && <p className="text-sm font-semibold text-muted">This invoice is cancelled: its documents are kept as they were.</p>}
 
       {STAGES.map((stage) => {
         const inStage = types.filter((type) => type.stage === stage);
@@ -122,8 +124,12 @@ export function DispatchDocumentsPanel({ invoice, grandTotal, einvoice, onChange
             existing={invoice.documents[editing.kind]}
             suggestions={suggestions}
             onCancel={() => setEditing(null)}
-            onSave={(document) => {
-              onChange(editing.kind, document);
+            onSave={async (document) => {
+              await onSave(editing.kind, document);
+              setEditing(null);
+            }}
+            onRemove={async () => {
+              await onRemove(editing.kind);
               setEditing(null);
             }}
           />

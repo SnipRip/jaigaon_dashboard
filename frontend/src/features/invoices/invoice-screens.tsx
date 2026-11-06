@@ -49,6 +49,9 @@ function useInvoiceData() {
     reload: async () => {
       await Promise.all([invoices.mutate(), reloadMasters()]);
     },
+    /** One invoice as the server returned it (a document saved): swapped in, nothing else reloaded. */
+    replace: (view: InvoiceView) =>
+      void invoices.mutate((list) => list?.map((row) => (row.id === view.id ? view : row)), { revalidate: false }),
   };
 }
 
@@ -92,10 +95,10 @@ export function NewInvoiceScreen({ kind, quotationId }: { kind: InvoiceKind; quo
 }
 
 export function InvoiceScreen({ invoiceId }: { invoiceId: string }) {
-  const { data, error, reload } = useInvoiceData();
+  const { data, error, reload, replace } = useInvoiceData();
   if (!data) return <LoadNotice error={error} what="the invoice" />;
   const invoice = data.invoices.find((candidate) => candidate.id === invoiceId);
   const party = invoice && data.parties.find((candidate) => candidate.id === invoice.partyId);
   if (!invoice || !party) return <LoadNotice error={new Error("This invoice does not exist.")} what="the invoice" />;
-  return <InvoiceDetail key={invoice.stored?.status} initialInvoice={invoice} party={party} issuer={data.issuer} onChanged={reload} />;
+  return <InvoiceDetail key={invoice.stored?.status} initialInvoice={invoice} party={party} issuer={data.issuer} onChanged={reload} onStored={replace} />;
 }

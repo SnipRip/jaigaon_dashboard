@@ -2,11 +2,14 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Paperclip } from "lucide-react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import { FormMessage } from "@/components/ui/form-message";
 import { TextField } from "@/components/ui/text-field";
 import type { DispatchDocumentType } from "./dispatch-documents";
+import { ApiError } from "@/lib/api-client";
 import type { DispatchDocument } from "./types";
 
 /** Built from the document type, so each kind checks its own number format. */
@@ -32,16 +35,23 @@ interface AttachDocumentFormProps {
   existing?: DispatchDocument;
   /** Prefills, e.g. the invoice's vehicle number on the lorry challan. */
   suggestions: Record<string, string>;
-  onSave: (document: DispatchDocument) => void;
+  /** Saves on the server; a refusal is shown on the form. */
+  onSave: (document: DispatchDocument) => Promise<void>;
+  /** Takes an attached document off the invoice (a wrong one). */
+  onRemove?: () => Promise<void>;
   onCancel: () => void;
 }
 
-export function AttachDocumentForm({ type, existing, suggestions, onSave, onCancel }: AttachDocumentFormProps) {
+const failure = (error: unknown) => (error instanceof ApiError ? error.message : "Could not save. Check the connection and try again.");
+
+export function AttachDocumentForm({ type, existing, suggestions, onSave, onRemove, onCancel }: AttachDocumentFormProps) {
   const schema = schemaFor(type);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [removing, setRemoving] = useState(false);
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<Record<string, string>>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -51,7 +61,26 @@ export function AttachDocumentForm({ type, existing, suggestions, onSave, onCanc
     },
   });
 
-  const submit = handleSubmit(({ number, date, ...details }) => onSave({ number, date, details, fileName: existing?.fileName }));
+  const submit = handleSubmit(async ({ number, date, ...details }) => {
+    setProblem(null);
+    try {
+      await onSave({ number, date, details });
+    } catch (error) {
+      setProblem(failure(error));
+    }
+  });
+  const remove = async () => {
+    if (!onRemove) return;
+    setProblem(null);
+    setRemoving(true);
+    try {
+      await onRemove();
+    } catch (error) {
+      setProblem(failure(error));
+      setRemoving(false);
+    }
+  };
+  const busy = isSubmitting || removing;
   const message = (key: string) => errors[key]?.message as string | undefined;
 
   return (
@@ -77,11 +106,19 @@ export function AttachDocumentForm({ type, existing, suggestions, onSave, onCanc
         </Button>
         <p className="text-xs font-semibold text-muted">Uploading switches on when document storage is set up.</p>
       </div>
-      <div className="flex justify-end gap-2.5">
-        <Button variant="neutral" onClick={onCancel}>
+      {problem && <FormMessage tone="error">{problem}</FormMessage>}
+      <div className="flex flex-wrap justify-end gap-2.5">
+        {existing && onRemove && (
+          <Button variant="danger" className="mr-auto" disabled={busy} onClick={() => void remove()}>
+            {removing ? "Removing…" : "Remove"}
+          </Button>
+        )}
+        <Button variant="neutral" disabled={busy} onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit">{existing ? "Save changes" : `Attach ${type.name.toLowerCase()}`}</Button>
+        <Button type="submit" disabled={busy}>
+          {isSubmitting ? "Saving…" : existing ? "Save changes" : `Attach ${type.name.toLowerCase()}`}
+        </Button>
       </div>
     </form>
   );
