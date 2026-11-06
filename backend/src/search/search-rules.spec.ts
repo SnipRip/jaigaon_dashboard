@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { everyWord, has, quotationTitle, searchWords } from './search-rules.js';
+import { everyWord, has, searchWords } from './search-rules.js';
 
 describe('search rules', () => {
   it('splits the query into lower-case words, repeats and extra spaces dropped, five at most', () => {
@@ -16,10 +16,5 @@ describe('search rules', () => {
         { OR: [{ number: { contains: 'roy', mode: 'insensitive' } }, { driverName: { contains: 'roy', mode: 'insensitive' } }] },
       ],
     });
-  });
-
-  it('shows the revision only once a quotation is revised', () => {
-    expect(quotationTitle('QT/2627/0004', 0)).toBe('QT/2627/0004');
-    expect(quotationTitle('QT/2627/0004', 2)).toBe('QT/2627/0004 (rev 2)');
   });
 });

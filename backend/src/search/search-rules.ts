@@ -19,9 +19,6 @@ export const everyWord = <W>(words: string[], fields: FieldMatch<W>[]) => ({
   AND: words.map((word) => ({ OR: fields.map((field) => field(word)) })),
 });
 
-/** "QT/2627/0004 (rev 2)": a quotation's number with its revision once revised. */
-export const quotationTitle = (number: string, revision: number) => (revision > 0 ? `${number} (rev ${revision})` : number);
-
 /** How a dispatch document is named in the results, as on the invoice page. */
 export const DOCUMENT_LABELS: Record<DispatchDocumentKind, string> = {
   E_INVOICE: 'IRN',

@@ -12,7 +12,8 @@ import { PAYMENTS_MODULE } from '../settlements/settlements.controller.js';
 import { SHIPMENTS_MODULE } from '../shipments/shipments.controller.js';
 import { TRANSFERS_MODULE } from '../stock-moves/stock-moves.controllers.js';
 import { VEHICLES_MODULE } from '../vehicles/vehicles.controller.js';
-import { DOCUMENT_LABELS, everyWord, has, quotationTitle, searchWords } from './search-rules.js';
+import { quotationLabel } from '../sale-pricing/sale-rules.js';
+import { DOCUMENT_LABELS, everyWord, has, searchWords } from './search-rules.js';
 import type { SearchResultView } from './search-views.js';
 
 /** Results per kind: the top bar shows a short list, the screen itself has the full search. */
@@ -58,7 +59,7 @@ export class SearchService {
           take,
           select: { id: true, number: true, revision: true, party: { select: { displayName: true } } },
         });
-        return rows.map((row) => ({ kind: 'Quotation', title: quotationTitle(row.number, row.revision), detail: row.party.displayName, href: `/quotations/${row.id}` }));
+        return rows.map((row) => ({ kind: 'Quotation', title: quotationLabel(row.number, row.revision), detail: row.party.displayName, href: `/quotations/${row.id}` }));
       }),
       when(INVOICES_MODULE, async () => {
         const rows = await this.prisma.invoice.findMany({
