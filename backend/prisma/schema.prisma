@@ -60,6 +60,7 @@ model User {
   quotationsMade        Quotation[]       @relation("QuotationCreatedBy")
   invoicesMade          Invoice[]         @relation("InvoiceCreatedBy")
   invoiceDocumentsSaved InvoiceDocument[] @relation("InvoiceDocumentSavedBy")
+  settlementsMade       Settlement[]      @relation("SettlementCreatedBy")
 
   stockTransfersMade   StockTransfer[]   @relation("StockTransferCreatedBy")
   stockAdjustmentsMade StockAdjustment[] @relation("StockAdjustmentCreatedBy")
@@ -434,6 +435,9 @@ model Party {
   quotations Quotation[]
   invoices   Invoice[]
 
+  settlements        Settlement[]
+  openingAllocations SettlementAllocation[] @relation("OpeningAllocations")
+
   @@index([isCustomer])
   @@index([isVendor])
 }
@@ -768,9 +772,10 @@ model BankCashAccount {
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
-  loansDisbursed Loan[]      @relation("LoanDisbursedThrough")
-  loansRepaid    Loan[]      @relation("LoanRepaidThrough")
+  loansDisbursed Loan[]       @relation("LoanDisbursedThrough")
+  loansRepaid    Loan[]       @relation("LoanRepaidThrough")
   loanEntries    LoanEntry[]
+  settlements    Settlement[]
 
   @@unique([ifsc, accountNumber])
 }
@@ -1402,8 +1407,9 @@ model PurchaseBill {
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 
-  lines   PurchaseBillLine[]
-  charges PurchaseBillCharge[]
+  lines       PurchaseBillLine[]
+  charges     PurchaseBillCharge[]
+  allocations SettlementAllocation[]
 
   // The same vendor bill is never entered twice.
   @@unique([vendorId, vendorBillNumber])
@@ -1695,8 +1701,9 @@ model Invoice {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  lines     InvoiceLine[]
-  documents InvoiceDocument[]
+  lines       InvoiceLine[]
+  documents   InvoiceDocument[]
+  allocations SettlementAllocation[]
 
   @@index([number])
   @@index([partyId, date])
@@ -1936,4 +1943,84 @@ model StockMoveDraw {
   @@index([transferLineId])
   @@index([adjustmentLineId])
   @@index([batchId])
+}
+
+// ---------------------------------------------------------------------------
+// Receipts from customers and payments to vendors (SOW 16), Zoho-style: one
+// amount through one bank or cash account, applied to invoices, bills or the
+// party's opening balance; what is not applied stays as an advance and can
+// be applied later. Numbered from the RECEIPT / PAYMENT series. Never edited:
+// cancel with a reason and enter again (src/settlements).
+// ---------------------------------------------------------------------------
+
+enum SettlementDirection {
+  // Money in from a customer (Receipt voucher).
+  RECEIPT
+  // Money out to a vendor (Payment voucher).
+  PAYMENT
+}
+
+enum PaymentMode {
+  BANK_TRANSFER
+  CHEQUE
+  UPI
+  CASH
+}
+
+model Settlement {
+  id             String              @id @default(uuid()) @db.Uuid
+  direction      SettlementDirection
+  number         String
+  issuedNumberId String              @unique @db.Uuid
+  date           DateTime            @db.Date
+  partyId        String              @db.Uuid
+  party          Party               @relation(fields: [partyId], references: [id], onDelete: Restrict)
+  accountId      String              @db.Uuid
+  account        BankCashAccount     @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  mode           PaymentMode
+  // Money that moved through the account.
+  amount         Decimal             @db.Decimal(14, 2)
+  // TDS the customer deducted (receipts) or we deducted (payments); settles documents like money.
+  tds            Decimal             @default(0) @db.Decimal(14, 2)
+  // UTR, cheque or UPI reference.
+  reference      String?
+  // Receipts against export invoices: the bank realisation certificate.
+  brcNumber      String?
+  brcDate        DateTime?           @db.Date
+  notes          String?
+  cancelledAt    DateTime?
+  cancelReason   String?
+  createdById    String?             @db.Uuid
+  createdBy      User?               @relation("SettlementCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  allocations SettlementAllocation[]
+
+  @@index([partyId, date])
+  @@index([direction, date])
+  @@index([accountId, date])
+}
+
+// Part of a settlement applied to one invoice (receipts), one bill
+// (payments) or the party's opening balance: exactly one target (CHECK in
+// the migration). Rows of a cancelled settlement stay but no longer count.
+model SettlementAllocation {
+  id             String        @id @default(uuid()) @db.Uuid
+  settlementId   String        @db.Uuid
+  settlement     Settlement    @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  invoiceId      String?       @db.Uuid
+  invoice        Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  billId         String?       @db.Uuid
+  bill           PurchaseBill? @relation(fields: [billId], references: [id], onDelete: Restrict)
+  // The party whose opening balance this settles (the settlement's own party).
+  openingPartyId String?       @db.Uuid
+  openingParty   Party?        @relation("OpeningAllocations", fields: [openingPartyId], references: [id], onDelete: Restrict)
+  amount         Decimal       @db.Decimal(14, 2)
+  createdAt      DateTime      @default(now())
+
+  @@index([settlementId])
+  @@index([invoiceId])
+  @@index([billId])
+  @@index([openingPartyId])
 }

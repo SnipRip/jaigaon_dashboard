@@ -13,8 +13,8 @@ import { StatusChip } from "@/components/ui/status-chip";
 import { ViewTabs } from "@/components/ui/view-tabs";
 import { formatDayMonth, formatInr } from "@/lib/format";
 import { useToday } from "@/lib/use-today";
-import { AGE_BUCKETS, ageBucket, modeLabel, msmeDaysLeft } from "./payment-rules";
-import type { OpenDocument, Settlement } from "./types";
+import type { OpenDocumentView, SettlementView } from "@/types/settlement";
+import { AGE_ORDER, AGE_TEXT, documentHref, modeText, msmeDaysLeft } from "./settlements-api";
 
 type Tab = "receivable" | "payable" | "receipts" | "payments";
 
@@ -26,45 +26,64 @@ const TABS: { value: Tab; label: string }[] = [
 ];
 
 interface PaymentsWorkspaceProps {
-  receivable: OpenDocument[];
-  payable: OpenDocument[];
-  receipts: Settlement[];
-  payments: Settlement[];
-  /** Party and account id → name. */
-  names: Record<string, string>;
-  /** Document id → number, for allocations. */
-  documentNumbers: Record<string, string>;
+  /** Invoices and customers' opening balances, fully settled ones included. */
+  receivable: OpenDocumentView[];
+  /** Bills and vendors' opening balances. */
+  payable: OpenDocumentView[];
+  settlements: SettlementView[];
 }
 
 // What customers owe, what we owe vendors, and the money that moved. Ageing
-// needs today's date, which only the browser knows.
-export function PaymentsWorkspace({ receivable, payable, receipts, payments, names, documentNumbers }: PaymentsWorkspaceProps) {
+// comes from the backend (on its date); MSME days left use today's date.
+export function PaymentsWorkspace({ receivable, payable, settlements }: PaymentsWorkspaceProps) {
   const today = useToday();
   const [tab, setTab] = useState<Tab>("receivable");
   const [query, setQuery] = useState("");
   const needle = query.trim().toLowerCase();
-  const open = (documents: OpenDocument[]) =>
-    documents.filter((document) => document.balance > 0 && (!needle || `${document.number} ${names[document.partyId]}`.toLowerCase().includes(needle)));
-  const matching = (settlements: Settlement[]) =>
-    settlements.filter((settlement) => !needle || `${settlement.number} ${names[settlement.partyId]} ${settlement.reference ?? ""}`.toLowerCase().includes(needle));
+  const open = (documents: OpenDocumentView[]) =>
+    documents.filter((document) => document.balance > 0 && (!needle || `${document.number} ${document.partyName}`.toLowerCase().includes(needle)));
+  const matching = (direction: SettlementView["direction"]) =>
+    settlements.filter(
+      (settlement) =>
+        settlement.direction === direction &&
+        (!needle || `${settlement.number} ${settlement.partyName} ${settlement.reference ?? ""} ${settlement.allocations.map((allocation) => allocation.number).join(" ")}`.toLowerCase().includes(needle)),
+    );
 
-  const sum = (documents: OpenDocument[]) => documents.reduce((total, document) => total + document.balance, 0);
-  const overdue = today ? receivable.filter((document) => document.balance > 0 && document.dueDate < today) : [];
-  const msmeSoon = today ? payable.filter((document) => document.flag === "msme" && document.balance > 0 && msmeDaysLeft(document, today) <= 7) : [];
+  const sum = (documents: OpenDocumentView[]) => documents.reduce((total, document) => total + document.balance, 0);
+  const owed = receivable.filter((document) => document.balance > 0);
+  const owing = payable.filter((document) => document.balance > 0);
+  const overdue = owed.filter((document) => document.ageBucket !== "NOT_DUE");
+  const msmeSoon = today ? owing.filter((document) => document.flag === "MSME" && msmeDaysLeft(document, today) <= 7) : [];
+  const advances = settlements.filter((settlement) => !settlement.cancelledAt && settlement.unapplied > 0);
 
   return (
     <div className="flex flex-col gap-3.5">
       <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
-        <StatTile label="Customers owe us" value={formatInr(sum(receivable))} />
+        <StatTile label="Customers owe us" value={formatInr(sum(owed))} />
         <StatTile label="Overdue from customers" value={formatInr(sum(overdue))} tone={overdue.length ? "danger" : undefined} />
-        <StatTile label="We owe vendors" value={formatInr(sum(payable))} />
+        <StatTile label="We owe vendors" value={formatInr(sum(owing))} />
         <StatTile label="MSME due within 7 days" value={formatInr(sum(msmeSoon))} tone={msmeSoon.length ? "warning" : undefined} />
       </div>
 
       {msmeSoon.length > 0 && (
         <p role="status" className="rounded-(--radius-tile) bg-warning-tint px-4 py-3 text-sm font-semibold text-warning-strong">
           MSME vendors must be paid within 45 days of the bill, or we owe interest and lose the tax deduction:{" "}
-          {msmeSoon.map((document) => `${names[document.partyId]} (${Math.max(msmeDaysLeft(document, today!), 0)} days left)`).join(", ")}.
+          {msmeSoon.map((document) => `${document.partyName} ${document.number} (${Math.max(msmeDaysLeft(document, today!), 0)} days left)`).join(", ")}.
+        </p>
+      )}
+      {advances.length > 0 && (
+        <p className="rounded-(--radius-tile) bg-brand-tint px-4 py-3 text-sm font-semibold text-brand-strong">
+          Kept as advances, not yet applied:{" "}
+          {advances.map((settlement, index) => (
+            <span key={settlement.id}>
+              {index > 0 && ", "}
+              <Link href={`/payments/entries/${settlement.id}`} className="underline">
+                {settlement.number}
+              </Link>{" "}
+              {settlement.partyName} {formatInr(settlement.unapplied)}
+            </span>
+          ))}
+          .
         </p>
       )}
 
@@ -88,37 +107,33 @@ export function PaymentsWorkspace({ receivable, payable, receipts, payments, nam
         </ListToolbar>
 
         {(tab === "receivable" || tab === "payable") && (
-          <OpenTable documents={open(tab === "receivable" ? receivable : payable)} names={names} today={today} direction={tab === "receivable" ? "in" : "out"} />
+          <OpenTable documents={open(tab === "receivable" ? receivable : payable)} today={today} direction={tab === "receivable" ? "RECEIPT" : "PAYMENT"} />
         )}
-        {(tab === "receipts" || tab === "payments") && (
-          <SettlementTable settlements={matching(tab === "receipts" ? receipts : payments)} names={names} documentNumbers={documentNumbers} />
-        )}
+        {(tab === "receipts" || tab === "payments") && <SettlementTable settlements={matching(tab === "receipts" ? "RECEIPT" : "PAYMENT")} />}
       </GlassCard>
     </div>
   );
 }
 
-function OpenTable({ documents, names, today, direction }: { documents: OpenDocument[]; names: Record<string, string>; today: string | null; direction: "in" | "out" }) {
-  const buckets = today ? AGE_BUCKETS.map((bucket) => ({ bucket, total: documents.filter((document) => ageBucket(document.dueDate, today) === bucket).reduce((sum, document) => sum + document.balance, 0) })) : [];
+function OpenTable({ documents, today, direction }: { documents: OpenDocumentView[]; today: string | null; direction: SettlementView["direction"] }) {
+  const buckets = AGE_ORDER.map((bucket) => ({ bucket, total: documents.filter((document) => document.ageBucket === bucket).reduce((sum, document) => sum + document.balance, 0) }));
   return (
     <>
-      {buckets.length > 0 && (
-        <dl className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-          {buckets.map(({ bucket, total }) => (
-            <div key={bucket} className="glass-inset rounded-(--radius-tile) px-3 py-2.5">
-              <dt className="text-xs font-medium text-muted">{bucket}</dt>
-              <dd className={total && bucket !== "Not due" ? "font-semibold text-danger-strong tabular-nums" : "font-semibold tabular-nums"}>{formatInr(total)}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
+      <dl className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        {buckets.map(({ bucket, total }) => (
+          <div key={bucket} className="glass-inset rounded-(--radius-tile) px-3 py-2.5">
+            <dt className="text-xs font-medium text-muted">{AGE_TEXT[bucket]}</dt>
+            <dd className={total && bucket !== "NOT_DUE" ? "font-semibold text-danger-strong tabular-nums" : "font-semibold tabular-nums"}>{formatInr(total)}</dd>
+          </div>
+        ))}
+      </dl>
       <GlassTable className="min-w-[860px]">
         <thead>
           <tr className="text-right">
-            <th scope="col" className="text-left">{direction === "in" ? "Invoice" : "Bill"}</th>
-            <th scope="col" className="text-left">{direction === "in" ? "Customer" : "Vendor"}</th>
+            <th scope="col" className="text-left">{direction === "RECEIPT" ? "Invoice" : "Bill"}</th>
+            <th scope="col" className="text-left">{direction === "RECEIPT" ? "Customer" : "Vendor"}</th>
             <th scope="col">Total</th>
-            <th scope="col">{direction === "in" ? "Received" : "Paid"}</th>
+            <th scope="col">{direction === "RECEIPT" ? "Received" : "Paid"}</th>
             <th scope="col">Balance</th>
             <th scope="col" className="text-left">Due</th>
             <th scope="col">
@@ -127,45 +142,44 @@ function OpenTable({ documents, names, today, direction }: { documents: OpenDocu
           </tr>
         </thead>
         <tbody className="text-right font-semibold tabular-nums">
-          {documents.map((document) => {
-            const late = today ? ageBucket(document.dueDate, today) : undefined;
-            return (
-              <tr key={document.id} className="align-top">
-                <td className="text-left">
-                  <Link href={document.href} className="font-semibold hover:text-brand hover:underline">
-                    {document.number}
-                  </Link>
-                  <div className="text-xs text-muted">{formatDayMonth(document.date)}</div>
-                </td>
-                <td className="text-left">
-                  <Link href={`/payments/ledger/${document.partyId}`} className="font-semibold hover:text-brand hover:underline">
-                    {names[document.partyId]}
-                  </Link>
-                  {document.flag === "export" && <div className="text-xs text-muted">Export: BRC on receipt</div>}
-                  {document.flag === "msme" && today && <div className="text-xs text-warning-strong">MSME · {Math.max(msmeDaysLeft(document, today), 0)} of 45 days left</div>}
-                </td>
-                <td>{formatInr(document.total)}</td>
-                <td className="text-muted">{formatInr(document.settled)}</td>
-                <td className="font-semibold">{formatInr(document.balance)}</td>
-                <td className="text-left">
-                  {formatDayMonth(document.dueDate)}
-                  {late && late !== "Not due" && (
-                    <div>
-                      <StatusChip tone="danger">{late} late</StatusChip>
-                    </div>
-                  )}
-                </td>
-                <td>
-                  <Link
-                    href={direction === "in" ? `/payments/receipts/new?invoice=${document.id}` : `/payments/vendor-payments/new?bill=${document.id}`}
-                    className={buttonClasses("outline", "h-9 px-3.5 text-xs")}
-                  >
-                    {direction === "in" ? "Record receipt" : "Pay"}
-                  </Link>
-                </td>
-              </tr>
-            );
-          })}
+          {documents.map((document) => (
+            <tr key={`${document.kind}-${document.id}`} className="align-top">
+              <td className="text-left">
+                <Link href={documentHref(document)} className="font-semibold hover:text-brand hover:underline">
+                  {document.number}
+                </Link>
+                <div className="text-xs text-muted">{document.date ? formatDayMonth(document.date) : "Brought forward"}</div>
+              </td>
+              <td className="text-left">
+                <Link href={`/payments/ledger/${document.partyId}`} className="font-semibold hover:text-brand hover:underline">
+                  {document.partyName}
+                </Link>
+                {document.flag === "EXPORT" && <div className="text-xs text-muted">Export: BRC on receipt</div>}
+                {document.flag === "MSME" && today && document.dueDate && (
+                  <div className="text-xs text-warning-strong">MSME · {Math.max(msmeDaysLeft(document, today), 0)} days left of 45</div>
+                )}
+              </td>
+              <td>{formatInr(document.total)}</td>
+              <td className="text-muted">{formatInr(document.settled)}</td>
+              <td className="font-semibold">{formatInr(document.balance)}</td>
+              <td className="text-left">
+                {document.dueDate ? formatDayMonth(document.dueDate) : "Due"}
+                {document.ageBucket !== "NOT_DUE" && document.dueDate && (
+                  <div>
+                    <StatusChip tone="danger">{AGE_TEXT[document.ageBucket]} late</StatusChip>
+                  </div>
+                )}
+              </td>
+              <td>
+                <Link
+                  href={direction === "RECEIPT" ? `/payments/receipts/new?document=${document.id}` : `/payments/vendor-payments/new?document=${document.id}`}
+                  className={buttonClasses("outline", "h-9 px-3.5 text-xs")}
+                >
+                  {direction === "RECEIPT" ? "Record receipt" : "Pay"}
+                </Link>
+              </td>
+            </tr>
+          ))}
         </tbody>
       </GlassTable>
       {documents.length === 0 && <p className="py-6 text-center text-[13px] text-muted">Nothing outstanding.</p>}
@@ -173,7 +187,7 @@ function OpenTable({ documents, names, today, direction }: { documents: OpenDocu
   );
 }
 
-function SettlementTable({ settlements, names, documentNumbers }: { settlements: Settlement[]; names: Record<string, string>; documentNumbers: Record<string, string> }) {
+function SettlementTable({ settlements }: { settlements: SettlementView[] }) {
   return (
     <>
       <GlassTable className="min-w-[860px]">
@@ -187,31 +201,38 @@ function SettlementTable({ settlements, names, documentNumbers }: { settlements:
           </tr>
         </thead>
         <tbody className="text-right font-semibold tabular-nums">
-          {[...settlements].sort((a, b) => b.date.localeCompare(a.date)).map((settlement) => (
-            <tr key={settlement.id} className="align-top">
+          {settlements.map((settlement) => (
+            <tr key={settlement.id} className={settlement.cancelledAt ? "align-top text-muted" : "align-top"}>
               <td className="text-left">
-                <span className="font-semibold">{settlement.number}</span>
+                <Link href={`/payments/entries/${settlement.id}`} className="font-semibold hover:text-brand hover:underline">
+                  {settlement.number}
+                </Link>
                 <div className="text-xs text-muted">{formatDayMonth(settlement.date)}</div>
+                {settlement.cancelledAt && <StatusChip tone="neutral">Cancelled</StatusChip>}
               </td>
               <td className="text-left">
                 <Link href={`/payments/ledger/${settlement.partyId}`} className="font-semibold hover:text-brand hover:underline">
-                  {names[settlement.partyId]}
+                  {settlement.partyName}
                 </Link>
               </td>
-              <td className="font-semibold">{formatInr(settlement.amount)}</td>
+              <td className={settlement.cancelledAt ? "line-through" : "font-semibold"}>
+                {formatInr(settlement.amount)}
+                {settlement.tds > 0 && <div className="text-xs text-muted">+ TDS {formatInr(settlement.tds)}</div>}
+              </td>
               <td className="text-left">
-                {modeLabel(settlement.mode)}
+                {modeText(settlement.mode)}
                 <div className="text-xs text-muted">
-                  {names[settlement.accountId]}
+                  {settlement.accountName}
                   {settlement.reference && ` · ${settlement.reference}`}
                 </div>
               </td>
               <td className="text-left text-xs">
-                {settlement.allocations.map((allocation) => (
-                  <div key={allocation.documentId}>
-                    {documentNumbers[allocation.documentId]} · {formatInr(allocation.amount)}
+                {settlement.allocations.map((allocation, index) => (
+                  <div key={index}>
+                    {allocation.number} · {formatInr(allocation.amount)}
                   </div>
                 ))}
+                {!settlement.cancelledAt && settlement.unapplied > 0 && <div className="text-brand-strong">Advance {formatInr(settlement.unapplied)}</div>}
                 {settlement.brc && <StatusChip tone="success">BRC {settlement.brc.number}</StatusChip>}
               </td>
             </tr>

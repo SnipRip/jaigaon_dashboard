@@ -1,5 +1,5 @@
-// Money in from customers (receipts) and money out to vendors (payments),
-// each applied to one or more invoices or bills (SOW 16), Zoho-style.
+// Sample-data shapes for receipts and payments, still read by the dashboard
+// and reports. The payments pages use the backend views (types/settlement.ts).
 
 export type PaymentMode = "bank-transfer" | "cheque" | "upi" | "cash";
 

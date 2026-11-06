@@ -81,6 +81,8 @@ export interface InvoiceView {
     tax: number;
     roundOff: number;
     total: number;
+    /** Live receipts (and TDS) applied so far. */
+    received: number;
     cost: number;
   };
   lines: InvoiceLineView[];

@@ -6,7 +6,7 @@ import { Button, buttonClasses } from "@/components/ui/button";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { GlassTable } from "@/components/ui/glass-table";
 import { formatDate, formatInr } from "@/lib/format";
-import type { LedgerRow } from "./payment-rules";
+import type { StatementRow } from "./settlements-api";
 
 interface LedgerSection {
   title: string;
@@ -15,7 +15,7 @@ interface LedgerSection {
   chargeLabel: string;
   settleLabel: string;
   opening: number;
-  rows: LedgerRow[];
+  rows: StatementRow[];
 }
 
 // A party's statement of account: opening balance, every invoice or bill,

@@ -15,6 +15,8 @@ export const invoiceInclude = {
   godown: { select: { name: true } },
   quotation: { select: { id: true, number: true, revision: true } },
   documents: { select: { kind: true, number: true, date: true, details: true, updatedAt: true } },
+  // Live receipts applied to it (src/settlements).
+  allocations: { where: { settlement: { cancelledAt: null } }, select: { amount: true } },
   lines: {
     orderBy: { position: 'asc' },
     include: {
@@ -58,6 +60,8 @@ export const toInvoiceView = (invoice: InvoiceRow) => ({
     tax: toNumber(invoice.tax),
     roundOff: toNumber(invoice.roundOff),
     total: toNumber(invoice.total),
+    /** Received so far: live receipts (and TDS) applied to this invoice. */
+    received: Math.round(invoice.allocations.reduce((sum, allocation) => sum + toNumber(allocation.amount), 0) * 100) / 100,
     cost: toNumber(invoice.cost),
   },
   lines: invoice.lines.map((line) => ({

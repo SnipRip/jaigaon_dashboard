@@ -1,7 +1,8 @@
 // Development and test data that stays in the local database: godowns,
 // brands, HSN codes, items (no opening stock: stock comes in through purchase
 // bills), vendors, customers, this week's price list, special rates and
-// schemes. Not for production. Run after `npm run db:seed` with
+// schemes, a bank account and a cash book, number formats and a test LUT.
+// Not for production. Run after `npm run db:seed` with
 // `npm run db:dev-data`. Safe to re-run: records are matched by name / SKU /
 // code and left as they are, and the price list gets entries for the week
 // of the day it runs, so running it on a later day gives that day rates.
@@ -254,7 +255,7 @@ async function main() {
 
   // Number formats the documents below need, from the start of this financial
   // year; a series that already has a format is left alone.
-  const FORMATS: { kind: 'PURCHASE_ORDER' | 'PURCHASE' | 'QUOTATION' | 'SALES_INVOICE' | 'EXPORT_INVOICE' | 'STOCK_TRANSFER' | 'STOCK_JOURNAL'; pattern: string }[] = [
+  const FORMATS: { kind: 'PURCHASE_ORDER' | 'PURCHASE' | 'QUOTATION' | 'SALES_INVOICE' | 'EXPORT_INVOICE' | 'STOCK_TRANSFER' | 'STOCK_JOURNAL' | 'RECEIPT' | 'PAYMENT'; pattern: string }[] = [
     { kind: 'PURCHASE_ORDER', pattern: 'PO/{FY}/{SEQ:4}' },
     { kind: 'PURCHASE', pattern: 'PUR/{FY}/{SEQ:4}' },
     { kind: 'QUOTATION', pattern: 'QT/{FY}/{SEQ:4}' },
@@ -262,11 +263,25 @@ async function main() {
     { kind: 'EXPORT_INVOICE', pattern: 'EXP/{FY}/{SEQ:4}' },
     { kind: 'STOCK_TRANSFER', pattern: 'ST/{FY}/{SEQ:4}' },
     { kind: 'STOCK_JOURNAL', pattern: 'SJ/{FY}/{SEQ:4}' },
+    { kind: 'RECEIPT', pattern: 'RCT/{FY}/{SEQ:4}' },
+    { kind: 'PAYMENT', pattern: 'PAY/{FY}/{SEQ:4}' },
   ];
   for (const format of FORMATS) {
     const series = await prisma.numberSeries.findUnique({ where: { kind: format.kind }, select: { id: true, _count: { select: { formats: true } } } });
     if (series && series._count.formats === 0) {
       await prisma.numberFormat.create({ data: { seriesId: series.id, applicableFrom: day('2026-04-01'), pattern: format.pattern, reset: 'YEARLY' } });
+    }
+  }
+
+  // A bank account and a cash book for receipts and payments; made-up account
+  // number. Matched by name and left alone when present.
+  const MONEY_ACCOUNTS: Prisma.BankCashAccountCreateInput[] = [
+    { name: 'SBI Jaigaon current account', kind: 'BANK', bankName: 'State Bank of India', branch: 'Jaigaon', accountNumber: '00000039123456789', ifsc: 'SBIN0007310', openingBalance: 250000, openingDate: day('2026-04-01'), showOnInvoice: true },
+    { name: 'Cash in hand', kind: 'CASH', openingBalance: 20000, openingDate: day('2026-04-01') },
+  ];
+  for (const account of MONEY_ACCOUNTS) {
+    if (!(await prisma.bankCashAccount.findUnique({ where: { name: account.name }, select: { id: true } }))) {
+      await prisma.bankCashAccount.create({ data: account });
     }
   }
 
@@ -286,6 +301,7 @@ async function main() {
     priceListEntries: await prisma.itemPrice.count(),
     specialRates: await prisma.specialRate.count(),
     schemes: await prisma.scheme.count(),
+    bankCashAccounts: await prisma.bankCashAccount.count(),
   };
   console.log(`Dev data ready for ${today} (week from ${weekStart}):`, counts);
 }

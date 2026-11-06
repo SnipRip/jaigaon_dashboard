@@ -6,6 +6,7 @@ import { NumberSeriesService } from '../number-series/number-series.service.js';
 import { companyState, liveGodown } from '../purchases/purchase-context.js';
 import { SalePricingService } from '../sale-pricing/sale-pricing.service.js';
 import { invoiceRegime } from '../sale-pricing/sale-rules.js';
+import { liveSettlementNumbers } from '../settlements/settlements.service.js';
 import { costOfDraws } from '../stock/fifo-rules.js';
 import { drawStock, returnStock } from '../stock/stock-out.js';
 import type { InvoiceDto } from './dto/invoice.dto.js';
@@ -123,13 +124,15 @@ export class InvoicesService {
     );
   }
 
-  /** Cancels an issued invoice: its stock goes back, its number is cancelled, its quotation is open again. */
+  /** Cancels an issued invoice with no live receipts on it: its stock goes back, its number is cancelled, its quotation is open again. */
   cancel(id: string, reason: string): Promise<InvoiceView> {
     return this.prisma.$transaction(async (tx) => {
       const [current] = await tx.$queryRaw<{ status: string; issuedNumberId: string; quotationId: string | null }[]>`
         SELECT "status", "issuedNumberId", "quotationId" FROM "Invoice" WHERE "id" = ${id}::uuid FOR UPDATE`;
       if (!current) fail('That invoice does not exist');
       if (current.status === 'CANCELLED') throw new ConflictException('This invoice is already cancelled');
+      const receipts = await liveSettlementNumbers(tx, { invoiceId: id });
+      if (receipts.length) throw new ConflictException(`Receipts are applied to this invoice (${receipts.join(', ')}). Cancel them first.`);
       await returnStock(tx, id);
       await this.numbers.cancel(tx, current.issuedNumberId);
       if (current.quotationId) {

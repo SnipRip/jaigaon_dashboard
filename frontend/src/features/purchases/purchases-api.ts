@@ -44,8 +44,8 @@ export function toBill(view: PurchaseBillView): Bill {
       : undefined,
     landedCostFor: view.landedCostForId ?? undefined,
     allocation: method(view.allocation),
-    // Payments are recorded on Payments & outstanding, not stored yet.
-    paid: 0,
+    // Payments applied on Payments & outstanding.
+    paid: view.totals.paid,
     notes: view.notes ?? undefined,
     stored: view,
   };

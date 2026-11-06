@@ -19,6 +19,8 @@ export const billInclude = {
   lines: { orderBy: { position: 'asc' }, include: { batch: { select: { remaining: true } } } },
   charges: { orderBy: { position: 'asc' }, include: { head: { select: { name: true } } } },
   taggedCharges: { where: { status: 'OPEN' }, select: { id: true, reference: true, cost: true } },
+  // Live payments applied to it (src/settlements).
+  allocations: { where: { settlement: { cancelledAt: null } }, select: { amount: true } },
 } as const satisfies Prisma.PurchaseBillInclude;
 
 type BillRow = Prisma.PurchaseBillGetPayload<{ include: typeof billInclude }>;
@@ -60,6 +62,8 @@ export const toBillView = (bill: BillRow) => ({
     roundOff: toNumber(bill.roundOff),
     payable: toNumber(bill.payable),
     cost: toNumber(bill.cost),
+    /** Paid so far: live payments (and TDS) applied to this bill. */
+    paid: Math.round(bill.allocations.reduce((sum, allocation) => sum + toNumber(allocation.amount), 0) * 100) / 100,
   },
   lines: bill.lines.map((line) => ({
     id: line.id,

@@ -157,6 +157,12 @@ export function InvoiceDetail({ initialInvoice, party, issuer, onChanged, onStor
           <dl className="grid grid-cols-2 gap-2 text-sm">
             <FactTile label="Total">{formatInr(totals.grandTotal)}</FactTile>
             <FactTile label="Tax">{tax.title}</FactTile>
+            {stored?.status === "ISSUED" && (
+              <FactTile label="Received">
+                {formatInr(stored.totals.received)}
+                {stored.totals.received < stored.totals.total && <span className="text-xs text-muted"> · {formatInr(stored.totals.total - stored.totals.received)} due</span>}
+              </FactTile>
+            )}
             {stored && profit && stored.status === "ISSUED" && (
               <>
                 <FactTile label="Cost of goods">{formatInr(stored.totals.cost)}</FactTile>

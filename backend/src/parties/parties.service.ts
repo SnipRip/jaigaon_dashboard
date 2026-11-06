@@ -127,9 +127,32 @@ export class PartiesService {
     if (party.displayName && party.displayName !== current.displayName) {
       await assertLedgerNameFree(this.prisma, party.displayName, { owner: 'party', id });
     }
-    return toPartyView(
-      await this.prisma.party.update({ where: { id }, data: party }),
-    );
+    const openingChanged =
+      (dto.openingBalance !== undefined && dto.openingBalance !== toNumber(current.openingBalance)) ||
+      (dto.openingBalanceSide !== undefined && dto.openingBalanceSide !== current.openingBalanceSide);
+    if (!openingChanged) {
+      return toPartyView(await this.prisma.party.update({ where: { id }, data: party }));
+    }
+    // Receipts or payments may already settle the opening balance: it cannot
+    // fall below what they settled, nor turn the other way. The party row is
+    // locked as a settlement locks it, so the two cannot cross.
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT 1 FROM "Party" WHERE "id" = ${id}::uuid FOR UPDATE`;
+      const settled = await tx.settlementAllocation.aggregate({
+        where: { openingPartyId: id, settlement: { cancelledAt: null } },
+        _sum: { amount: true },
+      });
+      const done = settled._sum.amount?.toNumber() ?? 0;
+      if (done > 0) {
+        if (party.openingBalanceSide !== current.openingBalanceSide) {
+          throw new BadRequestException('Receipts or payments already settle this opening balance, so it cannot change sides');
+        }
+        if ((party.openingBalance ?? toNumber(current.openingBalance)) < done) {
+          throw new BadRequestException(`₹${done.toFixed(2)} of the opening balance is already settled; it cannot go below that`);
+        }
+      }
+      return toPartyView(await tx.party.update({ where: { id }, data: party }));
+    });
   }
 
   // A party with special rates (and, later, documents) is archived instead:

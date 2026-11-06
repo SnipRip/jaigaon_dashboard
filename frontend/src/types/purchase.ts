@@ -63,6 +63,8 @@ export interface PurchaseBillView {
     roundOff: number;
     payable: number;
     cost: number;
+    /** Live payments (and TDS) applied so far. */
+    paid: number;
   };
   lines: PurchaseBillLineView[];
   charges: { id: string; headId: string; headName: string; description: string | null; amount: number; gstRatePct: number; tax: number }[];

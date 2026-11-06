@@ -5,6 +5,7 @@ import { PrismaService } from '../database/prisma.service.js';
 import type { LandedCostMethod, Prisma } from '../generated/prisma/client.js';
 import { loadItemFacts } from '../items/item-document-facts.js';
 import { NumberSeriesService } from '../number-series/number-series.service.js';
+import { liveSettlementNumbers } from '../settlements/settlements.service.js';
 import { restateBatchCost } from '../stock/stock-out.js';
 import type { CreatePurchaseBillDto, LastPurchaseRatesQueryDto, ListPurchaseBillsQueryDto } from './dto/purchase-bill.dto.js';
 import { companyState, liveGodown, liveVendor } from './purchase-context.js';
@@ -223,6 +224,8 @@ export class PurchaseBillsService {
         SELECT "kind", "status", "landedCostForId", "issuedNumberId" FROM "PurchaseBill" WHERE "id" = ${id}::uuid FOR UPDATE`;
       if (!bill) fail('That bill does not exist');
       if (bill.status === 'VOID') throw new ConflictException('This bill is already void');
+      const payments = await liveSettlementNumbers(tx, { billId: id });
+      if (payments.length) throw new ConflictException(`Payments are applied to this bill (${payments.join(', ')}). Cancel them first.`);
       if (bill.kind === 'GOODS') {
         const tagged = await tx.purchaseBill.count({ where: { landedCostForId: id, status: 'OPEN' } });
         if (tagged > 0) throw new ConflictException('Freight, loading or labour bills are added to this purchase. Void them first.');
