@@ -17,6 +17,7 @@ import { TextField } from "@/components/ui/text-field";
 import { describeComponents } from "@/features/gst/gst-rules";
 import { INDIAN_STATES, stateName } from "@/features/gst/indian-states";
 import { resolveItemDefaults, type ItemCatalog } from "@/features/items/item-rules";
+import { PICKED_VEHICLE_HINT, useLiveVehicles, VehicleSelect } from "@/features/masters/vehicle-picker";
 import { placeOf } from "@/features/parties/party-rules";
 import type { Party } from "@/features/parties/types";
 import { previewTotals } from "@/features/quotations/quotation-rules";
@@ -30,6 +31,7 @@ import { apiGet, ApiError } from "@/lib/api-client";
 import { formatDate, formatQuantity, formatRate } from "@/lib/format";
 import { useToday } from "@/lib/use-today";
 import type { GodownView } from "@/types/item-master";
+import type { VehicleView } from "@/types/vehicle";
 import { itemsInStock, stockIn } from "@/features/items/item-stock";
 import { exportDeclaration, invoiceTax } from "./invoice-rules";
 import { invoiceSchema, type InvoiceFormValues } from "./invoice-schema";
@@ -94,6 +96,7 @@ export function InvoiceForm({ kind, customers, catalog, godowns, luts, companySt
       exportRoute: quotedParty?.exportRoute ?? "lut",
       currency: quotedParty?.currency ?? "INR",
       vehicleNumber: "",
+      vehicleId: "",
       notes: "",
       lines: fromQuotation?.lines.map((line) => ({
         itemId: line.itemId,
@@ -109,6 +112,14 @@ export function InvoiceForm({ kind, customers, catalog, godowns, luts, companySt
   useEffect(() => {
     if (today && !getValues("date")) setValue("date", today);
   }, [today, getValues, setValue]);
+
+  const vehicles = useLiveVehicles();
+  const vehicleId = useWatch({ control, name: "vehicleId" });
+  /** A vehicle from the master shows its number read-only; the server records the master's number. */
+  const pickVehicle = (vehicle: VehicleView | null) => {
+    setValue("vehicleId", vehicle?.id ?? "");
+    if (vehicle) setValue("vehicleNumber", vehicle.number, { shouldValidate: true });
+  };
 
   const [partyId, godownId, placeOfSupply, exportRoute, currency, date, lines] = useWatch({
     control,
@@ -227,7 +238,8 @@ export function InvoiceForm({ kind, customers, catalog, godowns, luts, companySt
         currency: values.currency,
         shipToLine: values.shipToLine.trim() || null,
         shipToCity: values.shipToCity.trim() || null,
-        vehicleNumber: values.vehicleNumber.trim() || null,
+        vehicleNumber: values.vehicleId ? null : values.vehicleNumber.trim() || null,
+        vehicleId: values.vehicleId || null,
         notes: values.notes.trim() || null,
         quotationId: fromQuotation?.id,
         lines: values.lines.map((line) => ({ itemId: line.itemId, quantity: Number(line.quantity), rate: Number(line.rate), discountPct: Number(line.discountPct) || 0 })),
@@ -266,7 +278,7 @@ export function InvoiceForm({ kind, customers, catalog, godowns, luts, companySt
               Filled from quotation {fromQuotation.label}, which is marked converted when this is issued. Check rates and quantities first.
             </p>
           )}
-          <div className="grid gap-3.5 @xl:grid-cols-3">
+          <div className="grid gap-3.5 @xl:grid-cols-2 @4xl:grid-cols-4">
             <TextField
               label="Invoice number"
               hint={numberTyped ? "Type it, or leave blank for the next in the series" : "Given on save, next in the series"}
@@ -276,7 +288,15 @@ export function InvoiceForm({ kind, customers, catalog, godowns, luts, companySt
               {...register("number")}
             />
             <TextField label="Invoice date" type="date" error={errors.date?.message} {...register("date")} />
-            <TextField label="Vehicle number" placeholder="WB73E1234" error={errors.vehicleNumber?.message} {...register("vehicleNumber")} />
+            <VehicleSelect vehicles={vehicles} vehicleId={vehicleId} onPick={pickVehicle} />
+            <TextField
+              label="Vehicle number"
+              placeholder="WB73E1234"
+              readOnly={Boolean(vehicleId)}
+              hint={vehicleId ? PICKED_VEHICLE_HINT : undefined}
+              error={errors.vehicleNumber?.message}
+              {...register("vehicleNumber")}
+            />
           </div>
           <div className="grid gap-3.5 @xl:grid-cols-2">
             <div className="flex flex-col gap-1.5">

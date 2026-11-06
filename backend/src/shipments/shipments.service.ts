@@ -6,6 +6,7 @@ import { PrismaService } from '../database/prisma.service.js';
 import type { Prisma, ShipmentStage } from '../generated/prisma/client.js';
 import { NumberSeriesService } from '../number-series/number-series.service.js';
 import { liveVendor } from '../purchases/purchase-context.js';
+import { pickedVehicleNumber } from '../vehicles/picked-vehicle.js';
 import type { LinkExpensesDto, ShipmentDto, ShipmentQueryDto, ShipmentStageDto } from './dto/shipment.dto.js';
 import { liveShipment } from './shipment-locks.js';
 import { invoiceProblem, invoicesLocked, nextStage, papersProblem, SHIPMENT_STAGES, STAGE_NAMES, stageDateProblem, stageIndex } from './shipment-rules.js';
@@ -63,7 +64,7 @@ export class ShipmentsService {
     return this.prisma.$transaction(async (tx) => {
       fail(dto.date > todayInIndia() ? 'The loading date is after today' : null);
       await this.checkParties(tx, dto);
-      const vehicleNumber = await this.vehicleNumberOf(tx, dto, null);
+      const vehicleNumber = await pickedVehicleNumber(tx, dto.vehicleId, dto.vehicleNumber);
       await this.claimInvoices(tx, dto, null);
       const id = randomUUID();
       const issued = await this.numbers.issue(tx, 'SHIPMENT', dto.date, { typed: dto.number ?? undefined, documentId: id });
@@ -95,7 +96,7 @@ export class ShipmentsService {
       const later = await tx.shipmentEvent.findFirst({ where: { shipmentId: id, stage: { not: 'PLANNED' } }, orderBy: { date: 'asc' }, select: { date: true } });
       if (later && dto.date > isoDate(later.date)) fail('The loading date is after a later stage');
       await this.checkParties(tx, dto);
-      const vehicleNumber = await this.vehicleNumberOf(tx, dto, shipment.vehicleId);
+      const vehicleNumber = await pickedVehicleNumber(tx, dto.vehicleId, dto.vehicleNumber, shipment.vehicleId);
       await this.claimInvoices(tx, dto, id);
       await tx.shipmentInvoice.deleteMany({ where: { shipmentId: id, invoiceId: { notIn: dto.invoiceIds } } });
       await tx.shipmentInvoice.createMany({ data: dto.invoiceIds.map((invoiceId) => ({ shipmentId: id, invoiceId })), skipDuplicates: true });
@@ -205,20 +206,6 @@ export class ShipmentsService {
     const buyer = await tx.party.findUnique({ where: { id: dto.partyId }, select: { isCustomer: true } });
     if (!buyer?.isCustomer) fail('Pick the buyer');
     if (dto.transporterId) await liveVendor(tx, dto.transporterId);
-  }
-
-  /**
-   * The plate the shipment records: the picked vehicle's number (locked so it
-   * cannot be archived or renumbered meanwhile), else the one typed. An
-   * archived vehicle can stay on a shipment that already had it, not be newly picked.
-   */
-  private async vehicleNumberOf(tx: Tx, dto: ShipmentDto, currentVehicleId: string | null): Promise<string> {
-    if (!dto.vehicleId) return dto.vehicleNumber;
-    const [vehicle] = await tx.$queryRaw<{ number: string; isArchived: boolean }[]>`
-      SELECT "number", "isArchived" FROM "Vehicle" WHERE "id" = ${dto.vehicleId}::uuid FOR SHARE`;
-    if (!vehicle) throw new BadRequestException('That vehicle is not in the vehicle master');
-    if (vehicle.isArchived && dto.vehicleId !== currentVehicleId) throw new BadRequestException('This vehicle is archived');
-    return vehicle.number;
   }
 
   /** Locks the invoices in id order and checks each may ride on this truck. */

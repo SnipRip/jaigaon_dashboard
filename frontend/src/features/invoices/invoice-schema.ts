@@ -24,7 +24,10 @@ export const invoiceSchema = z.object({
   shipToCity: z.string().max(60),
   exportRoute: z.enum(["lut", "igst"]),
   currency: z.enum(["INR", "BTN"]),
-  vehicleNumber: vehicleNumberSchema,
+  /** Shown read-only when picked from the master; checked only when typed. */
+  vehicleNumber: z.string(),
+  /** Empty: typed, not from the vehicle master. */
+  vehicleId: z.string(),
   notes: z.string().max(300),
   lines: z
     .array(
@@ -36,6 +39,9 @@ export const invoiceSchema = z.object({
       }),
     )
     .min(1, "Add at least one item"),
+}).superRefine((values, ctx) => {
+  const typed = vehicleNumberSchema.safeParse(values.vehicleNumber);
+  if (!values.vehicleId && !typed.success) ctx.addIssue({ code: "custom", path: ["vehicleNumber"], message: typed.error.issues[0].message });
 });
 
 export type InvoiceFormValues = z.infer<typeof invoiceSchema>;

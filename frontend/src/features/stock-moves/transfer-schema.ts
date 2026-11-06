@@ -11,6 +11,8 @@ export const transferSchema = z
       .trim()
       .toUpperCase()
       .refine((value) => !value || /^[A-Z]{2}\d{1,2}[A-Z]{0,3}\d{1,4}$/.test(value.replace(/[\s-]/g, "")), "Looks like WB73E1234"),
+    /** Empty: typed, not from the vehicle master. */
+    vehicleId: z.string(),
     notes: z.string().max(300),
     lines: z.array(stockLineSchema).min(1, "Add at least one item"),
   })

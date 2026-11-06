@@ -83,6 +83,8 @@ export interface InvoiceBody {
   shipToLine: string | null;
   shipToCity: string | null;
   vehicleNumber: string | null;
+  /** Picked from the vehicle master: the server records its number. */
+  vehicleId: string | null;
   notes: string | null;
   quotationId?: string;
   lines: { itemId: string; quantity: number; rate: number; discountPct: number }[];

@@ -57,6 +57,7 @@ export const toTransferView = (transfer: TransferRow) => ({
   toGodownName: transfer.toGodown.name,
   value: toNumber(transfer.value),
   vehicleNumber: transfer.vehicleNumber,
+  vehicleId: transfer.vehicleId,
   notes: transfer.notes,
   createdBy: transfer.createdBy?.displayName ?? null,
   /** Some of the moved stock has been sold or moved on, so it cannot be cancelled. */

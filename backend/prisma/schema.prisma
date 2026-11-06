@@ -1692,6 +1692,9 @@ model Invoice {
   shipToLine         String?
   shipToCity         String?
   vehicleNumber      String?
+  // Picked from the vehicle master; vehicleNumber is then the master's number.
+  vehicleId          String?       @db.Uuid
+  vehicle            Vehicle?      @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
   notes              String?
   // The quotation this was converted from.
   quotationId        String?       @db.Uuid
@@ -1725,6 +1728,7 @@ model Invoice {
   @@index([partyId, date])
   @@index([date])
   @@index([quotationId])
+  @@index([vehicleId])
 }
 
 // The papers that follow an invoice, in the order they happen: e-invoice
@@ -1844,6 +1848,9 @@ model StockTransfer {
   // Cost of everything moved.
   value          Decimal         @db.Decimal(14, 2)
   vehicleNumber  String?
+  // Picked from the vehicle master; vehicleNumber is then the master's number.
+  vehicleId      String?         @db.Uuid
+  vehicle        Vehicle?        @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
   notes          String?
   cancelledAt    DateTime?
   cancelReason   String?
@@ -1855,6 +1862,7 @@ model StockTransfer {
 
   @@index([number])
   @@index([date])
+  @@index([vehicleId])
 }
 
 model StockTransferLine {
@@ -2210,7 +2218,9 @@ model Vehicle {
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
-  shipments Shipment[]
+  shipments      Shipment[]
+  invoices       Invoice[]
+  stockTransfers StockTransfer[]
 
   @@index([transporterId])
 }

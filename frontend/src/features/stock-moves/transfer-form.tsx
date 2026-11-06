@@ -13,9 +13,11 @@ import { SelectField } from "@/components/ui/select-field";
 import { StatusChip } from "@/components/ui/status-chip";
 import { TextField } from "@/components/ui/text-field";
 import type { ItemCatalog } from "@/features/items/item-rules";
+import { PICKED_VEHICLE_HINT, useLiveVehicles, VehicleSelect } from "@/features/masters/vehicle-picker";
 import { ApiError } from "@/lib/api-client";
 import { useToday } from "@/lib/use-today";
 import type { GodownView } from "@/types/item-master";
+import type { VehicleView } from "@/types/vehicle";
 import { emptyStockLine } from "./stock-line-schema";
 import { StockLinesCard } from "./stock-lines-card";
 import { createTransfer } from "./stock-moves-api";
@@ -43,6 +45,7 @@ export function TransferForm({ catalog, godowns, onSaved }: TransferFormProps) {
       fromGodownId: source?.id ?? "",
       toGodownId: godowns.find((godown) => godown.id !== source?.id)?.id ?? "",
       vehicleNumber: "",
+      vehicleId: "",
       notes: "",
       lines: [emptyStockLine],
     },
@@ -60,7 +63,13 @@ export function TransferForm({ catalog, godowns, onSaved }: TransferFormProps) {
     if (today && !getValues("date")) setValue("date", today);
   }, [today, getValues, setValue]);
 
-  const [fromGodownId, toGodownId] = useWatch({ control, name: ["fromGodownId", "toGodownId"] });
+  const [fromGodownId, toGodownId, vehicleId] = useWatch({ control, name: ["fromGodownId", "toGodownId", "vehicleId"] });
+  const vehicles = useLiveVehicles();
+  /** A vehicle from the master shows its number read-only; the server records the master's number. */
+  const pickVehicle = (vehicle: VehicleView | null) => {
+    setValue("vehicleId", vehicle?.id ?? "");
+    if (vehicle) setValue("vehicleNumber", vehicle.number, { shouldValidate: true });
+  };
   const nameOf = (id: string) => godowns.find((godown) => godown.id === id)?.name;
   const godownOptions = godowns.map((godown) => ({ value: godown.id, label: godown.name }));
 
@@ -72,7 +81,8 @@ export function TransferForm({ catalog, godowns, onSaved }: TransferFormProps) {
           date: values.date,
           fromGodownId: values.fromGodownId,
           toGodownId: values.toGodownId,
-          vehicleNumber: values.vehicleNumber || null,
+          vehicleNumber: values.vehicleId ? null : values.vehicleNumber || null,
+          vehicleId: values.vehicleId || null,
           notes: values.notes || null,
           lines: values.lines.map((line) => ({ itemId: line.itemId, quantity: Number(line.quantity) })),
         });
@@ -127,9 +137,17 @@ export function TransferForm({ catalog, godowns, onSaved }: TransferFormProps) {
               {errors.toGodownId && <p className="text-xs font-semibold text-danger-strong">{errors.toGodownId.message}</p>}
             </div>
           </div>
-          <div className="grid gap-3.5 @xl:grid-cols-2">
+          <div className="grid gap-3.5 @xl:grid-cols-3">
             <TextField label="Date" type="date" error={errors.date?.message} {...register("date")} />
-            <TextField label="Vehicle number" hint="Optional" placeholder="WB73E1234" error={errors.vehicleNumber?.message} {...register("vehicleNumber")} />
+            <VehicleSelect vehicles={vehicles} vehicleId={vehicleId} onPick={pickVehicle} />
+            <TextField
+              label="Vehicle number"
+              hint={vehicleId ? PICKED_VEHICLE_HINT : "Optional"}
+              placeholder="WB73E1234"
+              readOnly={Boolean(vehicleId)}
+              error={errors.vehicleNumber?.message}
+              {...register("vehicleNumber")}
+            />
           </div>
         </GlassCard>
 

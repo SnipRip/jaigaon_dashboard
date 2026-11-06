@@ -62,6 +62,11 @@ export class InvoiceDto {
   @Matches(/^[A-Z]{2}\d{1,2}[A-Z]{0,3}\d{1,4}$/, { message: 'Vehicle number looks like WB73E1234' })
   vehicleNumber?: string | null;
 
+  /** Picked from the vehicle master; its number replaces vehicleNumber. None for a truck typed in. */
+  @IsOptional()
+  @IsUUID()
+  vehicleId?: string | null;
+
   @Transform(trimToNull)
   @IsOptional()
   @IsString()

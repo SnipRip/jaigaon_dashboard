@@ -69,6 +69,8 @@ export interface InvoiceView {
   shipToLine: string | null;
   shipToCity: string | null;
   vehicleNumber: string | null;
+  /** Picked from the vehicle master; null when typed. */
+  vehicleId: string | null;
   notes: string | null;
   quotation: { id: string; label: string } | null;
   totals: {

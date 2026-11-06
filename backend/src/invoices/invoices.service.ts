@@ -10,6 +10,7 @@ import { liveSettlementNumbers } from '../settlements/settlements.service.js';
 import { costOfDraws } from '../stock/fifo-rules.js';
 import { shipmentCarrying } from '../shipments/shipment-locks.js';
 import { drawStock, returnStock } from '../stock/stock-out.js';
+import { pickedVehicleNumber } from '../vehicles/picked-vehicle.js';
 import type { InvoiceDto } from './dto/invoice.dto.js';
 import { conversionProblem, kindProblem, quantityOut, SERIES_OF } from './invoice-rules.js';
 import { invoiceInclude, toInvoiceView, type InvoiceView } from './invoice-views.js';
@@ -107,7 +108,8 @@ export class InvoicesService {
             currency: dto.currency ?? party!.currency,
             shipToLine: dto.shipToLine ?? null,
             shipToCity: dto.shipToCity ?? null,
-            vehicleNumber: dto.vehicleNumber ?? null,
+            vehicleNumber: await pickedVehicleNumber(tx, dto.vehicleId, dto.vehicleNumber ?? null),
+            vehicleId: dto.vehicleId ?? null,
             notes: dto.notes ?? null,
             quotationId: dto.quotationId ?? null,
             ...totals,

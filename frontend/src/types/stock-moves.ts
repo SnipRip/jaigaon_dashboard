@@ -52,6 +52,8 @@ export interface StockTransferView extends StockMoveCommon {
   toGodownId: string;
   toGodownName: string;
   vehicleNumber: string | null;
+  /** Picked from the vehicle master; null when typed. */
+  vehicleId: string | null;
   /** Some moved stock has been sold or moved on, so it cannot be cancelled. */
   usedAtDestination: boolean;
   lines: StockMoveLineView[];

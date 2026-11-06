@@ -15,6 +15,7 @@ import { SelectField } from "@/components/ui/select-field";
 import { StatusChip } from "@/components/ui/status-chip";
 import { TextArea } from "@/components/ui/text-area";
 import { TextField } from "@/components/ui/text-field";
+import { PICKED_VEHICLE_HINT, VehicleSelect } from "@/features/masters/vehicle-picker";
 import { ApiError, apiGet } from "@/lib/api-client";
 import { formatDayMonth, formatInr } from "@/lib/format";
 import { useToday } from "@/lib/use-today";
@@ -40,8 +41,6 @@ interface ShipmentFormProps {
 }
 
 const NONE = "none";
-/** Radix Select takes no empty value: the "typed in" choice of the vehicle picker. */
-const TYPED = "typed";
 const text = (value: string) => value.trim() || null;
 
 const valuesOf = (shipment: ShipmentView, fallbackBorder: string): ShipmentFormValues => ({
@@ -106,8 +105,7 @@ export function ShipmentForm({ invoices, transporters, vehicles, defaultBorderPo
   const [invoiceIds, date, vehicleId] = useWatch({ control, name: ["invoiceIds", "date", "vehicleId"] });
 
   /** A vehicle from the master brings its number, transporter (none for our own) and driver. */
-  const pickVehicle = (id: string) => {
-    const vehicle = vehicles.find((candidate) => candidate.id === id);
+  const pickVehicle = (vehicle: VehicleView | null) => {
     setValue("vehicleId", vehicle?.id ?? "");
     if (!vehicle) return;
     setValue("vehicleNumber", vehicle.number, { shouldValidate: true });
@@ -130,7 +128,7 @@ export function ShipmentForm({ invoices, transporters, vehicles, defaultBorderPo
     const invoiceVehicle = chosen[0]?.vehicleNumber;
     if (invoiceVehicle && !getValues("vehicleNumber")) {
       const known = vehicles.find((vehicle) => vehicle.number === normaliseVehicle(invoiceVehicle));
-      if (known) pickVehicle(known.id);
+      if (known) pickVehicle(known);
       else setValue("vehicleNumber", invoiceVehicle);
     }
     const city = chosen[0]?.shipToCity;
@@ -211,20 +209,12 @@ export function ShipmentForm({ invoices, transporters, vehicles, defaultBorderPo
       <GlassCard className="flex flex-col gap-3.5">
         <CardTitle>Truck and driver</CardTitle>
         <div className="grid gap-3.5 @xl:grid-cols-3">
-          <SelectField
-            label="Vehicle"
-            options={[
-              { value: TYPED, label: "Not on the list" },
-              ...vehicles.map((vehicle) => ({ value: vehicle.id, label: `${vehicle.number} · ${vehicle.ownership === "OWN" ? "own" : (vehicle.transporterName ?? "hired")}` })),
-            ]}
-            value={vehicleId || TYPED}
-            onValueChange={(value) => pickVehicle(value === TYPED ? "" : value)}
-          />
+          <VehicleSelect vehicles={vehicles} vehicleId={vehicleId} onPick={pickVehicle} />
           <TextField
             label="Vehicle number"
             placeholder="WB73E1234"
             readOnly={Boolean(vehicleId)}
-            hint={vehicleId ? "From the vehicle master" : undefined}
+            hint={vehicleId ? PICKED_VEHICLE_HINT : undefined}
             error={errors.vehicleNumber?.message}
             {...register("vehicleNumber")}
           />

@@ -7,6 +7,7 @@ import { NumberSeriesService } from '../number-series/number-series.service.js';
 import { liveGodown } from '../purchases/purchase-context.js';
 import { costOfDraws } from '../stock/fifo-rules.js';
 import { putBack } from '../stock/stock-out.js';
+import { pickedVehicleNumber } from '../vehicles/picked-vehicle.js';
 import type { StockTransferDto } from './dto/stock-move.dto.js';
 import { drawLines, lockUntouchedBatches } from './stock-move-draws.js';
 import { repeatedItem, transferProblem } from './stock-move-rules.js';
@@ -61,7 +62,8 @@ export class StockTransfersService {
             fromGodownId: dto.fromGodownId,
             toGodownId: dto.toGodownId,
             value: money(lineValues.reduce((sum, value) => sum + value, 0)),
-            vehicleNumber: dto.vehicleNumber ?? null,
+            vehicleNumber: await pickedVehicleNumber(tx, dto.vehicleId, dto.vehicleNumber ?? null),
+            vehicleId: dto.vehicleId ?? null,
             notes: dto.notes ?? null,
             createdById: userId,
             lines: {

@@ -18,6 +18,8 @@ export interface TransferBody {
   fromGodownId: string;
   toGodownId: string;
   vehicleNumber: string | null;
+  /** Picked from the vehicle master: the server records its number. */
+  vehicleId: string | null;
   notes: string | null;
   lines: LineBody[];
 }

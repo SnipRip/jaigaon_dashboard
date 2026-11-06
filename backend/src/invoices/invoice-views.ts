@@ -45,6 +45,7 @@ export const toInvoiceView = (invoice: InvoiceRow) => ({
   shipToLine: invoice.shipToLine,
   shipToCity: invoice.shipToCity,
   vehicleNumber: invoice.vehicleNumber,
+  vehicleId: invoice.vehicleId,
   notes: invoice.notes,
   quotation: invoice.quotation && {
     id: invoice.quotation.id,
