@@ -1,4 +1,5 @@
 // Purchase orders and vendor bills as the backend returns them (backend/src/purchases).
+import type { PaymentModeView } from "./settlement";
 
 export type LandedCostMethodView = "VALUE" | "QUANTITY" | "WEIGHT";
 export type PurchaseRegimeView = "INTRA_STATE" | "INTER_STATE" | "NO_GST" | "REVERSE_CHARGE" | "IMPORT";
@@ -66,6 +67,8 @@ export interface PurchaseBillView {
     /** Live payments (and TDS) applied so far. */
     paid: number;
   };
+  /** Live payments applied to this bill, oldest first; amount = what each settled here (TDS included). */
+  payments: { settlementId: string; number: string; date: string; mode: PaymentModeView; amount: number }[];
   lines: PurchaseBillLineView[];
   charges: { id: string; headId: string; headName: string; description: string | null; amount: number; gstRatePct: number; tax: number }[];
 }

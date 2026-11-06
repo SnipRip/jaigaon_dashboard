@@ -16,6 +16,7 @@ import type { Item } from "@/features/items/types";
 import { headName } from "@/features/masters/account-head-rules";
 import { useAccountHeads } from "@/features/masters/use-account-heads";
 import type { Party } from "@/features/parties/types";
+import { modeText } from "@/features/payments/settlements-api";
 import { ApiError } from "@/lib/api-client";
 import { formatDate, formatInr, formatQuantity, formatRate } from "@/lib/format";
 import { useToday } from "@/lib/use-today";
@@ -73,6 +74,7 @@ export function BillDetail({ bill, bills, parties, items, companyState, onChange
   const view = viewBill(bill, parties, companyState, today);
   const { vendor, tax, split, totals, status } = view;
   const balance = Math.max(totals.payable - bill.paid, 0);
+  const payments = bill.stored?.payments ?? [];
   const tagged = chargeBillsFor(bills, bill.id).map((charges) => viewBill(charges, parties, companyState, today));
   const target = bill.landedCostFor ? bills.find((candidate) => candidate.id === bill.landedCostFor) : undefined;
   const chargeRate = bill.kind === "goods" ? billChargeRate(bill.lines) : undefined;
@@ -228,6 +230,23 @@ export function BillDetail({ bill, bills, parties, items, companyState, onChange
             <FactTile label="Paid">{formatInr(bill.paid)}</FactTile>
             <FactTile label="Balance due">{formatInr(balance)}</FactTile>
           </dl>
+          {payments.length > 0 && (
+            <ul className="flex flex-col divide-y divide-line text-sm" aria-label="Payments on this bill">
+              {payments.map((payment) => (
+                <li key={payment.settlementId} className="flex items-baseline justify-between gap-3 py-1.5">
+                  <span className="min-w-0">
+                    <Link href={`/payments/entries/${payment.settlementId}`} className="font-semibold text-brand hover:underline">
+                      {payment.number}
+                    </Link>
+                    <span className="block text-xs text-muted">
+                      {formatDate(payment.date)} · {modeText(payment.mode)}
+                    </span>
+                  </span>
+                  <span className="shrink-0 font-semibold tabular-nums">{formatInr(payment.amount)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
           {balance > 0 && bill.status === "open" ? (
             <Link href={`/payments/vendor-payments/new?bill=${bill.id}`} className={buttonClasses("success")}>
               <Wallet aria-hidden="true" className="size-[18px]" />

@@ -62,7 +62,7 @@ export interface Bill {
   landedCostFor?: string;
   /** Goods bills. */
   allocation: LandedCostMethod;
-  /** Paid so far. Payments are recorded on Payments & outstanding, not built yet. */
+  /** Paid so far: live vendor payments (and TDS) applied to the bill; each one is in `stored.payments`. */
   paid: number;
   /** Name of the uploaded scan, once file storage exists. */
   fileName?: string;

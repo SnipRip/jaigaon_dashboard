@@ -44,7 +44,7 @@ export function toBill(view: PurchaseBillView): Bill {
       : undefined,
     landedCostFor: view.landedCostForId ?? undefined,
     allocation: method(view.allocation),
-    // Payments applied on Payments & outstanding.
+    // Live vendor payments applied (Payments & outstanding); each one in `stored.payments`.
     paid: view.totals.paid,
     notes: view.notes ?? undefined,
     stored: view,
