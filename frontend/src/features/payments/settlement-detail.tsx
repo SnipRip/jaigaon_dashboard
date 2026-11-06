@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
+import { Printer } from "lucide-react";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { FactTile } from "@/components/ui/fact-tile";
 import { FormMessage } from "@/components/ui/form-message";
@@ -11,18 +12,22 @@ import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { GlassTable } from "@/components/ui/glass-table";
 import { StatusChip } from "@/components/ui/status-chip";
 import { TextField } from "@/components/ui/text-field";
+import type { Issuer } from "@/features/invoices/invoice-document";
 import { ApiError } from "@/lib/api-client";
 import { formatDate, formatInr } from "@/lib/format";
 import { useToday } from "@/lib/use-today";
 import type { OpenDocumentView, SettlementView } from "@/types/settlement";
 import { AllocationTable } from "./allocation-table";
 import { applyAdvanceSchema, type ApplyAdvanceValues } from "./settlement-schema";
+import { SettlementVoucher } from "./settlement-voucher";
 import { applyAdvance, applyOldestFirst, cancelSettlement, documentHref, modeText } from "./settlements-api";
 
 interface SettlementDetailProps {
   settlement: SettlementView;
   /** The party's documents in this direction (open ones can take the advance). */
   documents: OpenDocumentView[];
+  /** Our company, for the printed receipt or voucher. */
+  issuer: Issuer;
   /** After a change: reload settlements and documents. */
   onChanged: () => Promise<void>;
 }
@@ -31,7 +36,7 @@ const failure = (error: unknown) => (error instanceof ApiError ? error.message :
 
 // One receipt or payment: what it was applied to, what it kept as an
 // advance (which can be applied here to documents opened since), and cancel.
-export function SettlementDetail({ settlement, documents, onChanged }: SettlementDetailProps) {
+export function SettlementDetail({ settlement, documents, issuer, onChanged }: SettlementDetailProps) {
   const word = settlement.direction === "RECEIPT" ? "receipt" : "payment";
   const live = !settlement.cancelledAt;
   const [cancelling, setCancelling] = useState(false);
@@ -95,6 +100,7 @@ export function SettlementDetail({ settlement, documents, onChanged }: Settlemen
           )}
         </GlassCard>
         {live && settlement.unapplied > 0 && <ApplyAdvanceCard settlement={settlement} open={documents.filter((document) => document.balance > 0)} onChanged={onChanged} />}
+        <SettlementVoucher settlement={settlement} issuer={issuer} />
       </div>
 
       <GlassCard className="flex flex-col gap-3 xl:sticky xl:top-3.5">
@@ -147,6 +153,10 @@ export function SettlementDetail({ settlement, documents, onChanged }: Settlemen
             </Button>
           ))}
         {notice && <FormMessage tone="error">{notice}</FormMessage>}
+        <Button onClick={() => window.print()}>
+          <Printer aria-hidden="true" className="size-[18px]" />
+          Print {settlement.direction === "RECEIPT" ? "receipt" : "voucher"} or save as PDF
+        </Button>
         <Link href="/payments" className={buttonClasses("neutral")}>
           Back to payments
         </Link>

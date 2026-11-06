@@ -2,8 +2,10 @@
 
 import useSWR from "swr";
 import { LoadNotice } from "@/components/ui/load-notice";
+import { useCompanyProfile } from "@/features/company/use-company-profile";
 import { BANK_CASH_PATH, withArchived } from "@/features/masters/masters-api";
 import { PARTIES_LIST_PATH } from "@/features/parties/parties-api";
+import { issuerOf } from "@/features/quotations/quotations-api";
 import { apiGet } from "@/lib/api-client";
 import type { BankCashAccountView } from "@/types/bank-cash";
 import type { PartyView } from "@/types/party";
@@ -62,11 +64,12 @@ export function NewSettlementScreen({ direction, documentId }: { direction: Sett
 
 export function SettlementScreen({ settlementId }: { settlementId: string }) {
   const { data, error, reload } = usePaymentData();
-  if (!data) return <LoadNotice error={error} what="the receipt or payment" />;
+  const { profile, error: profileError } = useCompanyProfile();
+  if (!data || !profile) return <LoadNotice error={error ?? profileError} what="the receipt or payment" />;
   const settlement = data.settlements.find((candidate) => candidate.id === settlementId);
   if (!settlement) return <LoadNotice error={new Error("This receipt or payment does not exist.")} what="the receipt or payment" />;
   const documents = (settlement.direction === "RECEIPT" ? data.receivable : data.payable).filter((document) => document.partyId === settlement.partyId);
-  return <SettlementDetail settlement={settlement} documents={documents} onChanged={reload} />;
+  return <SettlementDetail settlement={settlement} documents={documents} issuer={issuerOf(profile)} onChanged={reload} />;
 }
 
 export function LedgerScreen({ partyId }: { partyId: string }) {
