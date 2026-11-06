@@ -2,17 +2,27 @@
 
 export type SettlementDirectionView = "RECEIPT" | "PAYMENT";
 export type PaymentModeView = "BANK_TRANSFER" | "CHEQUE" | "UPI" | "CASH";
-/** What money is applied to: an invoice (receipts), a bill or an expense bought on credit (payments), or the party's opening balance. */
-export type SettlementTargetView = "INVOICE" | "BILL" | "EXPENSE" | "OPENING";
+/** What money is applied to: an invoice (receipts), a bill or an expense bought on credit (payments), the party's opening balance, or (a refund) another entry's advance. */
+export type SettlementTargetView = "INVOICE" | "BILL" | "EXPENSE" | "OPENING" | "ADVANCE";
 export type AgeBucketView = "NOT_DUE" | "DAYS_1_30" | "DAYS_31_60" | "DAYS_61_90" | "OVER_90";
 
 export interface SettlementAllocationView {
   kind: SettlementTargetView;
-  /** Invoice or bill id; the party's id for an opening balance. */
+  /** Invoice, bill or expense id; the party's id for an opening balance; the advance's settlement id for ADVANCE. */
   documentId: string;
   number: string;
+  /** ADVANCE only: the date of the receipt or payment refunded. */
+  advanceDate: string | null;
   amount: number;
   appliedAt: string;
+}
+
+/** A live refund of part of an entry's advance. */
+export interface SettlementRefundView {
+  id: string;
+  number: string;
+  date: string;
+  amount: number;
 }
 
 export interface SettlementView {
@@ -32,7 +42,12 @@ export interface SettlementView {
   notes: string | null;
   allocations: SettlementAllocationView[];
   applied: number;
-  /** Kept as an advance; can be applied later. */
+  /** Gives back advances: a payment to a customer, or a receipt from a vendor. */
+  refund: boolean;
+  /** Live refunds of this entry's advance. */
+  refunds: SettlementRefundView[];
+  refunded: number;
+  /** Kept as an advance; can be applied or refunded later. */
   unapplied: number;
   cancelledAt: string | null;
   cancelReason: string | null;

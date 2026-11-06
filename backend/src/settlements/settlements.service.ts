@@ -10,6 +10,7 @@ import { NumberSeriesService } from '../number-series/number-series.service.js';
 import type { AllocationDto, ApplyAdvanceDto, SettlementDto } from './dto/settlement.dto.js';
 import {
   accountProblem,
+  advanceLeft,
   ageBucket,
   allocationProblem,
   balanceOf,
@@ -19,6 +20,9 @@ import {
   invoiceDueDate,
   msmeDueDate,
   partyProblem,
+  REFUND_DIRECTION,
+  refundPartyProblem,
+  refundShapeProblem,
   targetFits,
   WORD,
   type AllocationPlan,
@@ -63,7 +67,9 @@ const SERIES = { RECEIPT: 'RECEIPT', PAYMENT: 'PAYMENT' } as const;
 // are worked out from live allocations, the number comes from the RECEIPT or
 // PAYMENT series, and a BRC on an export receipt is attached to each export
 // invoice that has none yet. Never edited: cancel and enter again; what is
-// left unapplied can be applied later.
+// left unapplied can be applied later, or refunded: a refund is an entry of
+// the other direction applied to the advance (kind ADVANCE; settlement-rules.ts).
+// Lock order everywhere: party, then documents / advances in id order.
 @Injectable()
 export class SettlementsService {
   constructor(
@@ -88,7 +94,8 @@ export class SettlementsService {
     return this.prisma.$transaction(async (tx) => {
       const today = todayInIndia();
       const party = await lockParty(tx, dto.partyId);
-      fail(partyProblem(dto.direction, party));
+      const refund = dto.allocations.some((allocation) => allocation.kind === 'ADVANCE');
+      fail(refund ? refundPartyProblem(dto.direction, party) : partyProblem(dto.direction, party));
 
       const account = await tx.bankCashAccount.findUnique({ where: { id: dto.accountId }, select: { kind: true, isArchived: true, openingDate: true, name: true, bankName: true } });
       fail(accountProblem(dto.mode, account));
@@ -96,6 +103,10 @@ export class SettlementsService {
 
       const tds = dto.tds ?? 0;
       if (!(dto.amount + tds > 0)) fail('Enter the amount');
+      if (refund) {
+        const applied = money(dto.allocations.reduce((sum, allocation) => sum + allocation.amount, 0));
+        fail(refundShapeProblem({ kinds: dto.allocations.map((allocation) => allocation.kind), amount: dto.amount, tds, applied, hasBrc: Boolean(dto.brcNumber || dto.brcDate) }));
+      }
       if (dto.direction === 'RECEIPT' && dto.mode === 'CASH') {
         const sameDay = await tx.settlement.aggregate({
           where: { direction: 'RECEIPT', mode: 'CASH', partyId: dto.partyId, date: dateOnly(dto.date), cancelledAt: null },
@@ -159,14 +170,18 @@ export class SettlementsService {
   /** Applies what a settlement kept as an advance to open documents of the same party. */
   applyAdvance(id: string, dto: ApplyAdvanceDto): Promise<SettlementView> {
     return this.prisma.$transaction(async (tx) => {
+      // The party first (a refund of this advance locks party, then advance), then the entry.
+      const owner = await tx.settlement.findUnique({ where: { id }, select: { partyId: true } });
+      if (!owner) throw new NotFoundException('That receipt or payment does not exist');
+      const party = await lockParty(tx, owner.partyId);
       const [settlement] = await tx.$queryRaw<{ direction: SettlementDirection; partyId: string; amount: Prisma.Decimal; tds: Prisma.Decimal; cancelledAt: Date | null }[]>`
         SELECT "direction", "partyId", "amount", "tds", "cancelledAt" FROM "Settlement" WHERE "id" = ${id}::uuid FOR UPDATE`;
-      if (!settlement) throw new NotFoundException('That receipt or payment does not exist');
       if (settlement.cancelledAt) throw new ConflictException(`This ${WORD[settlement.direction]} is cancelled`);
       if (dto.allocations.length === 0) fail('Pick what to apply it to');
-      const party = await lockParty(tx, settlement.partyId);
+      if (dto.allocations.some((allocation) => allocation.kind === 'ADVANCE')) fail('An advance is refunded on a refund entry of its own');
       const applied = await tx.settlementAllocation.aggregate({ where: { settlementId: id }, _sum: { amount: true } });
-      const free = money(toNumber(settlement.amount) + toNumber(settlement.tds) - sumOf(applied._sum.amount));
+      const refunded = (await settledOf(tx, [{ kind: 'ADVANCE', id }])).get(id) ?? 0;
+      const free = advanceLeft(toNumber(settlement.amount), toNumber(settlement.tds), sumOf(applied._sum.amount), refunded);
       // A document it already part-settles may take more: a second row adds to the first.
       const targets = await this.targets(tx, settlement.direction, settlement.partyId, party!, dto.allocations);
       fail(allocationProblem(targets, free));
@@ -182,6 +197,8 @@ export class SettlementsService {
         SELECT "direction", "issuedNumberId", "cancelledAt" FROM "Settlement" WHERE "id" = ${id}::uuid FOR UPDATE`;
       if (!settlement) throw new NotFoundException('That receipt or payment does not exist');
       if (settlement.cancelledAt) throw new ConflictException(`This ${WORD[settlement.direction]} is already cancelled`);
+      const refunds = await liveSettlementNumbers(tx, { advanceId: id });
+      if (refunds.length) throw new ConflictException(`Part of this ${WORD[settlement.direction]}’s advance was refunded by ${refunds.join(', ')}. Cancel the refund first.`);
       await this.numbers.cancel(tx, settlement.issuedNumberId);
       const row = await tx.settlement.update({ where: { id }, data: { cancelledAt: new Date(), cancelReason: reason }, include: settlementInclude });
       return toSettlementView(row);
@@ -287,7 +304,7 @@ export class SettlementsService {
     });
   }
 
-  /** Locks and checks each target; returns its label, open balance and whether it is an export invoice. */
+  /** Locks and checks each target; returns its label, open balance and whether it is an export invoice. An ADVANCE is another entry of this party, of the other direction, still holding an advance. */
   private async targets(tx: Tx, direction: SettlementDirection, partyId: string, party: PartyFacts, allocations: AllocationDto[]): Promise<Target[]> {
     const seen = new Set<string>();
     for (const allocation of allocations) {
@@ -302,6 +319,8 @@ export class SettlementsService {
     if (billIds.length) await tx.$queryRaw`SELECT 1 FROM "PurchaseBill" WHERE "id" = ANY(${billIds}::uuid[]) ORDER BY "id" FOR UPDATE`;
     const expenseIds = allocations.filter((allocation) => allocation.kind === 'EXPENSE').map((allocation) => allocation.documentId).sort();
     if (expenseIds.length) await tx.$queryRaw`SELECT 1 FROM "Expense" WHERE "id" = ANY(${expenseIds}::uuid[]) ORDER BY "id" FOR UPDATE`;
+    const advanceIds = allocations.filter((allocation) => allocation.kind === 'ADVANCE').map((allocation) => allocation.documentId).sort();
+    if (advanceIds.length) await tx.$queryRaw`SELECT 1 FROM "Settlement" WHERE "id" = ANY(${advanceIds}::uuid[]) ORDER BY "id" FOR UPDATE`;
 
     const invoices = new Map(
       (await tx.invoice.findMany({ where: { id: { in: invoiceIds } }, select: { id: true, number: true, partyId: true, status: true, kind: true, regime: true, total: true, igst: true } })).map((row) => [row.id, row]),
@@ -311,6 +330,14 @@ export class SettlementsService {
     );
     const expenses = new Map(
       (await tx.expense.findMany({ where: { id: { in: expenseIds } }, select: { id: true, number: true, vendorId: true, accountId: true, cancelledAt: true, total: true } })).map((row) => [row.id, row]),
+    );
+    const advances = new Map(
+      (
+        await tx.settlement.findMany({
+          where: { id: { in: advanceIds } },
+          select: { id: true, number: true, direction: true, partyId: true, amount: true, tds: true, cancelledAt: true, allocations: { select: { amount: true, advanceId: true } } },
+        })
+      ).map((row) => [row.id, row]),
     );
     const settled = await settledOf(tx, allocations.map((allocation) => ({ kind: allocation.kind, id: allocation.documentId })));
 
@@ -334,6 +361,17 @@ export class SettlementsService {
         if (expense!.cancelledAt) fail(`Expense ${expense!.number} is cancelled`);
         return { allocation, label: expense!.number, amount: allocation.amount, balance: balanceOf(toNumber(expense!.total), done), exportInvoice: false };
       }
+      if (allocation.kind === 'ADVANCE') {
+        const advance = advances.get(allocation.documentId);
+        const kept = REFUND_DIRECTION[direction];
+        if (!advance || advance.partyId !== partyId) fail('One of the advances is not this party’s');
+        if (advance!.direction !== kept) fail(`${advance!.number} is a ${WORD[advance!.direction]}: a ${WORD[direction]} refunds a ${WORD[kept]}’s advance`);
+        if (advance!.cancelledAt) fail(`${advance!.number} is cancelled`);
+        if (advance!.allocations.some((row) => row.advanceId)) fail(`${advance!.number} is itself a refund`);
+        const applied = advance!.allocations.reduce((sum, row) => sum + toNumber(row.amount), 0);
+        const balance = advanceLeft(toNumber(advance!.amount), toNumber(advance!.tds), applied, done);
+        return { allocation, label: `the advance on ${advance!.number}`, amount: allocation.amount, balance, exportInvoice: false };
+      }
       const opening = party.openingBalanceSide === OPENING_SIDE[direction] ? toNumber(party.openingBalance) : 0;
       if (opening <= 0) fail(`This party has no opening balance to ${direction === 'RECEIPT' ? 'collect' : 'pay'}`);
       return { allocation, label: 'the opening balance', amount: allocation.amount, balance: balanceOf(opening, done), exportInvoice: false };
@@ -353,30 +391,33 @@ const allocationData = (allocation: AllocationDto) => ({
   billId: allocation.kind === 'BILL' ? allocation.documentId : null,
   expenseId: allocation.kind === 'EXPENSE' ? allocation.documentId : null,
   openingPartyId: allocation.kind === 'OPENING' ? allocation.documentId : null,
+  advanceId: allocation.kind === 'ADVANCE' ? allocation.documentId : null,
   amount: allocation.amount,
 });
 
-/** What live (not cancelled) settlements applied to each target, keyed by its id. */
+/** What live (not cancelled) settlements applied to each target, keyed by its id (an ADVANCE: what live refunds gave back). */
 export async function settledOf(db: Db, targets: { kind: string; id: string }[]): Promise<Map<string, number>> {
   const ids = (kind: string) => targets.filter((target) => target.kind === kind).map((target) => target.id);
-  const [invoiceIds, billIds, partyIds, expenseIds] = [ids('INVOICE'), ids('BILL'), ids('OPENING'), ids('EXPENSE')];
+  const [invoiceIds, billIds, partyIds, expenseIds, advanceIds] = [ids('INVOICE'), ids('BILL'), ids('OPENING'), ids('EXPENSE'), ids('ADVANCE')];
   const where = { settlement: { cancelledAt: null } };
-  const [invoices, bills, openings, expenses] = await Promise.all([
+  const [invoices, bills, openings, expenses, advances] = await Promise.all([
     invoiceIds.length ? db.settlementAllocation.groupBy({ by: ['invoiceId'], where: { ...where, invoiceId: { in: invoiceIds } }, _sum: { amount: true } }) : [],
     billIds.length ? db.settlementAllocation.groupBy({ by: ['billId'], where: { ...where, billId: { in: billIds } }, _sum: { amount: true } }) : [],
     partyIds.length ? db.settlementAllocation.groupBy({ by: ['openingPartyId'], where: { ...where, openingPartyId: { in: partyIds } }, _sum: { amount: true } }) : [],
     expenseIds.length ? db.settlementAllocation.groupBy({ by: ['expenseId'], where: { ...where, expenseId: { in: expenseIds } }, _sum: { amount: true } }) : [],
+    advanceIds.length ? db.settlementAllocation.groupBy({ by: ['advanceId'], where: { ...where, advanceId: { in: advanceIds } }, _sum: { amount: true } }) : [],
   ]);
   const result = new Map<string, number>();
   for (const row of invoices) result.set(row.invoiceId!, sumOf(row._sum.amount));
   for (const row of bills) result.set(row.billId!, sumOf(row._sum.amount));
   for (const row of openings) result.set(row.openingPartyId!, sumOf(row._sum.amount));
   for (const row of expenses) result.set(row.expenseId!, sumOf(row._sum.amount));
+  for (const row of advances) result.set(row.advanceId!, sumOf(row._sum.amount));
   return result;
 }
 
 /** Live receipts or payments applied to a document, for the refusal when it is cancelled or voided. */
-export async function liveSettlementNumbers(tx: Tx, target: { invoiceId?: string; billId?: string; expenseId?: string }): Promise<string[]> {
+export async function liveSettlementNumbers(tx: Tx, target: { invoiceId?: string; billId?: string; expenseId?: string; advanceId?: string }): Promise<string[]> {
   const rows = await tx.settlementAllocation.findMany({
     where: { ...target, settlement: { cancelledAt: null } },
     select: { settlement: { select: { number: true } } },

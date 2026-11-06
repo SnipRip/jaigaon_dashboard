@@ -47,11 +47,47 @@ export function cashLimitProblem(direction: SettlementDirection, mode: PaymentMo
   return null;
 }
 
-export type TargetKind = 'INVOICE' | 'BILL' | 'EXPENSE' | 'OPENING';
+export type TargetKind = 'INVOICE' | 'BILL' | 'EXPENSE' | 'OPENING' | 'ADVANCE';
 
-/** What a direction may be applied to: receipts to invoices, payments to bills and expenses bought on credit; either to the opening balance. */
+/**
+ * What a direction may be applied to: receipts to invoices, payments to bills
+ * and expenses bought on credit; either to the opening balance, or (a refund)
+ * to an advance kept by an entry of the other direction.
+ */
 export const targetFits = (direction: SettlementDirection, kind: TargetKind) =>
-  kind === 'OPENING' || (direction === 'RECEIPT' ? kind === 'INVOICE' : kind === 'BILL' || kind === 'EXPENSE');
+  kind === 'OPENING' || kind === 'ADVANCE' || (direction === 'RECEIPT' ? kind === 'INVOICE' : kind === 'BILL' || kind === 'EXPENSE');
+
+// Refunds of advances, as Tally books them: a customer's unused advance goes
+// back on a Payment voucher (Dr customer, Cr bank / cash) and a vendor's
+// refund of ours comes in on a Receipt voucher (Dr bank / cash, Cr vendor),
+// each "Agst Ref" the advance. So a refund is a settlement in the other
+// direction from the advance, applied to it. Goods advances carry no GST
+// (Notification 66/2017-CT), so there is nothing to reverse.
+
+/** The direction of the entry that refunds an advance kept by a receipt (a payment) or a payment (a receipt). */
+export const REFUND_DIRECTION = { RECEIPT: 'PAYMENT', PAYMENT: 'RECEIPT' } as const satisfies Record<SettlementDirection, SettlementDirection>;
+
+/** A refund to a customer is paid to a customer; a refund from a vendor comes from a vendor. */
+export function refundPartyProblem(direction: SettlementDirection, party: { isCustomer: boolean; isVendor: boolean; isArchived: boolean } | null): string | null {
+  if (!party) return 'Pick the party whose advance is refunded';
+  if (direction === 'PAYMENT' && !party.isCustomer) return 'A refund paid out returns a customer’s advance';
+  if (direction === 'RECEIPT' && !party.isVendor) return 'A refund received returns our advance to a vendor';
+  if (party.isArchived) return 'This party is archived';
+  return null;
+}
+
+/** A refund returns advances only, the whole amount of it, with no TDS and no BRC. */
+export function refundShapeProblem(refund: { kinds: TargetKind[]; amount: number; tds: number; applied: number; hasBrc: boolean }): string | null {
+  if (refund.kinds.length === 0) return 'Pick the advance to refund';
+  if (refund.kinds.some((kind) => kind !== 'ADVANCE')) return 'A refund returns advances only: enter invoices or bills on a receipt or payment of their own';
+  if (refund.tds > 0) return 'A refund carries no TDS';
+  if (refund.hasBrc) return 'A BRC is for a receipt against an export invoice';
+  if (Math.abs(money(refund.amount) - money(refund.applied)) > EPSILON) return 'The refund amount is the total of the advances refunded';
+  return null;
+}
+
+/** What an entry still holds as an advance: amount and TDS less what is applied and what live refunds gave back. */
+export const advanceLeft = (amount: number, tds: number, applied: number, refunded: number) => money(Math.max(amount + tds - applied - refunded, 0));
 
 export interface AllocationPlan {
   label: string;

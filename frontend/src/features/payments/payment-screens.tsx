@@ -12,6 +12,7 @@ import type { PartyView } from "@/types/party";
 import type { OpenDocumentView, SettlementDirectionView, SettlementView } from "@/types/settlement";
 import { PartyLedger } from "./party-ledger";
 import { PaymentsWorkspace } from "./payments-workspace";
+import { RefundForm } from "./refund-form";
 import { SettlementDetail } from "./settlement-detail";
 import { SettlementForm } from "./settlement-form";
 import { documentsPath, SETTLEMENTS_PATH, statementRows } from "./settlements-api";
@@ -62,6 +63,13 @@ export function NewSettlementScreen({ direction, documentId }: { direction: Sett
   );
 }
 
+/** `advanceId` opens the form on that entry's advance. */
+export function NewRefundScreen({ advanceId }: { advanceId?: string }) {
+  const { data, error, reload } = usePaymentData();
+  if (!data) return <LoadNotice error={error} what="the form" />;
+  return <RefundForm settlements={data.settlements} accounts={data.accounts} initialAdvanceId={advanceId} onSaved={reload} />;
+}
+
 export function SettlementScreen({ settlementId }: { settlementId: string }) {
   const { data, error, reload } = usePaymentData();
   const { profile, error: profileError } = useCompanyProfile();
@@ -79,25 +87,25 @@ export function LedgerScreen({ partyId }: { partyId: string }) {
   if (!party) return <LoadNotice error={new Error("This party does not exist.")} what="the statement" />;
   const mine = <T extends { partyId: string }>(rows: T[]) => rows.filter((row) => row.partyId === party.id);
   const signed = (side: "RECEIVABLE" | "PAYABLE") => (party.openingBalanceSide === side ? party.openingBalance : -party.openingBalance);
-  const receipts = mine(data.settlements).filter((settlement) => settlement.direction === "RECEIPT");
-  const payments = mine(data.settlements).filter((settlement) => settlement.direction === "PAYMENT");
+  // A refund runs the other way: a payment back to a customer belongs in the customer section, a vendor's refund in the vendor's.
+  const entries = (direction: SettlementDirectionView, refund: boolean) => mine(data.settlements).filter((settlement) => settlement.direction === direction && settlement.refund === refund);
 
   const sections = [
     party.isCustomer && {
       title: "as customer",
       balanceLabel: "Owes us",
-      chargeLabel: "Invoiced",
+      chargeLabel: entries("PAYMENT", true).length ? "Invoiced / refunded" : "Invoiced",
       settleLabel: "Received",
       opening: signed("RECEIVABLE"),
-      rows: statementRows(signed("RECEIVABLE"), mine(data.receivable), receipts),
+      rows: statementRows(signed("RECEIVABLE"), mine(data.receivable), entries("RECEIPT", false), entries("PAYMENT", true)),
     },
     party.isVendor && {
       title: "as vendor",
       balanceLabel: "We owe",
-      chargeLabel: "Billed",
+      chargeLabel: entries("RECEIPT", true).length ? "Billed / refunded" : "Billed",
       settleLabel: "Paid",
       opening: signed("PAYABLE"),
-      rows: statementRows(signed("PAYABLE"), mine(data.payable), payments),
+      rows: statementRows(signed("PAYABLE"), mine(data.payable), entries("PAYMENT", false), entries("RECEIPT", true)),
     },
   ].filter((section) => section !== false);
   return <PartyLedger partyName={party.displayName} sections={sections} />;

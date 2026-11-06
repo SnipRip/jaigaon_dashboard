@@ -156,6 +156,17 @@ describe('settlement postings', () => {
   it('leaves TDS out when there is none', () => {
     expect(settlementPostings({ direction: 'PAYMENT', amount: 6_000, tds: 0 }, vendor, bank, ledgers)).toHaveLength(2);
   });
+
+  // A refund is an entry of the other direction (Tally: Payment / Receipt voucher Agst Ref the advance).
+  it('books a refund of a customer advance as a payment voucher: Dr customer, Cr bank', () => {
+    const lines = settlementPostings({ direction: 'PAYMENT', amount: 15_000, tds: 0 }, customer, bank, ledgers);
+    expect(byLedger(lines)).toEqual({ 'Dorji Traders': 15_000, 'SBI Current': -15_000 });
+  });
+
+  it('books a vendor refunding our advance as a receipt voucher: Dr bank, Cr vendor', () => {
+    const lines = settlementPostings({ direction: 'RECEIPT', amount: 4_000, tds: 0 }, vendor, bank, ledgers);
+    expect(byLedger(lines)).toEqual({ 'SBI Current': 4_000, 'Tata Steel Ltd': -4_000 });
+  });
 });
 
 describe('closing stock', () => {

@@ -2022,7 +2022,9 @@ model Settlement {
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
-  allocations SettlementAllocation[]
+  allocations SettlementAllocation[] @relation("SettlementAllocations")
+  // Refunds of what this settlement kept as an advance (allocations of kind ADVANCE on the refund).
+  refundedBy  SettlementAllocation[] @relation("AdvanceRefunds")
 
   @@index([partyId, date])
   @@index([direction, date])
@@ -2030,12 +2032,13 @@ model Settlement {
 }
 
 // Part of a settlement applied to one invoice (receipts), one bill
-// (payments) or the party's opening balance: exactly one target (CHECK in
-// the migration). Rows of a cancelled settlement stay but no longer count.
+// (payments), the party's opening balance, or (on a refund) the advance it
+// gives back: exactly one target (CHECK in the migration). Rows of a
+// cancelled settlement stay but no longer count.
 model SettlementAllocation {
   id             String        @id @default(uuid()) @db.Uuid
   settlementId   String        @db.Uuid
-  settlement     Settlement    @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  settlement     Settlement    @relation("SettlementAllocations", fields: [settlementId], references: [id], onDelete: Cascade)
   invoiceId      String?       @db.Uuid
   invoice        Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
   billId         String?       @db.Uuid
@@ -2046,10 +2049,14 @@ model SettlementAllocation {
   // An expense bought on credit from this vendor (payments only).
   expenseId      String?       @db.Uuid
   expense        Expense?      @relation(fields: [expenseId], references: [id], onDelete: Restrict)
+  // A refund: the receipt (to a customer) or payment (from a vendor) whose advance this gives back.
+  advanceId      String?       @db.Uuid
+  advance        Settlement?   @relation("AdvanceRefunds", fields: [advanceId], references: [id], onDelete: Restrict)
   amount         Decimal       @db.Decimal(14, 2)
   createdAt      DateTime      @default(now())
 
   @@index([settlementId])
+  @@index([advanceId])
   @@index([invoiceId])
   @@index([billId])
   @@index([openingPartyId])

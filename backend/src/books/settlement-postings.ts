@@ -4,7 +4,9 @@
 //   Receipt: Dr bank / cash (amount), Dr TDS Receivable (TDS)   Cr customer (both)
 //   Payment: Dr vendor (both)   Cr bank / cash (amount), Cr TDS Payable on Vendor Payments (TDS)
 // An advance posts the same way: the party's ledger simply runs the other
-// way until it is applied. Pure.
+// way until it is applied. A refund of an advance is an entry of the other
+// direction (a payment to the customer, a receipt from the vendor), so it
+// posts through the same two vouchers and clears the party's ledger. Pure.
 import type { SettlementDirection } from '../generated/prisma/enums.js';
 import type { Posting } from './statements.js';
 import type { SystemLedgers } from './system-ledgers.js';

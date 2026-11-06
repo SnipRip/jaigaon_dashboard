@@ -142,10 +142,10 @@ export class SearchService {
           where: everyWord<Prisma.SettlementWhereInput>(words, [(w) => ({ number: has(w) }), (w) => ({ reference: has(w) }), party]),
           orderBy: { date: 'desc' },
           take,
-          select: { id: true, number: true, direction: true, cancelledAt: true, party: { select: { displayName: true } } },
+          select: { id: true, number: true, direction: true, cancelledAt: true, party: { select: { displayName: true } }, allocations: { where: { advanceId: { not: null } }, take: 1, select: { id: true } } },
         });
         return rows.map((row) => ({
-          kind: row.direction === 'RECEIPT' ? 'Receipt' : 'Payment',
+          kind: row.allocations.length ? 'Refund' : row.direction === 'RECEIPT' ? 'Receipt' : 'Payment',
           title: row.number,
           detail: joined(row.party.displayName, row.cancelledAt ? 'cancelled' : null),
           href: `/payments/entries/${row.id}`,

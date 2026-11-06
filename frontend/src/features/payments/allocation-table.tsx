@@ -20,21 +20,26 @@ interface AllocationTableProps<T extends AllocationRowsForm> {
   errors: FieldErrors<T>;
   today: string | null;
   documentWord: string;
+  /** The amount column's head: "Apply", or "Refund" on a refund of advances. */
+  applyWord?: string;
 }
 
-// The open invoices or bills (and opening balance) of one party, with what
-// is left on each and a box for how much of this money goes to it.
-export function AllocationTable<T extends AllocationRowsForm>({ documents, rowIds, register, errors, today, documentWord }: AllocationTableProps<T>) {
+// The open invoices or bills (and opening balance) of one party, or the
+// advances it holds (a refund), with what is left on each and a box for how
+// much of this money goes to it.
+export function AllocationTable<T extends AllocationRowsForm>({ documents, rowIds, register, errors, today, documentWord, applyWord = "Apply" }: AllocationTableProps<T>) {
   const rowErrors = (errors as FieldErrors<AllocationRowsForm>).allocations;
   const field = register as unknown as UseFormRegister<AllocationRowsForm>;
+  // Advances (a refund) have no due date.
+  const showDue = documents.some((document) => document.kind !== "ADVANCE");
   return (
     <GlassTable className="min-w-[620px]">
       <thead>
         <tr className="text-right">
           <th scope="col" className="text-left">{documentWord}</th>
-          <th scope="col" className="text-left">Due</th>
-          <th scope="col">Balance</th>
-          <th scope="col" className="w-44">Apply</th>
+          {showDue && <th scope="col" className="text-left">Due</th>}
+          <th scope="col">{showDue ? "Balance" : "Advance left"}</th>
+          <th scope="col" className="w-44">{applyWord}</th>
         </tr>
       </thead>
       <tbody className="text-right font-semibold tabular-nums">
@@ -50,11 +55,11 @@ export function AllocationTable<T extends AllocationRowsForm>({ documents, rowId
                 {document.flag === "MSME" && document.dueDate && today && ` · MSME, ${Math.max(msmeDaysLeft(document, today), 0)} days left`}
               </div>
             </td>
-            <td className="text-left">{document.dueDate ? formatDayMonth(document.dueDate) : "Due"}</td>
+            {showDue && <td className="text-left">{document.kind === "ADVANCE" ? "–" : document.dueDate ? formatDayMonth(document.dueDate) : "Due"}</td>}
             <td>{formatInr(document.balance)}</td>
             <td>
               <TextField
-                label={`Apply to ${document.number}`}
+                label={`${applyWord} ${document.kind === "ADVANCE" ? "from" : "to"} ${document.number}`}
                 hideLabel
                 className="text-right"
                 inputMode="decimal"

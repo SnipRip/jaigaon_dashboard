@@ -20,7 +20,7 @@ import type { OpenDocumentView, SettlementView } from "@/types/settlement";
 import { AllocationTable } from "./allocation-table";
 import { applyAdvanceSchema, type ApplyAdvanceValues } from "./settlement-schema";
 import { SettlementVoucher } from "./settlement-voucher";
-import { applyAdvance, applyOldestFirst, cancelSettlement, documentHref, modeText } from "./settlements-api";
+import { applyAdvance, applyOldestFirst, cancelSettlement, documentHref, modeText, refundPath } from "./settlements-api";
 
 interface SettlementDetailProps {
   settlement: SettlementView;
@@ -35,9 +35,12 @@ interface SettlementDetailProps {
 const failure = (error: unknown) => (error instanceof ApiError ? error.message : "Could not save. Check the connection and try again.");
 
 // One receipt or payment: what it was applied to, what it kept as an
-// advance (which can be applied here to documents opened since), and cancel.
+// advance (which can be applied here to documents opened since, or
+// refunded), the refunds that gave part of it back, and cancel. A refund
+// entry shows the advances it gave back instead.
 export function SettlementDetail({ settlement, documents, issuer, onChanged }: SettlementDetailProps) {
-  const word = settlement.direction === "RECEIPT" ? "receipt" : "payment";
+  const word = settlement.refund ? "refund" : settlement.direction === "RECEIPT" ? "receipt" : "payment";
+  const label = settlement.refund ? (settlement.direction === "PAYMENT" ? "Refund paid" : "Refund received") : settlement.direction === "RECEIPT" ? "Receipt" : "Payment";
   const live = !settlement.cancelledAt;
   const [cancelling, setCancelling] = useState(false);
   const [reason, setReason] = useState("");
@@ -65,55 +68,67 @@ export function SettlementDetail({ settlement, documents, issuer, onChanged }: S
   return (
     <div className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_380px]">
       <div className="flex min-w-0 flex-col gap-3.5">
-        <GlassCard className="flex flex-col gap-3">
-          <CardTitle>Applied to</CardTitle>
-          {settlement.allocations.length === 0 ? (
-            <p className="text-sm font-semibold text-muted">Nothing yet: the whole amount is an advance.</p>
-          ) : (
-            <GlassTable className="min-w-[520px]">
-              <thead>
-                <tr className="text-right">
-                  <th scope="col" className="text-left">{settlement.direction === "RECEIPT" ? "Invoice" : "Bill"}</th>
-                  <th scope="col" className="text-left">Applied on</th>
-                  <th scope="col">Amount</th>
-                  <th scope="col">Still open</th>
-                </tr>
-              </thead>
-              <tbody className="text-right font-semibold tabular-nums">
-                {settlement.allocations.map((allocation, index) => {
-                  const document = byId.get(`${allocation.kind}-${allocation.documentId}`);
-                  return (
-                    <tr key={index}>
-                      <td className="text-left">
-                        <Link href={documentHref({ kind: allocation.kind, id: allocation.documentId, partyId: settlement.partyId })} className="font-semibold hover:text-brand hover:underline">
-                          {allocation.number}
-                        </Link>
-                      </td>
-                      <td className="text-left">{formatDate(allocation.appliedAt.slice(0, 10))}</td>
-                      <td>{formatInr(allocation.amount)}</td>
-                      <td className="text-muted">{document ? formatInr(document.balance) : "–"}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </GlassTable>
-          )}
-        </GlassCard>
-        {live && settlement.unapplied > 0 && <ApplyAdvanceCard settlement={settlement} open={documents.filter((document) => document.balance > 0)} onChanged={onChanged} />}
+        {settlement.refund ? (
+          <RefundedAdvancesCard settlement={settlement} />
+        ) : (
+          <GlassCard className="flex flex-col gap-3">
+            <CardTitle>Applied to</CardTitle>
+            {settlement.allocations.length === 0 ? (
+              <p className="text-sm font-semibold text-muted">
+                {settlement.refunded > 0 ? "Not applied to any invoice or bill yet." : "Nothing yet: the whole amount is an advance."}
+              </p>
+            ) : (
+              <GlassTable className="min-w-[520px]">
+                <thead>
+                  <tr className="text-right">
+                    <th scope="col" className="text-left">{settlement.direction === "RECEIPT" ? "Invoice" : "Bill"}</th>
+                    <th scope="col" className="text-left">Applied on</th>
+                    <th scope="col">Amount</th>
+                    <th scope="col">Still open</th>
+                  </tr>
+                </thead>
+                <tbody className="text-right font-semibold tabular-nums">
+                  {settlement.allocations.map((allocation, index) => {
+                    const document = byId.get(`${allocation.kind}-${allocation.documentId}`);
+                    return (
+                      <tr key={index}>
+                        <td className="text-left">
+                          <Link href={documentHref({ kind: allocation.kind, id: allocation.documentId, partyId: settlement.partyId })} className="font-semibold hover:text-brand hover:underline">
+                            {allocation.number}
+                          </Link>
+                        </td>
+                        <td className="text-left">{formatDate(allocation.appliedAt.slice(0, 10))}</td>
+                        <td>{formatInr(allocation.amount)}</td>
+                        <td className="text-muted">{document ? formatInr(document.balance) : "–"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </GlassTable>
+            )}
+          </GlassCard>
+        )}
+        {settlement.refunds.length > 0 && <RefundsCard settlement={settlement} />}
+        {live && !settlement.refund && settlement.unapplied > 0 && <ApplyAdvanceCard settlement={settlement} open={documents.filter((document) => document.balance > 0)} onChanged={onChanged} />}
         <SettlementVoucher settlement={settlement} issuer={issuer} />
       </div>
 
       <GlassCard className="flex flex-col gap-3 xl:sticky xl:top-3.5">
         <div className="flex flex-wrap items-center gap-2">
           <CardTitle>{settlement.number}</CardTitle>
-          <StatusChip tone={live ? (settlement.direction === "RECEIPT" ? "success" : "brand") : "neutral"}>{live ? (settlement.direction === "RECEIPT" ? "Receipt" : "Payment") : "Cancelled"}</StatusChip>
+          <StatusChip tone={live ? (settlement.direction === "RECEIPT" ? "success" : "brand") : "neutral"}>{live ? label : "Cancelled"}</StatusChip>
         </div>
         <dl className="grid grid-cols-2 gap-2 text-sm">
           <FactTile label="Amount">{formatInr(settlement.amount)}</FactTile>
           <FactTile label="Date">{formatDate(settlement.date)}</FactTile>
           {settlement.tds > 0 && <FactTile label="TDS">{formatInr(settlement.tds)}</FactTile>}
-          <FactTile label="Applied">{formatInr(settlement.applied)}</FactTile>
-          <FactTile label="Advance left">{formatInr(live ? settlement.unapplied : 0)}</FactTile>
+          {!settlement.refund && (
+            <>
+              <FactTile label="Applied">{formatInr(settlement.applied)}</FactTile>
+              {settlement.refunded > 0 && <FactTile label="Refunded">{formatInr(settlement.refunded)}</FactTile>}
+              <FactTile label="Advance left">{formatInr(live ? settlement.unapplied : 0)}</FactTile>
+            </>
+          )}
         </dl>
         <p className="text-xs font-semibold text-muted">
           <Link href={`/payments/ledger/${settlement.partyId}`} className="text-brand hover:underline">
@@ -145,7 +160,9 @@ export function SettlementDetail({ settlement, documents, issuer, onChanged }: S
                   Keep it
                 </Button>
               </div>
-              <p className="text-xs font-semibold text-muted">Its invoices or bills become open again. Enter it again if the money did move.</p>
+              <p className="text-xs font-semibold text-muted">
+                {settlement.refund ? "The advances it gave back are held again." : "Its invoices or bills become open again."} Enter it again if the money did move.
+              </p>
             </div>
           ) : (
             <Button variant="neutral" onClick={() => setCancelling(true)}>
@@ -153,6 +170,11 @@ export function SettlementDetail({ settlement, documents, issuer, onChanged }: S
             </Button>
           ))}
         {notice && <FormMessage tone="error">{notice}</FormMessage>}
+        {live && !settlement.refund && settlement.unapplied > 0 && (
+          <Link href={refundPath(settlement.id)} className={buttonClasses("outline")}>
+            Refund the advance
+          </Link>
+        )}
         <Button onClick={() => window.print()}>
           <Printer aria-hidden="true" className="size-[18px]" />
           Print {settlement.direction === "RECEIPT" ? "receipt" : "voucher"} or save as PDF
@@ -162,6 +184,68 @@ export function SettlementDetail({ settlement, documents, issuer, onChanged }: S
         </Link>
       </GlassCard>
     </div>
+  );
+}
+
+/** A refund entry: the receipts (or payments) whose advance it gave back. */
+function RefundedAdvancesCard({ settlement }: { settlement: SettlementView }) {
+  return (
+    <GlassCard className="flex flex-col gap-3">
+      <CardTitle>Advances refunded</CardTitle>
+      <GlassTable className="min-w-[440px]">
+        <thead>
+          <tr className="text-right">
+            <th scope="col" className="text-left">{settlement.direction === "PAYMENT" ? "Receipt" : "Payment"}</th>
+            <th scope="col" className="text-left">Dated</th>
+            <th scope="col">Refunded</th>
+          </tr>
+        </thead>
+        <tbody className="text-right font-semibold tabular-nums">
+          {settlement.allocations.map((allocation, index) => (
+            <tr key={index}>
+              <td className="text-left">
+                <Link href={documentHref({ kind: allocation.kind, id: allocation.documentId, partyId: settlement.partyId })} className="font-semibold hover:text-brand hover:underline">
+                  {allocation.number}
+                </Link>
+              </td>
+              <td className="text-left">{allocation.advanceDate ? formatDate(allocation.advanceDate) : "–"}</td>
+              <td>{formatInr(allocation.amount)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </GlassTable>
+    </GlassCard>
+  );
+}
+
+/** An advance: the live refunds that gave part of it back. */
+function RefundsCard({ settlement }: { settlement: SettlementView }) {
+  return (
+    <GlassCard className="flex flex-col gap-3">
+      <CardTitle>Refunded</CardTitle>
+      <GlassTable className="min-w-[440px]">
+        <thead>
+          <tr className="text-right">
+            <th scope="col" className="text-left">Refund</th>
+            <th scope="col" className="text-left">Date</th>
+            <th scope="col">Amount</th>
+          </tr>
+        </thead>
+        <tbody className="text-right font-semibold tabular-nums">
+          {settlement.refunds.map((refund) => (
+            <tr key={refund.id}>
+              <td className="text-left">
+                <Link href={`/payments/entries/${refund.id}`} className="font-semibold hover:text-brand hover:underline">
+                  {refund.number}
+                </Link>
+              </td>
+              <td className="text-left">{formatDate(refund.date)}</td>
+              <td>{formatInr(refund.amount)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </GlassTable>
+    </GlassCard>
   );
 }
 

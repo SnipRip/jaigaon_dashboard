@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   accountProblem,
+  advanceLeft,
   ageBucket,
   allocationProblem,
   balanceOf,
@@ -10,6 +11,9 @@ import {
   invoiceDueDate,
   msmeDueDate,
   partyProblem,
+  REFUND_DIRECTION,
+  refundPartyProblem,
+  refundShapeProblem,
   targetFits,
 } from './settlement-rules.js';
 
@@ -112,5 +116,39 @@ describe('due dates and ageing', () => {
   it('never leaves a negative balance', () => {
     expect(balanceOf(100, 40)).toBe(60);
     expect(balanceOf(100, 100.004)).toBe(0);
+  });
+});
+
+describe('refunds of advances', () => {
+  it('refunds in the other direction from the advance', () => {
+    expect(REFUND_DIRECTION.RECEIPT).toBe('PAYMENT');
+    expect(REFUND_DIRECTION.PAYMENT).toBe('RECEIPT');
+    expect(targetFits('PAYMENT', 'ADVANCE')).toBe(true);
+    expect(targetFits('RECEIPT', 'ADVANCE')).toBe(true);
+  });
+
+  it('pays refunds to customers and takes them from vendors', () => {
+    expect(refundPartyProblem('PAYMENT', customer)).toBeNull();
+    expect(refundPartyProblem('RECEIPT', vendor)).toBeNull();
+    expect(refundPartyProblem('PAYMENT', vendor)).toMatch(/customer/);
+    expect(refundPartyProblem('RECEIPT', customer)).toMatch(/vendor/);
+    expect(refundPartyProblem('PAYMENT', { ...customer, isArchived: true })).toMatch(/archived/);
+    expect(refundPartyProblem('PAYMENT', null)).toMatch(/Pick/);
+  });
+
+  it('returns advances only, all of the amount, with no TDS or BRC', () => {
+    const fine = { kinds: ['ADVANCE' as const, 'ADVANCE' as const], amount: 15_000, tds: 0, applied: 15_000, hasBrc: false };
+    expect(refundShapeProblem(fine)).toBeNull();
+    expect(refundShapeProblem({ ...fine, kinds: [] })).toMatch(/Pick/);
+    expect(refundShapeProblem({ ...fine, kinds: ['ADVANCE', 'INVOICE'] })).toMatch(/advances only/);
+    expect(refundShapeProblem({ ...fine, tds: 100 })).toMatch(/TDS/);
+    expect(refundShapeProblem({ ...fine, hasBrc: true })).toMatch(/BRC/);
+    expect(refundShapeProblem({ ...fine, applied: 14_000 })).toMatch(/total/);
+  });
+
+  it('leaves what is neither applied nor refunded as the advance', () => {
+    expect(advanceLeft(50_000, 0, 30_000, 15_000)).toBe(5_000);
+    expect(advanceLeft(9_900, 100, 0, 10_000)).toBe(0);
+    expect(advanceLeft(100, 0, 60, 50)).toBe(0);
   });
 });

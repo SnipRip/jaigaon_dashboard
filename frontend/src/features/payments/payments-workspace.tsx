@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { buttonClasses } from "@/components/ui/button";
@@ -54,7 +54,7 @@ export function PaymentsWorkspace({ receivable, payable, settlements }: Payments
   const owing = payable.filter((document) => document.balance > 0);
   const overdue = owed.filter((document) => document.ageBucket !== "NOT_DUE");
   const msmeSoon = today ? owing.filter((document) => document.flag === "MSME" && msmeDaysLeft(document, today) <= 7) : [];
-  const advances = settlements.filter((settlement) => !settlement.cancelledAt && settlement.unapplied > 0);
+  const advances = settlements.filter((settlement) => !settlement.cancelledAt && !settlement.refund && settlement.unapplied > 0);
 
   return (
     <div className="flex flex-col gap-3.5">
@@ -92,6 +92,12 @@ export function PaymentsWorkspace({ receivable, payable, settlements }: Payments
         <ListToolbar
           actions={
             <>
+              {advances.length > 0 && (
+                <Link href="/payments/refunds/new" className={buttonClasses("neutral")}>
+                  <Undo2 aria-hidden="true" />
+                  Refund an advance
+                </Link>
+              )}
               <Link href="/payments/vendor-payments/new" className={buttonClasses("neutral")}>
                 <ArrowUpRight aria-hidden="true" />
                 Pay a vendor
@@ -208,7 +214,7 @@ function SettlementTable({ settlements }: { settlements: SettlementView[] }) {
                   {settlement.number}
                 </Link>
                 <div className="text-xs text-muted">{formatDayMonth(settlement.date)}</div>
-                {settlement.cancelledAt && <StatusChip tone="neutral">Cancelled</StatusChip>}
+                {settlement.cancelledAt ? <StatusChip tone="neutral">Cancelled</StatusChip> : settlement.refund && <StatusChip tone="warning">Refund</StatusChip>}
               </td>
               <td className="text-left">
                 <Link href={`/payments/ledger/${settlement.partyId}`} className="font-semibold hover:text-brand hover:underline">
@@ -229,9 +235,11 @@ function SettlementTable({ settlements }: { settlements: SettlementView[] }) {
               <td className="text-left text-xs">
                 {settlement.allocations.map((allocation, index) => (
                   <div key={index}>
+                    {allocation.kind === "ADVANCE" && "Advance on "}
                     {allocation.number} · {formatInr(allocation.amount)}
                   </div>
                 ))}
+                {!settlement.cancelledAt && settlement.refunded > 0 && <div className="text-muted">Refunded {formatInr(settlement.refunded)}</div>}
                 {!settlement.cancelledAt && settlement.unapplied > 0 && <div className="text-brand-strong">Advance {formatInr(settlement.unapplied)}</div>}
                 {settlement.brc && <StatusChip tone="success">BRC {settlement.brc.number}</StatusChip>}
               </td>
