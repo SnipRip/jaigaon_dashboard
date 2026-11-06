@@ -1,54 +1,68 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import useSWR from "swr";
 import { FilterChip } from "@/components/ui/filter-chip";
 import { FilterGroup } from "@/components/ui/filter-group";
 import { GlassCard } from "@/components/ui/glass-card";
+import { LoadNotice } from "@/components/ui/load-notice";
 import { SearchField } from "@/components/ui/search-field";
+import { PARTIES_PATH } from "@/features/parties/parties-api";
+import { apiGet } from "@/lib/api-client";
+import type { PartyView } from "@/types/party";
+import type { RateEnquiryItemView, RateEnquiryView } from "@/types/rate-enquiry";
 import { CustomerBar } from "./customer-bar";
-import { matchesSearch, priceProduct } from "./pricing";
+import { matchesSearch, type DraftLine } from "./enquiry-rules";
 import { ProductTable } from "./product-table";
 import { QuotationDraft } from "./quotation-draft";
-import type { Customer, PricedProduct, Product, QuotationLine } from "./types";
+import { rateEnquiryPath } from "./rate-enquiry-api";
 
-const ALL_CATEGORIES = "All categories";
+const ALL_CATEGORIES = "all";
+/** Live customers only: an archived one is not quoted. */
+const CUSTOMERS_PATH = `${PARTIES_PATH}?role=customer`;
 
-interface RateEnquiryWorkspaceProps {
-  products: Product[];
-  categories: string[];
-  customers: Customer[];
-}
-
-// Owns the state of the rate-enquiry screen: chosen customer, search,
-// category filter and the quantities in the draft. Rates are always derived
-// from the current customer, so switching customer re-prices the draft.
-export function RateEnquiryWorkspace({ products, categories, customers }: RateEnquiryWorkspaceProps) {
-  const [customerId, setCustomerId] = useState(customers[0].id);
+// Owns the rate-enquiry screen: chosen customer, search, category filter and
+// the quantities in the draft. Every rate comes from the backend for the
+// chosen customer, so switching customer asks again and re-prices the draft
+// (the old rates stay on screen until the new ones arrive).
+export function RateEnquiryWorkspace() {
+  const [customerId, setCustomerId] = useState<string>();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState(ALL_CATEGORIES);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
 
-  const customer = customers.find((candidate) => candidate.id === customerId) ?? customers[0];
+  const customers = useSWR<PartyView[]>(CUSTOMERS_PATH, apiGet);
+  const enquiry = useSWR<RateEnquiryView>(rateEnquiryPath(customerId), apiGet, { keepPreviousData: true });
+  const items = useMemo(() => enquiry.data?.items ?? [], [enquiry.data]);
 
-  const pricedProducts = useMemo(() => products.map((product) => priceProduct(product, customer)), [products, customer]);
-
-  const visibleProducts = pricedProducts.filter(
-    (product) => (category === ALL_CATEGORIES || product.category === category) && matchesSearch(product, query),
+  const categories = useMemo(
+    () => [...new Map(items.map((item) => [item.categoryId, item.categoryName])).entries()].sort((a, b) => a[1].localeCompare(b[1])),
+    [items],
   );
 
-  const lines: QuotationLine[] = pricedProducts
-    .filter((product) => product.sku in quantities)
-    .map((product) => ({ product, quantity: quantities[product.sku] }));
+  if (!enquiry.data || !customers.data) return <LoadNotice error={enquiry.error ?? customers.error} what="items and rates" />;
 
-  const toggleProduct = (product: PricedProduct) =>
-    setQuantities(({ [product.sku]: existing, ...rest }) => (existing === undefined ? { ...rest, [product.sku]: 1 } : rest));
+  const visible = items.filter((item) => (category === ALL_CATEGORIES || item.categoryId === category) && matchesSearch(item, query));
+  const lines: DraftLine[] = items.filter((item) => item.itemId in quantities).map((item) => ({ item, quantity: quantities[item.itemId] }));
+  const customer = customers.data.find((party) => party.id === customerId);
+  // Rates on screen belong to the customer they were asked for.
+  const current = (enquiry.data.partyId ?? undefined) === customerId;
 
-  const changeQuantity = (sku: string, quantity: number) => setQuantities((current) => ({ ...current, [sku]: quantity }));
+  const toggleItem = (item: RateEnquiryItemView) =>
+    setQuantities(({ [item.itemId]: existing, ...rest }) => (existing === undefined ? { ...rest, [item.itemId]: 1 } : rest));
+  const changeQuantity = (itemId: string, quantity: number) => setQuantities((now) => ({ ...now, [itemId]: quantity }));
 
   return (
     <div className="grid items-start gap-3.5 xl:grid-cols-[2fr_1fr]">
       <div className="flex min-w-0 flex-col gap-3.5">
-        <CustomerBar customers={customers} selected={customer} onSelect={setCustomerId} />
+        <CustomerBar
+          customers={customers.data}
+          selectedId={customerId}
+          onSelect={setCustomerId}
+          facts={current ? enquiry.data.customer : null}
+          specialRates={current ? items.filter((item) => item.options.specialRate).length : 0}
+          loading={!current}
+        />
 
         <GlassCard className="flex flex-col gap-3.5">
           <SearchField
@@ -56,28 +70,33 @@ export function RateEnquiryWorkspace({ products, categories, customers }: RateEn
             label="Search products"
             value={query}
             onChange={setQuery}
-            placeholder="Search by name, SKU, category, brand or size"
-            trailing={`${visibleProducts.length} of ${products.length}`}
+            placeholder="Search by name, SKU, category or brand"
+            trailing={`${visible.length} of ${items.length}`}
             prominent
           />
 
-          <FilterGroup label="Category">
-            {[ALL_CATEGORIES, ...categories].map((name) => (
-              <FilterChip key={name} selected={category === name} onClick={() => setCategory(name)}>
-                {name}
+          {categories.length > 1 && (
+            <FilterGroup label="Category">
+              <FilterChip selected={category === ALL_CATEGORIES} onClick={() => setCategory(ALL_CATEGORIES)}>
+                All categories
               </FilterChip>
-            ))}
-          </FilterGroup>
+              {categories.map(([id, name]) => (
+                <FilterChip key={id} selected={category === id} onClick={() => setCategory(id)}>
+                  {name}
+                </FilterChip>
+              ))}
+            </FilterGroup>
+          )}
 
-          <ProductTable products={visibleProducts} addedSkus={new Set(Object.keys(quantities))} onToggle={toggleProduct} />
+          <ProductTable items={visible} addedIds={new Set(Object.keys(quantities))} onToggle={toggleItem} empty={items.length === 0} />
           <p className="text-xs font-semibold text-muted">
-            Net rate = MRP less the discount that applies to this customer. It never goes below the minimum selling
-            price.
+            Rate = the customer&rsquo;s special rate in force, else today&rsquo;s price list. Cost is the day&rsquo;s cost on the
+            price list, else the last landed cost. Taxes and schemes are added on the quotation.
           </p>
         </GlassCard>
       </div>
 
-      <QuotationDraft customerId={customer.id} customerName={customer.name} lines={lines} onQuantityChange={changeQuantity} />
+      <QuotationDraft customerId={customerId} customerName={customer?.displayName ?? "Walk-in customer"} lines={lines} onQuantityChange={changeQuantity} />
     </div>
   );
 }

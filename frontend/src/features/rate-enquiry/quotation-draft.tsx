@@ -4,24 +4,26 @@ import { Button, buttonClasses } from "@/components/ui/button";
 import { GlassCard } from "@/components/ui/glass-card";
 import { StatusChip } from "@/components/ui/status-chip";
 import { formatInr, formatPercent, formatRate } from "@/lib/format";
-import { lineValue, quotationTotals } from "./pricing";
+import { draftTotals, lineValue, type DraftLine } from "./enquiry-rules";
 import { QuantityStepper } from "./quantity-stepper";
-import type { QuotationLine } from "./types";
 
 interface QuotationDraftProps {
-  customerId: string;
+  /** Undefined = walk-in: the quotation form asks for the customer. */
+  customerId?: string;
   customerName: string;
-  lines: QuotationLine[];
-  onQuantityChange: (sku: string, quantity: number) => void;
+  lines: DraftLine[];
+  onQuantityChange: (itemId: string, quantity: number) => void;
 }
 
 // The quotation being built. Totals are live. "Continue as a quotation"
 // carries the customer and lines to the quotation form (SKU:quantity in the
 // address); WhatsApp sending waits for the WhatsApp Business API.
 export function QuotationDraft({ customerId, customerName, lines, onQuantityChange }: QuotationDraftProps) {
-  const totals = quotationTotals(lines);
+  const totals = draftTotals(lines);
   const carried = lines.filter((line) => line.quantity > 0);
-  const continueHref = `/quotations/new?customer=${encodeURIComponent(customerId)}&lines=${encodeURIComponent(carried.map((line) => `${line.product.sku}:${line.quantity}`).join(","))}`;
+  const params = new URLSearchParams({ lines: carried.map((line) => `${line.item.sku}:${line.quantity}`).join(",") });
+  if (customerId) params.set("customer", customerId);
+  const continueHref = `/quotations/new?${params}`;
 
   return (
     <GlassCard aria-label="Quotation draft" className="flex flex-col gap-3.5">
@@ -40,24 +42,26 @@ export function QuotationDraft({ customerId, customerName, lines, onQuantityChan
       ) : (
         <ul className="flex flex-col border-b border-line">
           {lines.map((line) => {
-            const inputId = `qty-${line.product.sku}`;
+            const inputId = `qty-${line.item.itemId}`;
+            const { rate } = line.item.options;
             return (
-              <li key={line.product.sku} className="flex flex-col gap-2 border-t border-line py-3">
+              <li key={line.item.itemId} className="flex flex-col gap-2 border-t border-line py-3">
                 <div className="flex justify-between gap-2.5 text-[13px] font-semibold">
-                  <span>{line.product.name}</span>
-                  <span className="tabular-nums">{formatInr(lineValue(line))}</span>
+                  <span>{line.item.name}</span>
+                  <span className="tabular-nums">{rate !== null ? formatInr(lineValue(line)) : "Rate on quotation"}</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs font-semibold text-muted">
                   <label htmlFor={inputId} className="sr-only">
-                    Quantity, {line.product.name}
+                    Quantity, {line.item.name}
                   </label>
                   <QuantityStepper
                     id={inputId}
-                    itemName={line.product.name}
+                    itemName={line.item.name}
                     value={line.quantity}
-                    onChange={(quantity) => onQuantityChange(line.product.sku, quantity)}
+                    onChange={(quantity) => onQuantityChange(line.item.itemId, quantity)}
                   />
-                  {line.product.unit} × {formatRate(line.product.netRate)}
+                  {line.item.unit}
+                  {rate !== null && <> × {formatRate(rate)}</>}
                 </div>
               </li>
             );
@@ -76,6 +80,16 @@ export function QuotationDraft({ customerId, customerName, lines, onQuantityChan
             {formatInr(totals.profit)} · {formatPercent(totals.marginPct)}
           </dd>
         </div>
+        {(totals.unpriced > 0 || !totals.costKnown) && (
+          <p className="text-xs font-semibold text-muted">
+            {[
+              totals.unpriced > 0 && `${totals.unpriced} line${totals.unpriced === 1 ? " has" : "s have"} no rate today: type it on the quotation.`,
+              !totals.costKnown && "Profit leaves out items with no cost yet.",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          </p>
+        )}
         <div className="flex justify-between">
           <dt className="text-muted">Taxes</dt>
           <dd>As applicable on invoice</dd>

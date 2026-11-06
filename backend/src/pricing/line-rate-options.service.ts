@@ -37,6 +37,20 @@ export interface LineRateOptionsView extends Pick<RateQuote, 'rate' | 'source'> 
   lastSold: PastRate | null;
 }
 
+/** What `forItems` reads from each item; spread it into an item query's `select`. */
+export const LINE_ITEM_SELECT = {
+  id: true,
+  categoryId: true,
+  subCategoryId: true,
+  mrp: true,
+  ...itemCostSource,
+} as const satisfies Prisma.ItemSelect;
+
+export type LineItemRow = Prisma.ItemGetPayload<{ select: typeof LINE_ITEM_SELECT }>;
+
+/** Who and when the rates are for; no party is a walk-in buyer. */
+export type LineOptionsFor = Pick<LineRateOptionsDto, 'partyId' | 'date' | 'excludeQuotationId'>;
+
 export interface PastRate {
   rate: number;
   date: string;
@@ -52,13 +66,17 @@ export class LineRateOptionsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async forLines(dto: LineRateOptionsDto): Promise<LineRateOptionsView[]> {
+    const items = await this.prisma.item.findMany({ where: { id: { in: dto.itemIds } }, select: LINE_ITEM_SELECT });
+    if (items.length !== dto.itemIds.length) throw new BadRequestException('An item does not exist');
+    return this.forItems(items, dto);
+  }
+
+  /** The same for items already loaded with `LINE_ITEM_SELECT` (the rate enquiry loads every live item). */
+  async forItems(items: LineItemRow[], options: LineOptionsFor): Promise<LineRateOptionsView[]> {
+    if (items.length === 0) return [];
+    const dto = { ...options, itemIds: items.map((item) => item.id) };
     const date = dto.date ?? todayInIndia();
     const day = dateOnly(date);
-    const items = await this.prisma.item.findMany({
-      where: { id: { in: dto.itemIds } },
-      select: { id: true, categoryId: true, subCategoryId: true, mrp: true, ...itemCostSource },
-    });
-    if (items.length !== dto.itemIds.length) throw new BadRequestException('An item does not exist');
     const categoryIds = [
       ...new Set(items.flatMap((item) => (item.subCategoryId ? [item.categoryId, item.subCategoryId] : [item.categoryId]))),
     ];
