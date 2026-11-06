@@ -22,12 +22,15 @@ import { invoiceStage, invoiceTax, invoiceTotals, needsEinvoice } from "./invoic
 import { InvoiceStageChip } from "./invoice-stage-chip";
 import { cancelInvoice, removeInvoiceDocument, saveInvoiceDocument, toInvoice } from "./invoices-api";
 import type { Invoice } from "./types";
+import type { BankCashAccountView } from "@/types/bank-cash";
 import type { InvoiceView } from "@/types/invoice";
 
 interface InvoiceDetailProps {
   initialInvoice: Invoice;
   party: Party;
   issuer: Issuer;
+  /** Printed on the bill for payment. */
+  bank?: BankCashAccountView;
   /** After a cancel is saved: reload the invoices and the items' stock. */
   onChanged: () => Promise<void>;
   /** After a document is saved or removed: the invoice as the server now has it. */
@@ -38,7 +41,7 @@ interface InvoiceDetailProps {
 // it cost (the stock it drew, oldest first) and the documents that follow it.
 // Documents are saved one at a time while the invoice is issued; a cancelled
 // invoice shows the ones it had, read-only.
-export function InvoiceDetail({ initialInvoice, party, issuer, onChanged, onStored }: InvoiceDetailProps) {
+export function InvoiceDetail({ initialInvoice, party, issuer, bank, onChanged, onStored }: InvoiceDetailProps) {
   const [invoice, setInvoice] = useState(initialInvoice);
   const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [cancelling, setCancelling] = useState(false);
@@ -88,7 +91,7 @@ export function InvoiceDetail({ initialInvoice, party, issuer, onChanged, onStor
           </Link>
         </div>
         <p className="-mt-2 text-xs font-semibold text-muted">WhatsApp sending switches on when the WhatsApp Business API is connected.</p>
-        <InvoiceDocument invoice={invoice} party={party} issuer={issuer} tax={tax} />
+        <InvoiceDocument invoice={invoice} party={party} issuer={issuer} tax={tax} bank={bank} />
         {stored && (
           <GlassCard className="flex flex-col gap-3">
             <CardTitle>Stock drawn and what it cost</CardTitle>

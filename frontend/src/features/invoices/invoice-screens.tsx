@@ -5,12 +5,14 @@ import useSWR from "swr";
 import { LoadNotice } from "@/components/ui/load-notice";
 import { useCompanyProfile } from "@/features/company/use-company-profile";
 import { useItemMasters } from "@/features/items/catalog-api";
+import { BANK_CASH_PATH } from "@/features/masters/masters-api";
 import { PARTIES_PATH, toParty } from "@/features/parties/parties-api";
 import { useSalesSettings } from "@/features/sales-settings/sales-settings-api";
 import { issuerOf, QUOTATIONS_PATH } from "@/features/quotations/quotations-api";
 import { quotationLabel } from "@/features/quotations/quotation-rules";
 import { LUTS_PATH, toLut } from "@/features/tax-export/luts-api";
 import { apiGet } from "@/lib/api-client";
+import type { BankCashAccountView } from "@/types/bank-cash";
 import type { InvoiceView } from "@/types/invoice";
 import type { LutView } from "@/types/lut";
 import type { PartyView } from "@/types/party";
@@ -30,6 +32,7 @@ function useInvoiceData() {
   const invoices = useSWR<InvoiceView[]>(INVOICES_PATH, apiGet);
   const customers = useSWR<PartyView[]>(CUSTOMERS_PATH, apiGet);
   const luts = useSWR<LutView[]>(LUTS_PATH, apiGet);
+  const accounts = useSWR<BankCashAccountView[]>(BANK_CASH_PATH, apiGet);
   const { profile, error: profileError } = useCompanyProfile();
   const { masters, error: mastersError, reload: reloadMasters } = useItemMasters();
   const data = useMemo(() => {
@@ -39,9 +42,11 @@ function useInvoiceData() {
       parties: customers.data.map(toParty),
       luts: luts.data.map(toLut),
       issuer: issuerOf(profile),
+      /** Printed on invoices; the bill prints without it while accounts load or none is marked. */
+      bank: accounts.data?.find((account) => account.showOnInvoice && !account.isArchived && account.kind !== "CASH"),
       masters,
     };
-  }, [invoices.data, customers.data, luts.data, profile, masters]);
+  }, [invoices.data, customers.data, luts.data, profile, masters, accounts.data]);
   return {
     data,
     error: invoices.error ?? customers.error ?? luts.error ?? profileError ?? mastersError,
@@ -100,5 +105,5 @@ export function InvoiceScreen({ invoiceId }: { invoiceId: string }) {
   const invoice = data.invoices.find((candidate) => candidate.id === invoiceId);
   const party = invoice && data.parties.find((candidate) => candidate.id === invoice.partyId);
   if (!invoice || !party) return <LoadNotice error={new Error("This invoice does not exist.")} what="the invoice" />;
-  return <InvoiceDetail key={invoice.stored?.status} initialInvoice={invoice} party={party} issuer={data.issuer} onChanged={reload} onStored={replace} />;
+  return <InvoiceDetail key={invoice.stored?.status} initialInvoice={invoice} party={party} issuer={data.issuer} bank={data.bank} onChanged={reload} onStored={replace} />;
 }

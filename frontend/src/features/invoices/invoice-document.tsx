@@ -5,6 +5,7 @@ import { amountInWords } from "@/lib/amount-in-words";
 import { formatDate, formatQuantity, formatRate } from "@/lib/format";
 import { documentType } from "./dispatch-documents";
 import { exportDeclaration, hsnSummary, invoiceTotals, lineTotals, needsEinvoice } from "./invoice-rules";
+import type { BankCashAccountView } from "@/types/bank-cash";
 import type { DispatchDocumentKind, Invoice } from "./types";
 
 export interface Issuer {
@@ -22,12 +23,14 @@ interface InvoiceDocumentProps {
   party: Party;
   issuer: Issuer;
   tax: TaxDecision;
+  /** The account marked "show on invoice" on the Bank & cash master; none prints no bank block. */
+  bank?: BankCashAccountView;
 }
 
 // The printed bill: white paper, not glass, with every particular CGST rule 46
 // asks for. Export invoices swap the buyer's GSTIN for the destination country
 // and carry the LUT or IGST declaration. Printed through `.print-area`.
-export function InvoiceDocument({ invoice, party, issuer, tax }: InvoiceDocumentProps) {
+export function InvoiceDocument({ invoice, party, issuer, tax, bank }: InvoiceDocumentProps) {
   const isExport = invoice.kind === "export";
   const totals = invoiceTotals(invoice.lines, tax.regime);
   const summary = hsnSummary(invoice.lines, tax.regime);
@@ -230,6 +233,21 @@ export function InvoiceDocument({ invoice, party, issuer, tax }: InvoiceDocument
 
       {isExport && (
         <p className="mt-3 text-[11px] font-semibold">Payment: please quote invoice number {invoice.number} in the payment remarks.</p>
+      )}
+
+      {bank && (
+        <section className="mt-3 border-t border-line pt-2 text-[11px]">
+          <span className="font-semibold">Bank details for payment: </span>
+          {[
+            bank.name,
+            [bank.bankName, bank.branch].filter(Boolean).join(", "),
+            bank.accountNumber && `A/c ${bank.accountNumber}`,
+            bank.ifsc && `IFSC ${bank.ifsc}`,
+            bank.upiId && `UPI ${bank.upiId}`,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </section>
       )}
 
       <footer className="mt-8 flex items-end justify-between gap-3.5 text-[11px]">
