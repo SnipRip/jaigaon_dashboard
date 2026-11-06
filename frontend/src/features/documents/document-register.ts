@@ -1,7 +1,7 @@
-// One flat list of every document number the business holds (SOW 12): the
-// papers attached to invoices, e-way bills recorded on vendor bills, and
-// vendor bill scans. Built from the records they belong to, so there is no
-// second copy to keep in step.
+// Sample data only: the dashboard and global search still build a register
+// and a missing list from the sample invoices, bills and shipments. The
+// /documents page reads the real register (documents-api.ts,
+// backend/src/document-register).
 import { documentType } from "@/features/invoices/dispatch-documents";
 import { invoiceTax, invoiceTotals, missingDocuments, needsEinvoice } from "@/features/invoices/invoice-rules";
 import type { DispatchDocumentKind, Invoice } from "@/features/invoices/types";

@@ -11,66 +11,55 @@ import { GlassTable } from "@/components/ui/glass-table";
 import { ListToolbar } from "@/components/ui/list-toolbar";
 import { SearchField } from "@/components/ui/search-field";
 import { StatTile } from "@/components/ui/stat-tile";
-import { documentType } from "@/features/invoices/dispatch-documents";
-import type { Invoice } from "@/features/invoices/types";
+import { StatusChip } from "@/components/ui/status-chip";
 import { formatDayMonth, formatQuantity } from "@/lib/format";
-import { missingFor, nextStage } from "./shipment-rules";
+import type { ShipmentStageView, ShipmentView } from "@/types/shipment";
 import { ShipmentStageChip } from "./shipment-stage-chip";
-import type { Shipment, ShipmentStatus } from "./types";
+import { documentName, STATUS_OF } from "./shipments-api";
 
-type StageFilter = "all" | "open" | "border" | "done";
+type StageFilter = "all" | "open" | "border" | "done" | "cancelled";
 
-const FILTERS: { value: StageFilter; label: string; statuses?: ShipmentStatus[] }[] = [
+const FILTERS: { value: StageFilter; label: string; stages?: ShipmentStageView[] }[] = [
   { value: "all", label: "All" },
-  { value: "open", label: "Planned and loading", statuses: ["planned", "loading"] },
-  { value: "border", label: "On the road and at the border", statuses: ["in-transit", "at-border"] },
-  { value: "done", label: "Cleared and delivered", statuses: ["cleared", "delivered"] },
+  { value: "open", label: "Planned and loading", stages: ["PLANNED", "LOADING"] },
+  { value: "border", label: "On the road and at the border", stages: ["IN_TRANSIT", "AT_BORDER"] },
+  { value: "done", label: "Cleared and delivered", stages: ["CLEARED", "DELIVERED"] },
+  { value: "cancelled", label: "Cancelled" },
 ];
 
-interface ShipmentsWorkspaceProps {
-  shipments: Shipment[];
-  invoices: Invoice[];
-  /** Customer id → name. */
-  customers: Record<string, string>;
-}
-
 // Every truck to Bhutan, where it is, and which paper holds it up.
-export function ShipmentsWorkspace({ shipments, invoices, customers }: ShipmentsWorkspaceProps) {
+export function ShipmentsWorkspace({ shipments }: { shipments: ShipmentView[] }) {
   const [filter, setFilter] = useState<StageFilter>("all");
   const [query, setQuery] = useState("");
-  const invoicesOf = (shipment: Shipment) => invoices.filter((invoice) => shipment.invoiceIds.includes(invoice.id));
+  const live = shipments.filter((shipment) => !shipment.cancelledAt);
   const needle = query.trim().toLowerCase();
-  const statuses = FILTERS.find((option) => option.value === filter)?.statuses;
+  const stages = FILTERS.find((option) => option.value === filter)?.stages;
   const visible = shipments.filter(
     (shipment) =>
-      (!statuses || statuses.includes(shipment.status)) &&
+      (filter === "cancelled" ? Boolean(shipment.cancelledAt) : filter === "all" || (!shipment.cancelledAt && stages!.includes(shipment.stage))) &&
       (!needle ||
-        `${shipment.number} ${shipment.vehicleNumber} ${customers[shipment.customerId]} ${shipment.destination} ${invoicesOf(shipment)
-          .map((invoice) => invoice.number)
-          .join(" ")}`
+        `${shipment.number} ${shipment.vehicleNumber} ${shipment.partyName} ${shipment.destination} ${shipment.invoices.map((invoice) => invoice.number).join(" ")}`
           .toLowerCase()
           .includes(needle)),
   );
-  const count = (...wanted: ShipmentStatus[]) => shipments.filter((shipment) => wanted.includes(shipment.status)).length;
+  const count = (...wanted: ShipmentStageView[]) => live.filter((shipment) => wanted.includes(shipment.stage)).length;
 
   return (
     <div className="flex flex-col gap-3.5">
       <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
-        <StatTile label="Shipments" value={formatQuantity(shipments.length)} />
-        <StatTile label="Planned or loading" value={formatQuantity(count("planned", "loading"))} />
-        <StatTile label="At the border" value={formatQuantity(count("at-border"))} tone={count("at-border") ? "warning" : undefined} />
-        <StatTile label="Delivered" value={formatQuantity(count("delivered"))} tone="success" />
+        <StatTile label="Shipments" value={formatQuantity(live.length)} />
+        <StatTile label="Planned or loading" value={formatQuantity(count("PLANNED", "LOADING"))} />
+        <StatTile label="At the border" value={formatQuantity(count("AT_BORDER"))} tone={count("AT_BORDER") ? "warning" : undefined} />
+        <StatTile label="Delivered" value={formatQuantity(count("DELIVERED"))} tone="success" />
       </div>
 
       <GlassCard className="flex flex-col gap-3.5">
         <ListToolbar
           actions={
-            <>
-              <Link href="/shipments/new" className={buttonClasses("success", undefined, "lg")}>
-                <Plus aria-hidden="true" />
-                New shipment
-              </Link>
-            </>
+            <Link href="/shipments/new" className={buttonClasses("success", undefined, "lg")}>
+              <Plus aria-hidden="true" />
+              New shipment
+            </Link>
           }
         >
           <SearchField
@@ -79,7 +68,7 @@ export function ShipmentsWorkspace({ shipments, invoices, customers }: Shipments
             label="Search shipments"
             value={query}
             onChange={setQuery}
-            placeholder="Search by shipment, vehicle number, invoice or customer"
+            placeholder="Search by shipment, vehicle number, invoice or buyer"
             trailing={`${visible.length} of ${shipments.length}`}
           />
           <FilterGroup label="Stage">
@@ -102,53 +91,46 @@ export function ShipmentsWorkspace({ shipments, invoices, customers }: Shipments
             </tr>
           </thead>
           <tbody className="font-semibold">
-            {visible.map((shipment) => {
-              const carried = invoicesOf(shipment);
-              const next = nextStage(shipment.status);
-              const missing = next ? missingFor(next, carried) : [];
-              return (
-                <tr key={shipment.id} className="align-top">
-                  <td>
-                    <Link href={`/shipments/${shipment.id}`} className="font-semibold hover:text-brand hover:underline">
-                      {shipment.number}
+            {visible.map((shipment) => (
+              <tr key={shipment.id} className="align-top">
+                <td>
+                  <Link href={`/shipments/${shipment.id}`} className="font-semibold hover:text-brand hover:underline">
+                    {shipment.number}
+                  </Link>
+                  <div className="text-xs text-muted">{formatDayMonth(shipment.date)}</div>
+                </td>
+                <td>
+                  <div className="font-semibold">{shipment.partyName}</div>
+                  <div className="text-xs text-muted">to {shipment.destination}</div>
+                </td>
+                <td>
+                  <div className="font-semibold">{shipment.vehicleNumber}</div>
+                  <div className="text-xs text-muted">{shipment.driverName ?? "Driver not set"}</div>
+                </td>
+                <td className="text-xs">
+                  {shipment.invoices.map((invoice) => (
+                    <Link key={invoice.id} href={`/invoices/${invoice.id}`} className="block font-semibold text-brand hover:underline">
+                      {invoice.number}
                     </Link>
-                    <div className="text-xs text-muted">{formatDayMonth(shipment.date)}</div>
-                  </td>
-                  <td>
-                    <div className="font-semibold">{customers[shipment.customerId]}</div>
-                    <div className="text-xs text-muted">to {shipment.destination}</div>
-                  </td>
-                  <td>
-                    <div className="font-semibold">{shipment.vehicleNumber}</div>
-                    <div className="text-xs text-muted">{shipment.driverName ?? "Driver not set"}</div>
-                  </td>
-                  <td className="text-xs">
-                    {carried.map((invoice) => (
-                      <Link key={invoice.id} href={`/invoices/${invoice.id}`} className="block font-semibold text-brand hover:underline">
-                        {invoice.number}
-                      </Link>
-                    ))}
-                  </td>
-                  <td>
-                    <ShipmentStageChip status={shipment.status} />
-                  </td>
-                  <td className="text-xs">
-                    {!next ? (
-                      <span className="text-success-strong">Done</span>
-                    ) : missing.length ? (
-                      <span className="text-warning-strong">
-                        {[...new Set(missing.map(({ kind }) => documentType(kind).name))].join(", ")}
-                      </span>
-                    ) : (
-                      <span className="text-ink-soft">Ready to move on</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
+                  ))}
+                </td>
+                <td>{shipment.cancelledAt ? <StatusChip tone="neutral">Cancelled</StatusChip> : <ShipmentStageChip status={STATUS_OF[shipment.stage]} />}</td>
+                <td className="text-xs">
+                  {shipment.cancelledAt ? (
+                    <span className="text-muted">–</span>
+                  ) : !shipment.next ? (
+                    <span className="text-success-strong">Done</span>
+                  ) : shipment.next.missing.length ? (
+                    <span className="text-warning-strong">{[...new Set(shipment.next.missing.map(({ kind }) => documentName(kind)))].join(", ")}</span>
+                  ) : (
+                    <span className="text-ink-soft">Ready to move on</span>
+                  )}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </GlassTable>
-        {visible.length === 0 && <p className="py-6 text-center text-[13px] text-muted">No shipments match.</p>}
+        {visible.length === 0 && <p className="py-6 text-center text-[13px] text-muted">{shipments.length ? "No shipments match." : "No shipments yet."}</p>}
       </GlassCard>
     </div>
   );

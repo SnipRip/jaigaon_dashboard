@@ -58,10 +58,11 @@ describe('allocationProblem', () => {
     expect(allocationProblem(direct, 'ITEM_COST', null)).toMatch(/purchase/);
     expect(allocationProblem(direct, 'ITEM_COST', 'bill')).toBeNull();
   });
-  it('names an invoice for an invoice, nothing for a shipment or overhead', () => {
+  it('names an invoice for an invoice, a shipment now or later, nothing for overhead', () => {
     expect(allocationProblem(direct, 'INVOICE', null)).toMatch(/invoice/);
-    expect(allocationProblem(direct, 'SHIPMENT', 'x')).toMatch(/names no/);
+    expect(allocationProblem(direct, 'SHIPMENT', 'x')).toBeNull();
     expect(allocationProblem(direct, 'SHIPMENT', null)).toBeNull();
+    expect(allocationProblem({ ...direct, nature: 'INDIRECT_EXPENSE' }, 'OVERHEAD', 'x')).toMatch(/names no/);
   });
 });
 

@@ -17,7 +17,8 @@ export const TO_BACKEND: Record<HeadAllocation, ExpenseAllocationView> = { "item
 export const FROM_BACKEND: Record<ExpenseAllocationView, HeadAllocation> = { ITEM_COST: "item-cost", INVOICE: "invoice", SHIPMENT: "shipment", OVERHEAD: "overhead" };
 
 /** Where the cost's target opens in the app. */
-export const targetHref = (target: NonNullable<ExpenseView["target"]>) => (target.kind === "BILL" ? `/purchases/${target.id}` : `/invoices/${target.id}`);
+export const targetHref = (target: NonNullable<ExpenseView["target"]>) =>
+  target.kind === "BILL" ? `/purchases/${target.id}` : target.kind === "INVOICE" ? `/invoices/${target.id}` : `/shipments/${target.id}`;
 
 const money = (value: number) => Math.round(value * 100) / 100;
 

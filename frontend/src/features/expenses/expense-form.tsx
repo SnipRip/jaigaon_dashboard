@@ -32,13 +32,19 @@ import { createExpense, decisionProblem, expenseDecision, expenseNumberPreviewPa
 interface ExpenseFormProps {
   vendors: Party[];
   accounts: BankCashAccountView[];
-  /** Open goods bills (item cost) and issued invoices, as options. */
+  /** Open goods bills (item cost), issued invoices and live shipments, as options. */
   bills: SelectOption[];
   invoices: SelectOption[];
+  shipments: SelectOption[];
+  /** Opened from a shipment page: the expense lands on that shipment. */
+  initialShipmentId?: string;
   /** Our GST state, for a vendor's CGST + SGST or IGST. */
   companyState?: string;
   onSaved: (saved: ExpenseView) => Promise<void>;
 }
+
+/** The shipment picker's "not yet" choice. */
+const LATER = "later";
 
 /** Cash over ₹10,000 to one person in a day is not allowed as a business expense (Income-tax Act s.40A(3)). */
 const CASH_EXPENSE_LIMIT = 10000;
@@ -47,7 +53,7 @@ const CASH_EXPENSE_LIMIT = 10000;
 // the vendor), and whose profit it reduces. The head decides GST and the
 // allocation; the vendor's registration decides whether there is GST and
 // how it splits. The backend works it all out again on save.
-export function ExpenseForm({ vendors, accounts, bills, invoices, companyState, onSaved }: ExpenseFormProps) {
+export function ExpenseForm({ vendors, accounts, bills, invoices, shipments, initialShipmentId, companyState, onSaved }: ExpenseFormProps) {
   const router = useRouter();
   const today = useToday();
   const { heads: allHeads, error: headsError } = useAccountHeads();
@@ -79,8 +85,8 @@ export function ExpenseForm({ vendors, accounts, bills, invoices, companyState, 
       mode: "CASH",
       accountId: firstFor("CASH"),
       reference: "",
-      allocationKind: "overhead",
-      targetId: "",
+      allocationKind: initialShipmentId ? "shipment" : "overhead",
+      targetId: initialShipmentId ?? "",
       notes: "",
     },
   });
@@ -109,7 +115,7 @@ export function ExpenseForm({ vendors, accounts, bills, invoices, companyState, 
     if (!picked) return;
     if (picked.gst === "own-rate" && picked.gstRatePct !== undefined) setValue("gstRatePct", String(picked.gstRatePct));
     setValue("allocationKind", picked.allocation ?? "overhead");
-    setValue("targetId", "");
+    setValue("targetId", picked.allocation === "shipment" ? (initialShipmentId ?? "") : "");
   };
   const pickMode = (next: ExpenseFormValues["mode"]) => {
     setValue("mode", next);
@@ -139,7 +145,7 @@ export function ExpenseForm({ vendors, accounts, bills, invoices, companyState, 
           accountId: now ? values.accountId : null,
           mode: now ? values.mode : null,
           allocation: TO_BACKEND[values.allocationKind],
-          targetId: values.allocationKind === "item-cost" || values.allocationKind === "invoice" ? values.targetId : null,
+          targetId: values.allocationKind === "overhead" ? null : values.targetId || null,
           reference: values.reference || null,
           notes: values.notes || null,
         });
@@ -333,7 +339,7 @@ export function ExpenseForm({ vendors, accounts, bills, invoices, companyState, 
                     selected={field.value === option.value}
                     onClick={() => {
                       field.onChange(option.value);
-                      setValue("targetId", "");
+                      setValue("targetId", option.value === "shipment" ? (initialShipmentId ?? "") : "");
                     }}
                   >
                     {option.label}
@@ -344,7 +350,7 @@ export function ExpenseForm({ vendors, accounts, bills, invoices, companyState, 
           />
           <p className="-mt-2 text-sm font-medium text-muted">
             {indirect ? "An indirect expense is always a general overhead" : ALLOCATIONS.find((option) => option.value === allocationKind)?.hint}.
-            {allocationKind === "shipment" && " Shipments are not stored yet: the expense is saved now and linked to its shipment once they are."}
+            {allocationKind === "shipment" && " Pick the truck now, or save it and link it from the shipment page later."}
             {allocationKind === "item-cost" && " The purchase's landed cost and its stock are worked out again."}
           </p>
           {(allocationKind === "item-cost" || allocationKind === "invoice") && (
@@ -363,6 +369,20 @@ export function ExpenseForm({ vendors, accounts, bills, invoices, companyState, 
               />
               {errorText(errors.targetId?.message)}
             </div>
+          )}
+          {allocationKind === "shipment" && (
+            <Controller
+              control={control}
+              name="targetId"
+              render={({ field }) => (
+                <SelectField
+                  label="Shipment"
+                  options={[{ value: LATER, label: "Link it later" }, ...shipments]}
+                  value={field.value || LATER}
+                  onValueChange={(value) => field.onChange(value === LATER ? "" : value)}
+                />
+              )}
+            />
           )}
         </GlassCard>
 

@@ -60,7 +60,7 @@ export class CreateExpenseDto {
   @IsEnum(HeadAllocation)
   allocation: HeadAllocation;
 
-  /** The goods bill (ITEM_COST) or invoice (INVOICE). */
+  /** The goods bill (ITEM_COST), invoice (INVOICE) or shipment (SHIPMENT; may be linked later). */
   @IsOptional()
   @IsUUID()
   targetId?: string | null;
@@ -108,4 +108,14 @@ export class ExpenseQueryDto {
   @IsOptional()
   @IsUUID()
   invoiceId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  shipmentId?: string;
+
+  /** `true`: shipment expenses not linked to a shipment yet. */
+  @Transform(({ value }: { value: unknown }) => value === 'true' || value === true)
+  @IsOptional()
+  @IsBoolean()
+  unlinked?: boolean;
 }

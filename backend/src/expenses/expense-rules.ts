@@ -88,7 +88,8 @@ export function allocationProblem(head: Pick<ExpenseHeadFacts, 'nature' | 'alloc
   if (allocation === 'ITEM_COST' && head.allocation !== 'ITEM_COST') return `${head.name} does not land on item cost (freight inward, unloading, labour do)`;
   if (allocation === 'ITEM_COST' && !targetId) return 'Pick the purchase whose items carry this cost';
   if (allocation === 'INVOICE' && !targetId) return 'Pick the invoice this cost belongs to';
-  if ((allocation === 'SHIPMENT' || allocation === 'OVERHEAD') && targetId) return 'A shipment or overhead expense names no purchase or invoice';
+  // A shipment expense may name its shipment now or be linked from the shipment later.
+  if (allocation === 'OVERHEAD' && targetId) return 'An overhead names no purchase, invoice or shipment';
   return null;
 }
 

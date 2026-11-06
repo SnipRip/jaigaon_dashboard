@@ -8,6 +8,7 @@ import { SalePricingService } from '../sale-pricing/sale-pricing.service.js';
 import { invoiceRegime } from '../sale-pricing/sale-rules.js';
 import { liveSettlementNumbers } from '../settlements/settlements.service.js';
 import { costOfDraws } from '../stock/fifo-rules.js';
+import { shipmentCarrying } from '../shipments/shipment-locks.js';
 import { drawStock, returnStock } from '../stock/stock-out.js';
 import type { InvoiceDto } from './dto/invoice.dto.js';
 import { conversionProblem, kindProblem, quantityOut, SERIES_OF } from './invoice-rules.js';
@@ -124,7 +125,7 @@ export class InvoicesService {
     );
   }
 
-  /** Cancels an issued invoice with no live receipts on it: its stock goes back, its number is cancelled, its quotation is open again. */
+  /** Cancels an issued invoice with no live receipts, expenses or shipment on it: its stock goes back, its number is cancelled, its quotation is open again. */
   cancel(id: string, reason: string): Promise<InvoiceView> {
     return this.prisma.$transaction(async (tx) => {
       const [current] = await tx.$queryRaw<{ status: string; issuedNumberId: string; quotationId: string | null }[]>`
@@ -135,6 +136,8 @@ export class InvoicesService {
       if (receipts.length) throw new ConflictException(`Receipts are applied to this invoice (${receipts.join(', ')}). Cancel them first.`);
       const expenses = await tx.expense.findMany({ where: { invoiceId: id, cancelledAt: null }, select: { number: true } });
       if (expenses.length) throw new ConflictException(`Expenses are allocated to this invoice (${expenses.map((row) => row.number).join(', ')}). Cancel them first.`);
+      const shipment = await shipmentCarrying(tx, id);
+      if (shipment) throw new ConflictException(`This invoice is on shipment ${shipment}. Take it off the shipment or cancel the shipment first.`);
       await returnStock(tx, id);
       await this.numbers.cancel(tx, current.issuedNumberId);
       if (current.quotationId) {

@@ -73,7 +73,7 @@ export function ExpenseDetail({ expense, onChanged }: { expense: ExpenseView; on
                 allocationLabel(FROM_BACKEND[expense.allocation])
               )}
             </Row>
-            {expense.allocation === "SHIPMENT" && <p className="text-xs text-muted">Linked to its shipment once shipments are stored.</p>}
+            {expense.allocation === "SHIPMENT" && !expense.target && <p className="text-xs text-muted">Not linked to a shipment yet: link it from the shipment page.</p>}
             {expense.notes && <Row label="Notes">{expense.notes}</Row>}
           </dl>
           {!live && (

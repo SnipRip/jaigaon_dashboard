@@ -36,6 +36,8 @@ import { PurchasesModule } from './purchases/purchases.module.js';
 import { QuotationsModule } from './quotations/quotations.module.js';
 import { InvoicesModule } from './invoices/invoices.module.js';
 import { ExpensesModule } from './expenses/expenses.module.js';
+import { ShipmentsModule } from './shipments/shipments.module.js';
+import { DocumentRegisterModule } from './document-register/document-register.module.js';
 import { SettlementsModule } from './settlements/settlements.module.js';
 import { StaffModule } from './staff/staff.module.js';
 import { UnitsModule } from './units/units.module.js';
@@ -67,6 +69,8 @@ import { WhatsappOptInsModule } from './whatsapp-optins/whatsapp-optins.module.j
     InvoicesModule,
     SettlementsModule,
     ExpensesModule,
+    ShipmentsModule,
+    DocumentRegisterModule,
     StockMovesModule,
     CompanyProfileModule,
     SalesSettingsModule,

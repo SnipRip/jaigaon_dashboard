@@ -62,6 +62,8 @@ model User {
   invoiceDocumentsSaved InvoiceDocument[] @relation("InvoiceDocumentSavedBy")
   settlementsMade       Settlement[]      @relation("SettlementCreatedBy")
   expensesMade          Expense[]         @relation("ExpenseCreatedBy")
+  shipmentsMade         Shipment[]        @relation("ShipmentCreatedBy")
+  shipmentEventsMade    ShipmentEvent[]   @relation("ShipmentEventBy")
 
   stockTransfersMade   StockTransfer[]   @relation("StockTransferCreatedBy")
   stockAdjustmentsMade StockAdjustment[] @relation("StockAdjustmentCreatedBy")
@@ -439,6 +441,9 @@ model Party {
   settlements        Settlement[]
   openingAllocations SettlementAllocation[] @relation("OpeningAllocations")
   expenses           Expense[]
+
+  shipments            Shipment[] @relation("ShipmentBuyer")
+  shipmentsTransported Shipment[] @relation("ShipmentTransporter")
 
   @@index([isCustomer])
   @@index([isVendor])
@@ -1713,6 +1718,7 @@ model Invoice {
   documents   InvoiceDocument[]
   allocations SettlementAllocation[]
   expenses    Expense[]
+  shipments   ShipmentInvoice[]
 
   @@index([number])
   @@index([partyId, date])
@@ -2089,6 +2095,9 @@ model Expense {
   bill           PurchaseBill?    @relation(fields: [billId], references: [id], onDelete: Restrict)
   invoiceId      String?          @db.Uuid
   invoice        Invoice?         @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  // SHIPMENT only: the truck it was spent on; null until linked (saved before the shipment was).
+  shipmentId     String?          @db.Uuid
+  shipment       Shipment?        @relation(fields: [shipmentId], references: [id], onDelete: Restrict)
   notes          String?
   cancelledAt    DateTime?
   cancelReason   String?
@@ -2104,4 +2113,93 @@ model Expense {
   @@index([accountId, date])
   @@index([billId])
   @@index([invoiceId])
+  @@index([shipmentId])
+}
+
+// ---------------------------------------------------------------------------
+// Shipments (SOW 10): one truck to Bhutan carrying one buyer's export
+// invoices, moved stage by stage from our yard to the buyer; each stage
+// needs papers attached on its invoices (shipments/shipment-rules.ts). Not
+// a voucher: it posts nothing, so its transport details may be corrected;
+// its invoices only until it leaves the yard. Cancelled, never deleted.
+// ---------------------------------------------------------------------------
+
+enum ShipmentStage {
+  PLANNED
+  LOADING
+  IN_TRANSIT
+  AT_BORDER
+  CLEARED
+  DELIVERED
+}
+
+model Shipment {
+  id             String        @id @default(uuid()) @db.Uuid
+  number         String
+  issuedNumberId String        @unique @db.Uuid
+  // Loading date.
+  date           DateTime      @db.Date
+  partyId        String        @db.Uuid
+  party          Party         @relation("ShipmentBuyer", fields: [partyId], references: [id], onDelete: Restrict)
+  stage          ShipmentStage @default(PLANNED)
+  // Upper case, no spaces: Indian (WB73E1234) or Bhutanese (BG2A1234) plates.
+  vehicleNumber  String
+  // A transport vendor on record; null for our own truck.
+  transporterId  String?       @db.Uuid
+  transporter    Party?        @relation("ShipmentTransporter", fields: [transporterId], references: [id], onDelete: Restrict)
+  driverName     String?
+  driverPhone    String?
+  // Delivery town in Bhutan.
+  destination    String
+  borderPoint    String
+  customsAgent   String?
+  sealNumber     String?
+  packages       Int?
+  grossWeightKg  Decimal?      @db.Decimal(12, 3)
+  notes          String?
+  cancelledAt    DateTime?
+  cancelReason   String?
+  createdById    String?       @db.Uuid
+  createdBy      User?         @relation("ShipmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  invoices ShipmentInvoice[]
+  events   ShipmentEvent[]
+  expenses Expense[]
+
+  @@index([number])
+  @@index([date])
+  @@index([partyId, date])
+}
+
+// An invoice on a shipment. `released` is set when the shipment is
+// cancelled, so the row stays as history while the invoice may go on
+// another truck: a partial unique index (migration) keeps an invoice on one
+// live shipment only.
+model ShipmentInvoice {
+  shipmentId String   @db.Uuid
+  shipment   Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  invoiceId  String   @db.Uuid
+  invoice    Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  released   Boolean  @default(false)
+
+  @@id([shipmentId, invoiceId])
+  @@index([invoiceId])
+}
+
+// Each stage reached, with its date and a note (LEO number, who signed).
+// Stepping back removes the latest row.
+model ShipmentEvent {
+  id         String        @id @default(uuid()) @db.Uuid
+  shipmentId String        @db.Uuid
+  shipment   Shipment      @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  stage      ShipmentStage
+  date       DateTime      @db.Date
+  note       String?
+  byId       String?       @db.Uuid
+  by         User?         @relation("ShipmentEventBy", fields: [byId], references: [id], onDelete: SetNull)
+  createdAt  DateTime      @default(now())
+
+  @@unique([shipmentId, stage])
 }

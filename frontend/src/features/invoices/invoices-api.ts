@@ -19,7 +19,8 @@ const KIND_VIEW: Record<DispatchDocumentKind, DispatchDocumentKindView> = {
   leo: "LEO",
   brc: "BRC",
 };
-const KIND_OF = Object.fromEntries(Object.entries(KIND_VIEW).map(([kind, view]) => [view, kind])) as Record<DispatchDocumentKindView, DispatchDocumentKind>;
+/** The backend's document kind → the screens' kind. */
+export const KIND_OF = Object.fromEntries(Object.entries(KIND_VIEW).map(([kind, view]) => [view, kind])) as Record<DispatchDocumentKindView, DispatchDocumentKind>;
 
 /** Stored documents keyed by the screens' kind; every detail as the text the form shows. */
 const toDocuments = (view: InvoiceView): Invoice["documents"] =>

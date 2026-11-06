@@ -38,8 +38,8 @@ export interface ExpenseView {
   /** What reduces profit: the amount plus GST that cannot be claimed. */
   cost: number;
   allocation: ExpenseAllocationView;
-  /** The goods bill or invoice the cost lands on; null for a shipment (not linked yet) or overhead. */
-  target: { kind: "BILL" | "INVOICE"; id: string; number: string } | null;
+  /** The goods bill, invoice or shipment the cost lands on; null for overhead or a shipment expense not linked yet. */
+  target: { kind: "BILL" | "INVOICE" | "SHIPMENT"; id: string; number: string } | null;
   settled: number;
   /** Still owed to the vendor (on credit only). */
   balance: number;

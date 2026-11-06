@@ -10,6 +10,7 @@ import { PrismaService } from '../database/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { NumberSeriesService } from '../number-series/number-series.service.js';
 import { landBill } from '../purchases/landed-cost.js';
+import { liveShipment } from '../shipments/shipment-locks.js';
 import { companyState, liveVendor } from '../purchases/purchase-context.js';
 import { billDueDays, billTax, type BillTax } from '../purchases/purchase-rules.js';
 import { accountProblem, dateProblem } from '../settlements/settlement-rules.js';
@@ -28,7 +29,7 @@ const addDays = (iso: string, days: number) => isoDate(new Date(dateOnly(iso).ge
 // Expenses. In one transaction: the head is locked FOR SHARE (it cannot be
 // archived or turned into income meanwhile), the vendor row FOR UPDATE (as
 // payments to it do), the goods bill or invoice the cost lands on FOR
-// UPDATE (so a void or cancel waits); GST comes from the vendor and the
+// UPDATE (so a void or cancel waits), a shipment named FOR UPDATE; GST comes from the vendor and the
 // head; the number from the EXPENSE series. An expense on a purchase's items
 // re-works that bill's landed cost (landBill). Never edited: cancel and
 // enter again; one on credit cannot be cancelled while payments settle it.
@@ -41,7 +42,13 @@ export class ExpensesService {
 
   async list(query: ExpenseQueryDto): Promise<ExpenseView[]> {
     const rows = await this.prisma.expense.findMany({
-      where: { vendorId: query.vendorId, allocation: query.allocation, billId: query.billId, invoiceId: query.invoiceId },
+      where: {
+        vendorId: query.vendorId,
+        allocation: query.unlinked ? 'SHIPMENT' : query.allocation,
+        billId: query.billId,
+        invoiceId: query.invoiceId,
+        shipmentId: query.unlinked ? null : query.shipmentId,
+      },
       include: expenseInclude,
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
     });
@@ -101,6 +108,7 @@ export class ExpensesService {
         if (!invoice) fail('That invoice does not exist');
         if (invoice.status !== 'ISSUED') fail(`Invoice ${invoice.number} is cancelled`);
       }
+      if (dto.allocation === 'SHIPMENT' && targetId) await liveShipment(tx, targetId);
 
       const figures = expenseFigures(dto.amount, tax, head!, dto.gstRatePct ?? 0, dto.itcEligible !== false);
       const id = randomUUID();
@@ -124,6 +132,7 @@ export class ExpensesService {
           allocation: dto.allocation,
           billId: dto.allocation === 'ITEM_COST' ? targetId : null,
           invoiceId: dto.allocation === 'INVOICE' ? targetId : null,
+          shipmentId: dto.allocation === 'SHIPMENT' ? targetId : null,
           notes: dto.notes ?? null,
           createdById: userId,
         },

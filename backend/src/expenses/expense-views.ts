@@ -12,6 +12,7 @@ export const expenseInclude = {
   account: { select: { name: true, tallyLedgerName: true, kind: true } },
   bill: { select: { reference: true, vendorBillNumber: true } },
   invoice: { select: { number: true } },
+  shipment: { select: { number: true } },
 } as const satisfies Prisma.ExpenseInclude;
 
 export type ExpenseRow = Prisma.ExpenseGetPayload<{ include: typeof expenseInclude }>;
@@ -48,12 +49,14 @@ export const toExpenseView = (row: ExpenseRow, settled = 0, voucher: ExpenseVouc
     total,
     cost: toNumber(row.cost),
     allocation: row.allocation,
-    /** The goods bill or invoice the cost lands on; null for a shipment (not linked yet) or overhead. */
+    /** The goods bill, invoice or shipment the cost lands on; null for overhead or a shipment expense not linked yet. */
     target: row.billId
       ? { kind: 'BILL' as const, id: row.billId, number: row.bill!.reference }
       : row.invoiceId
         ? { kind: 'INVOICE' as const, id: row.invoiceId, number: row.invoice!.number }
-        : null,
+        : row.shipmentId
+          ? { kind: 'SHIPMENT' as const, id: row.shipmentId, number: row.shipment!.number }
+          : null,
     /** On credit: what live vendor payments settled, and what is still owed. */
     settled: onCredit ? settled : total,
     balance: onCredit ? Math.max(Math.round((total - settled) * 100) / 100, 0) : 0,
