@@ -37,6 +37,7 @@ import { QuotationsModule } from './quotations/quotations.module.js';
 import { InvoicesModule } from './invoices/invoices.module.js';
 import { ExpensesModule } from './expenses/expenses.module.js';
 import { ShipmentsModule } from './shipments/shipments.module.js';
+import { VehiclesModule } from './vehicles/vehicles.module.js';
 import { DocumentRegisterModule } from './document-register/document-register.module.js';
 import { ProfitModule } from './profit/profit.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
@@ -72,6 +73,7 @@ import { WhatsappOptInsModule } from './whatsapp-optins/whatsapp-optins.module.j
     SettlementsModule,
     ExpensesModule,
     ShipmentsModule,
+    VehiclesModule,
     DocumentRegisterModule,
     ProfitModule,
     DashboardModule,

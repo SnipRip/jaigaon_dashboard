@@ -96,10 +96,6 @@ export function stageDateProblem(date: string, previous: string, today: string):
   return null;
 }
 
-/** Indian (WB73E1234) or Bhutanese (BG2A1234, BP-1-A1234) plates, stored upper case without spaces. */
-export const VEHICLE_PATTERN = /^[A-Z]{2}-?\d{1,2}-?[A-Z]{0,3}-?\d{4}$/;
-export const normaliseVehicle = (value: string) => value.toUpperCase().replace(/\s+/g, '');
-
 const money = (value: number) => Math.round(value * 100) / 100;
 
 export interface ShipmentProfit {

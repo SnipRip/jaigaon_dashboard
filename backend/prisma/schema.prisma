@@ -444,6 +444,7 @@ model Party {
 
   shipments            Shipment[] @relation("ShipmentBuyer")
   shipmentsTransported Shipment[] @relation("ShipmentTransporter")
+  vehicles             Vehicle[]  @relation("VehicleTransporter")
 
   @@index([isCustomer])
   @@index([isVendor])
@@ -2149,6 +2150,10 @@ model Shipment {
   transporter    Party?        @relation("ShipmentTransporter", fields: [transporterId], references: [id], onDelete: Restrict)
   driverName     String?
   driverPhone    String?
+  // Picked from the vehicle master; null for a truck typed in. vehicleNumber is
+  // copied from it, so the shipment keeps the plate it left with.
+  vehicleId      String?       @db.Uuid
+  vehicle        Vehicle?      @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
   // Delivery town in Bhutan.
   destination    String
   borderPoint    String
@@ -2171,6 +2176,43 @@ model Shipment {
   @@index([number])
   @@index([date])
   @@index([partyId, date])
+  @@index([vehicleId])
+}
+
+enum VehicleType {
+  TRUCK_10
+  TRUCK_6
+  TRAILER
+  PICKUP
+}
+
+enum VehicleOwnership {
+  OWN
+  HIRED
+}
+
+// Vehicle master (masters-plan.md row 9): trucks that carry our goods, ours
+// or a transporter's. Shipments pick from it; search by vehicle number.
+model Vehicle {
+  id            String           @id @default(uuid()) @db.Uuid
+  // Upper case, no spaces: Indian (WB73E1234) or Bhutanese (BG2A1234) plates.
+  number        String           @unique
+  type          VehicleType
+  capacityTons  Decimal?         @db.Decimal(6, 1)
+  ownership     VehicleOwnership
+  // A transport vendor; only for a hired vehicle (CHECK in the migration).
+  transporterId String?          @db.Uuid
+  transporter   Party?           @relation("VehicleTransporter", fields: [transporterId], references: [id], onDelete: Restrict)
+  driverName    String?
+  driverPhone   String?
+  notes         String?
+  isArchived    Boolean          @default(false)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  shipments Shipment[]
+
+  @@index([transporterId])
 }
 
 // An invoice on a shipment. `released` is set when the shipment is

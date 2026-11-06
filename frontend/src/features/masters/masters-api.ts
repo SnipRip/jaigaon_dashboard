@@ -1,18 +1,20 @@
-// Calls for the units, brands, godowns, bank & cash and expense & income heads
-// masters, and the conversion
+// Calls for the units, brands, godowns, bank & cash, expense & income heads
+// and vehicle masters, and the conversion
 // between the backend's shapes and the ones RecordMaster edits.
 import { apiRequest } from "@/lib/api-client";
 import type { AccountHeadView } from "@/types/account-head";
 import type { BankCashAccountView } from "@/types/bank-cash";
 import type { BrandView, GodownView, UnitView } from "@/types/item-master";
+import type { VehicleView } from "@/types/vehicle";
 import type { MasterRecord, RecordPersistence } from "./record-master";
-import type { AccountHead, Brand, Godown, HeadAllocation, HeadGst, HeadNature, MoneyAccount, MoneyAccountKind, Unit, UnitKind } from "./types";
+import type { AccountHead, Brand, Godown, HeadAllocation, HeadGst, HeadNature, MoneyAccount, MoneyAccountKind, Unit, UnitKind, Vehicle } from "./types";
 
 export const UNITS_PATH = "/units";
 export const BRANDS_PATH = "/brands";
 export const GODOWNS_PATH = "/godowns";
 export const BANK_CASH_PATH = "/bank-cash-accounts";
 export const ACCOUNT_HEADS_PATH = "/account-heads";
+export const VEHICLES_PATH = "/vehicles";
 
 /** The list RecordMaster shows: archived records too, behind its Archived filter. */
 export const withArchived = (path: string) => `${path}?includeArchived=true`;
@@ -84,6 +86,21 @@ export const toAccountHead = (head: AccountHeadView): AccountHead => ({
 
 // Form values (blanks left out) → request bodies. A blank optional field is
 // sent as null so an edit can clear it.
+export const toVehicle = (vehicle: VehicleView): Vehicle => ({
+  id: vehicle.id,
+  number: vehicle.number,
+  type: vehicle.type.toLowerCase().replace("_", "-") as Vehicle["type"],
+  capacityTons: vehicle.capacityTons ?? undefined,
+  ownership: vehicle.ownership === "OWN" ? "own" : "hired",
+  transporterId: vehicle.transporterId ?? undefined,
+  transporterName: vehicle.transporterName ?? undefined,
+  driverName: vehicle.driverName ?? undefined,
+  driverPhone: vehicle.driverPhone ?? undefined,
+  notes: vehicle.notes ?? undefined,
+  shipmentCount: vehicle.shipmentCount,
+  archived: vehicle.isArchived,
+});
+
 export type Changes = Record<string, unknown>;
 
 const unitBody = (changes: Changes) => ({
@@ -137,6 +154,18 @@ const accountHeadBody = (changes: Changes) => ({
   notes: changes.notes ?? null,
 });
 
+// Our own vehicle's transporter field is hidden, so it arrives blank and goes as null.
+const vehicleBody = (changes: Changes) => ({
+  number: changes.number,
+  type: toEnum(changes.type),
+  capacityTons: changes.capacityTons ? Number(changes.capacityTons) : null,
+  ownership: toEnum(changes.ownership),
+  transporterId: changes.ownership === "hired" ? (changes.transporterId ?? null) : null,
+  driverName: changes.driverName ?? null,
+  driverPhone: changes.driverPhone ?? null,
+  notes: changes.notes ?? null,
+});
+
 /**
  * Create, update, archive and delete through one route. `onSaved` runs after
  * each change, to reload the list (making one godown the default changes
@@ -167,3 +196,4 @@ export const brandPersistence = (onSaved: () => void) => persistence(BRANDS_PATH
 export const godownPersistence = (onSaved: () => void) => persistence(GODOWNS_PATH, toGodown, godownBody, onSaved);
 export const bankCashPersistence = (onSaved: () => void) => persistence(BANK_CASH_PATH, toMoneyAccount, bankCashBody, onSaved);
 export const accountHeadPersistence = (onSaved: () => void) => persistence(ACCOUNT_HEADS_PATH, toAccountHead, accountHeadBody, onSaved);
+export const vehiclePersistence = (onSaved: () => void) => persistence(VEHICLES_PATH, toVehicle, vehicleBody, onSaved);

@@ -1,14 +1,13 @@
+import { normaliseVehicle, VEHICLE_PATTERN } from '../common/vehicle-number.js';
 import { describe, expect, it } from 'vitest';
 import {
   invoiceProblem,
   invoicesLocked,
   missingFor,
   nextStage,
-  normaliseVehicle,
   papersProblem,
   shipmentProfit,
   stageDateProblem,
-  VEHICLE_PATTERN,
   type CarriedInvoice,
 } from './shipment-rules.js';
 

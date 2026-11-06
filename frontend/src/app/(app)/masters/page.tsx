@@ -6,9 +6,9 @@ import { ITEM_GROUPS_PATH, ITEMS_PATH } from "@/features/items/item-paths";
 import { LOANS_PATH } from "@/features/loans/loans-api";
 import { LEDGERS_PATH } from "@/features/ledgers/ledgers-api";
 import { LiveCount } from "@/features/masters/live-count";
-import { ACCOUNT_HEADS_PATH, BANK_CASH_PATH, BRANDS_PATH, GODOWNS_PATH, UNITS_PATH } from "@/features/masters/masters-api";
+import { ACCOUNT_HEADS_PATH, BANK_CASH_PATH, BRANDS_PATH, GODOWNS_PATH, UNITS_PATH, VEHICLES_PATH } from "@/features/masters/masters-api";
 import { MastersHub } from "@/features/masters/masters-hub";
-import { transporters, vehicles } from "@/features/masters/sample-data";
+import { transporters } from "@/features/masters/sample-data";
 import { CONFIGURED_SERIES_PATH } from "@/features/number-series/number-series-api";
 import { PARTIES_PATH } from "@/features/parties/parties-api";
 import { SPECIAL_RATES_PATH } from "@/features/rates/rates-api";
@@ -22,7 +22,7 @@ const live = <T extends { archived?: boolean }>(records: T[]) => records.filter(
 export default function MastersPage() {
   return (
     <>
-      <SampleDataNotice>Customers, vendors, items, brands, units, godowns, HSN codes, special rates, the LUT register, number series, bank & cash accounts, loans and expense & income heads are live. The other counts are still sample data.</SampleDataNotice>
+      <SampleDataNotice>Customers, vendors, items, brands, units, godowns, HSN codes, special rates, the LUT register, number series, bank & cash accounts, loans, expense & income heads and vehicles are live. The other counts are still sample data.</SampleDataNotice>
       <MastersHub
         groups={[
           {
@@ -31,7 +31,7 @@ export default function MastersPage() {
               { href: "/customers", title: "Customers", icon: Users, description: "GST treatment, place of supply, Bhutan buyers with export route and credit.", count: <LiveCount path={`${PARTIES_PATH}?role=customer`} noun={["customer", "customers"]} /> },
               { href: "/vendors", title: "Vendors", icon: Building2, description: "Who gives a GST bill and who does not, composition and transporters, MSME and bank details.", count: <LiveCount path={`${PARTIES_PATH}?role=vendor`} noun={["vendor", "vendors"]} /> },
               { href: "/masters/transporters", title: "Transporters", icon: Truck, description: "Transporter ID for e-way bills, and whether they bill freight under reverse charge.", count: `${live(transporters)} transporters` },
-              { href: "/masters/vehicles", title: "Vehicles", icon: Container, description: "Own and hired trucks with capacity and driver contact.", count: `${live(vehicles)} vehicles` },
+              { href: "/masters/vehicles", title: "Vehicles", icon: Container, description: "Own and hired trucks with capacity and driver contact.", count: <LiveCount path={VEHICLES_PATH} noun={["vehicle", "vehicles"]} /> },
             ],
           },
           {

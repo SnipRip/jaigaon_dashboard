@@ -43,6 +43,8 @@ export interface ShipmentView {
   partyName: string;
   stage: ShipmentStageView;
   vehicleNumber: string;
+  /** Picked from the vehicle master; null for a truck typed in. */
+  vehicleId: string | null;
   transporterId: string | null;
   transporterName: string | null;
   driverName: string | null;

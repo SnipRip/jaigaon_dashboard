@@ -63,6 +63,7 @@ export class ShipmentsService {
     return this.prisma.$transaction(async (tx) => {
       fail(dto.date > todayInIndia() ? 'The loading date is after today' : null);
       await this.checkParties(tx, dto);
+      const vehicleNumber = await this.vehicleNumberOf(tx, dto, null);
       await this.claimInvoices(tx, dto, null);
       const id = randomUUID();
       const issued = await this.numbers.issue(tx, 'SHIPMENT', dto.date, { typed: dto.number ?? undefined, documentId: id });
@@ -71,7 +72,7 @@ export class ShipmentsService {
           id,
           number: issued.number,
           issuedNumberId: issued.id,
-          ...this.fields(dto),
+          ...this.fields(dto, vehicleNumber),
           createdById: userId,
           invoices: { create: dto.invoiceIds.map((invoiceId) => ({ invoiceId })) },
           events: { create: { stage: 'PLANNED', date: dateOnly(dto.date), byId: userId } },
@@ -94,10 +95,11 @@ export class ShipmentsService {
       const later = await tx.shipmentEvent.findFirst({ where: { shipmentId: id, stage: { not: 'PLANNED' } }, orderBy: { date: 'asc' }, select: { date: true } });
       if (later && dto.date > isoDate(later.date)) fail('The loading date is after a later stage');
       await this.checkParties(tx, dto);
+      const vehicleNumber = await this.vehicleNumberOf(tx, dto, shipment.vehicleId);
       await this.claimInvoices(tx, dto, id);
       await tx.shipmentInvoice.deleteMany({ where: { shipmentId: id, invoiceId: { notIn: dto.invoiceIds } } });
       await tx.shipmentInvoice.createMany({ data: dto.invoiceIds.map((invoiceId) => ({ shipmentId: id, invoiceId })), skipDuplicates: true });
-      await tx.shipment.update({ where: { id }, data: this.fields(dto) });
+      await tx.shipment.update({ where: { id }, data: this.fields(dto, vehicleNumber) });
       await tx.shipmentEvent.updateMany({ where: { shipmentId: id, stage: 'PLANNED' }, data: { date: dateOnly(dto.date) } });
       return this.detail(tx, id);
     });
@@ -180,11 +182,12 @@ export class ShipmentsService {
     });
   }
 
-  private fields(dto: ShipmentDto) {
+  private fields(dto: ShipmentDto, vehicleNumber: string) {
     return {
       date: dateOnly(dto.date),
       partyId: dto.partyId,
-      vehicleNumber: dto.vehicleNumber,
+      vehicleNumber,
+      vehicleId: dto.vehicleId ?? null,
       transporterId: dto.transporterId ?? null,
       driverName: dto.driverName ?? null,
       driverPhone: dto.driverPhone ?? null,
@@ -202,6 +205,20 @@ export class ShipmentsService {
     const buyer = await tx.party.findUnique({ where: { id: dto.partyId }, select: { isCustomer: true } });
     if (!buyer?.isCustomer) fail('Pick the buyer');
     if (dto.transporterId) await liveVendor(tx, dto.transporterId);
+  }
+
+  /**
+   * The plate the shipment records: the picked vehicle's number (locked so it
+   * cannot be archived or renumbered meanwhile), else the one typed. An
+   * archived vehicle can stay on a shipment that already had it, not be newly picked.
+   */
+  private async vehicleNumberOf(tx: Tx, dto: ShipmentDto, currentVehicleId: string | null): Promise<string> {
+    if (!dto.vehicleId) return dto.vehicleNumber;
+    const [vehicle] = await tx.$queryRaw<{ number: string; isArchived: boolean }[]>`
+      SELECT "number", "isArchived" FROM "Vehicle" WHERE "id" = ${dto.vehicleId}::uuid FOR SHARE`;
+    if (!vehicle) throw new BadRequestException('That vehicle is not in the vehicle master');
+    if (vehicle.isArchived && dto.vehicleId !== currentVehicleId) throw new BadRequestException('This vehicle is archived');
+    return vehicle.number;
   }
 
   /** Locks the invoices in id order and checks each may ride on this truck. */

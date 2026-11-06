@@ -14,6 +14,8 @@ export const shipmentSchema = z.object({
     .trim()
     .min(1, "Enter the vehicle number")
     .refine((value) => VEHICLE_PATTERN.test(normaliseVehicle(value)), "Like WB73E1234 or BG2A1234"),
+  /** Empty: typed, not from the vehicle master. */
+  vehicleId: z.string(),
   transporterId: z.string(),
   driverName: z.string().trim().max(60),
   driverPhone: z.union([z.literal(""), z.string().trim().regex(/^\+?\d{8,13}$/, "8 to 13 digits")]),

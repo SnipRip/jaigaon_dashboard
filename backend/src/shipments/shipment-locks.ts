@@ -7,9 +7,9 @@ import type { Prisma, ShipmentStage } from '../generated/prisma/client.js';
 type Tx = Prisma.TransactionClient;
 
 /** Locks a shipment FOR UPDATE; refuses one that does not exist or is cancelled. */
-export async function liveShipment(tx: Tx, id: string): Promise<{ number: string; stage: ShipmentStage; partyId: string; date: Date }> {
-  const [row] = await tx.$queryRaw<{ number: string; stage: ShipmentStage; partyId: string; date: Date; cancelledAt: Date | null }[]>`
-    SELECT "number", "stage", "partyId", "date", "cancelledAt" FROM "Shipment" WHERE "id" = ${id}::uuid FOR UPDATE`;
+export async function liveShipment(tx: Tx, id: string): Promise<{ number: string; stage: ShipmentStage; partyId: string; date: Date; vehicleId: string | null }> {
+  const [row] = await tx.$queryRaw<{ number: string; stage: ShipmentStage; partyId: string; date: Date; vehicleId: string | null; cancelledAt: Date | null }[]>`
+    SELECT "number", "stage", "partyId", "date", "vehicleId", "cancelledAt" FROM "Shipment" WHERE "id" = ${id}::uuid FOR UPDATE`;
   if (!row) throw new BadRequestException('That shipment does not exist');
   if (row.cancelledAt) throw new BadRequestException(`Shipment ${row.number} is cancelled`);
   return row;

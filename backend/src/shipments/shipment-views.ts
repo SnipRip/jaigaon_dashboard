@@ -63,6 +63,7 @@ export function toShipmentView(row: ShipmentRow, extra?: { expenses: ShipmentExp
     partyName: row.party.displayName,
     stage: row.stage,
     vehicleNumber: row.vehicleNumber,
+    vehicleId: row.vehicleId,
     transporterId: row.transporterId,
     transporterName: row.transporter?.displayName ?? null,
     driverName: row.driverName,

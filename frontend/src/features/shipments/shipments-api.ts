@@ -36,6 +36,8 @@ export interface ShipmentBody {
   partyId: string;
   invoiceIds: string[];
   vehicleNumber: string;
+  /** From the vehicle master: the backend records its number. */
+  vehicleId: string | null;
   transporterId: string | null;
   driverName: string | null;
   driverPhone: string | null;

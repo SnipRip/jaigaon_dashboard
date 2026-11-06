@@ -21,6 +21,7 @@ import { useToday } from "@/lib/use-today";
 import type { InvoiceView } from "@/types/invoice";
 import type { PartyView } from "@/types/party";
 import type { ShipmentView } from "@/types/shipment";
+import type { VehicleView } from "@/types/vehicle";
 import { normaliseVehicle, shipmentSchema, type ShipmentFormValues } from "./shipment-schema";
 import { createShipment, shipmentNumberPreviewPath, updateShipment, type ShipmentBody } from "./shipments-api";
 
@@ -29,6 +30,8 @@ interface ShipmentFormProps {
   invoices: InvoiceView[];
   /** Vendors on record, for the transporter. */
   transporters: PartyView[];
+  /** Live vehicles on the vehicle master (an edited shipment's own included). */
+  vehicles: VehicleView[];
   /** The customs station on GST & export setup. */
   defaultBorderPoint: string;
   /** Editing a saved shipment. */
@@ -37,12 +40,15 @@ interface ShipmentFormProps {
 }
 
 const NONE = "none";
+/** Radix Select takes no empty value: the "typed in" choice of the vehicle picker. */
+const TYPED = "typed";
 const text = (value: string) => value.trim() || null;
 
 const valuesOf = (shipment: ShipmentView, fallbackBorder: string): ShipmentFormValues => ({
   invoiceIds: shipment.invoices.map((invoice) => invoice.id),
   date: shipment.date,
   vehicleNumber: shipment.vehicleNumber,
+  vehicleId: shipment.vehicleId ?? "",
   transporterId: shipment.transporterId ?? "",
   driverName: shipment.driverName ?? "",
   driverPhone: shipment.driverPhone ?? "",
@@ -59,7 +65,7 @@ const valuesOf = (shipment: ShipmentView, fallbackBorder: string): ShipmentFormV
 // truck), then the vehicle and driver. Packages and weight are added up from
 // the packing lists attached to the invoices. Editing corrects the transport
 // details; the invoices only until the truck leaves the yard.
-export function ShipmentForm({ invoices, transporters, defaultBorderPoint, shipment, onSaved }: ShipmentFormProps) {
+export function ShipmentForm({ invoices, transporters, vehicles, defaultBorderPoint, shipment, onSaved }: ShipmentFormProps) {
   const router = useRouter();
   const today = useToday();
   const [problem, setProblem] = useState<string | null>(null);
@@ -79,6 +85,7 @@ export function ShipmentForm({ invoices, transporters, defaultBorderPoint, shipm
           invoiceIds: [],
           date: "",
           vehicleNumber: "",
+          vehicleId: "",
           transporterId: "",
           driverName: "",
           driverPhone: "",
@@ -96,7 +103,18 @@ export function ShipmentForm({ invoices, transporters, defaultBorderPoint, shipm
     if (today && !getValues("date")) setValue("date", today);
   }, [today, getValues, setValue]);
 
-  const [invoiceIds, date] = useWatch({ control, name: ["invoiceIds", "date"] });
+  const [invoiceIds, date, vehicleId] = useWatch({ control, name: ["invoiceIds", "date", "vehicleId"] });
+
+  /** A vehicle from the master brings its number, transporter (none for our own) and driver. */
+  const pickVehicle = (id: string) => {
+    const vehicle = vehicles.find((candidate) => candidate.id === id);
+    setValue("vehicleId", vehicle?.id ?? "");
+    if (!vehicle) return;
+    setValue("vehicleNumber", vehicle.number, { shouldValidate: true });
+    setValue("transporterId", vehicle.transporterId ?? "");
+    if (vehicle.driverName) setValue("driverName", vehicle.driverName);
+    if (vehicle.driverPhone) setValue("driverPhone", vehicle.driverPhone);
+  };
   const { data: nextNumber } = useSWR<{ number: string | null }>(!shipment && date ? shipmentNumberPreviewPath(date) : null, apiGet);
   const picked = invoices.filter((invoice) => invoiceIds.includes(invoice.id));
   const buyer = picked[0]?.partyId;
@@ -109,7 +127,12 @@ export function ShipmentForm({ invoices, transporters, defaultBorderPoint, shipm
       chosen.reduce((total, candidate) => total + (Number(candidate.documents.find((doc) => doc.kind === "PACKING_LIST")?.details[key]) || 0), 0);
     if (sum("packages")) setValue("packages", String(sum("packages")));
     if (sum("grossKg")) setValue("grossWeightKg", String(Math.round(sum("grossKg") * 1000) / 1000));
-    if (chosen[0]?.vehicleNumber && !getValues("vehicleNumber")) setValue("vehicleNumber", chosen[0].vehicleNumber);
+    const invoiceVehicle = chosen[0]?.vehicleNumber;
+    if (invoiceVehicle && !getValues("vehicleNumber")) {
+      const known = vehicles.find((vehicle) => vehicle.number === normaliseVehicle(invoiceVehicle));
+      if (known) pickVehicle(known.id);
+      else setValue("vehicleNumber", invoiceVehicle);
+    }
     const city = chosen[0]?.shipToCity;
     if (city && !getValues("destination")) setValue("destination", city);
   };
@@ -122,6 +145,7 @@ export function ShipmentForm({ invoices, transporters, defaultBorderPoint, shipm
         partyId: invoices.find((invoice) => invoice.id === values.invoiceIds[0])!.partyId,
         invoiceIds: values.invoiceIds,
         vehicleNumber: normaliseVehicle(values.vehicleNumber),
+        vehicleId: values.vehicleId || null,
         transporterId: values.transporterId || null,
         driverName: text(values.driverName),
         driverPhone: text(values.driverPhone),
@@ -187,8 +211,26 @@ export function ShipmentForm({ invoices, transporters, defaultBorderPoint, shipm
       <GlassCard className="flex flex-col gap-3.5">
         <CardTitle>Truck and driver</CardTitle>
         <div className="grid gap-3.5 @xl:grid-cols-3">
-          <TextField label="Vehicle number" placeholder="WB73E1234" error={errors.vehicleNumber?.message} {...register("vehicleNumber")} />
+          <SelectField
+            label="Vehicle"
+            options={[
+              { value: TYPED, label: "Not on the list" },
+              ...vehicles.map((vehicle) => ({ value: vehicle.id, label: `${vehicle.number} · ${vehicle.ownership === "OWN" ? "own" : (vehicle.transporterName ?? "hired")}` })),
+            ]}
+            value={vehicleId || TYPED}
+            onValueChange={(value) => pickVehicle(value === TYPED ? "" : value)}
+          />
+          <TextField
+            label="Vehicle number"
+            placeholder="WB73E1234"
+            readOnly={Boolean(vehicleId)}
+            hint={vehicleId ? "From the vehicle master" : undefined}
+            error={errors.vehicleNumber?.message}
+            {...register("vehicleNumber")}
+          />
           <TextField label="Loading date" type="date" max={today ?? undefined} error={errors.date?.message} {...register("date")} />
+        </div>
+        <div className="grid gap-3.5 @xl:grid-cols-3">
           <Controller
             control={control}
             name="transporterId"
@@ -201,11 +243,8 @@ export function ShipmentForm({ invoices, transporters, defaultBorderPoint, shipm
               />
             )}
           />
-        </div>
-        <div className="grid gap-3.5 @xl:grid-cols-3">
           <TextField label="Driver" error={errors.driverName?.message} {...register("driverName")} />
           <TextField label="Driver's phone" inputMode="tel" error={errors.driverPhone?.message} {...register("driverPhone")} />
-          <TextField label="Seal number" error={errors.sealNumber?.message} {...register("sealNumber")} />
         </div>
       </GlassCard>
 
@@ -219,6 +258,7 @@ export function ShipmentForm({ invoices, transporters, defaultBorderPoint, shipm
         <div className="grid gap-3.5 @xl:grid-cols-3">
           <TextField label="Packages" inputMode="numeric" hint="From the packing lists" error={errors.packages?.message} {...register("packages")} />
           <TextField label="Gross weight (kg)" inputMode="decimal" hint="From the packing lists" error={errors.grossWeightKg?.message} {...register("grossWeightKg")} />
+          <TextField label="Seal number" error={errors.sealNumber?.message} {...register("sealNumber")} />
         </div>
         {picked.length > 0 && (
           <p className="text-xs font-semibold text-muted">

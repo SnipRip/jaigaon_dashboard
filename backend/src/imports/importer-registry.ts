@@ -12,6 +12,7 @@ import { PartiesService } from '../parties/parties.service.js';
 import { PriceListService } from '../price-list/price-list.service.js';
 import { SpecialRatesService } from '../pricing/special-rates.service.js';
 import { UnitsService } from '../units/units.service.js';
+import { VehiclesService } from '../vehicles/vehicles.service.js';
 import { hsnImporter, itemsImporter } from './importers/catalog.importers.js';
 import { ledgersImporter } from './importers/ledgers.importer.js';
 import { loansImporter } from './importers/loans.importer.js';
@@ -25,6 +26,7 @@ import {
   godownsImporter,
   unitsImporter,
 } from './importers/simple-masters.importers.js';
+import { vehiclesImporter } from './importers/vehicles.importer.js';
 import type { MasterImporter } from './master-importer.js';
 
 // Every master that can be filled from a sheet, by its URL key. Staff
@@ -47,6 +49,7 @@ export class ImporterRegistry {
     priceList: PriceListService,
     loans: LoansService,
     ledgers: LedgersService,
+    vehicles: VehiclesService,
   ) {
     const all = [
       unitsImporter(units, prisma),
@@ -62,6 +65,7 @@ export class ImporterRegistry {
       priceListImporter(priceList, prisma),
       loansImporter(loans, prisma),
       ledgersImporter(ledgers, prisma),
+      vehiclesImporter(vehicles, prisma),
     ] as unknown as MasterImporter[];
     this.importers = new Map(all.map((importer) => [importer.key, importer]));
   }

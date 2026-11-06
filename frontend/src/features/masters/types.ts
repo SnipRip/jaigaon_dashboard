@@ -76,11 +76,15 @@ export interface Transporter extends MasterRecord {
 export interface Vehicle extends MasterRecord {
   number: string;
   type: "truck-10" | "truck-6" | "trailer" | "pickup";
-  capacityTons: number;
+  capacityTons?: number;
   ownership: "own" | "hired";
+  /** The transport vendor (a party) of a hired vehicle. */
   transporterId?: string;
+  transporterName?: string;
   driverName?: string;
   driverPhone?: string;
+  notes?: string;
+  shipmentCount?: number;
 }
 
 /** follows-bill: takes the goods bill's rate; own-rate: the head's own rate; none: no GST. */

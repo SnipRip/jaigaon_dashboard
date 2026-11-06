@@ -19,7 +19,7 @@ import {
 import { IsIsoDate } from '../../common/dto/field-validators.js';
 import { codeOrNull, trim, trimToNull } from '../../common/dto/text-transforms.js';
 import { ShipmentStage } from '../../generated/prisma/enums.js';
-import { normaliseVehicle, VEHICLE_PATTERN } from '../shipment-rules.js';
+import { DRIVER_PHONE_MESSAGE, DRIVER_PHONE_PATTERN, VEHICLE_MESSAGE, VEHICLE_PATTERN, vehicleTransform } from '../../common/vehicle-number.js';
 
 // Field formats only; shipments.service.ts checks the buyer, the invoices,
 // the transporter and the stage.
@@ -39,10 +39,15 @@ export class ShipmentDto {
   @IsUUID('all', { each: true })
   invoiceIds: string[];
 
-  @Transform(({ value }: { value: unknown }) => (typeof value === 'string' ? normaliseVehicle(value) : value))
+  @Transform(vehicleTransform)
   @IsString()
-  @Matches(VEHICLE_PATTERN, { message: 'Vehicle number like WB73E1234 or BG2A1234' })
+  @Matches(VEHICLE_PATTERN, { message: VEHICLE_MESSAGE })
   vehicleNumber: string;
+
+  /** Picked from the vehicle master; its number replaces vehicleNumber. None for a truck typed in. */
+  @IsOptional()
+  @IsUUID()
+  vehicleId?: string | null;
 
   /** A transport vendor on record; none for our own truck. */
   @IsOptional()
@@ -57,7 +62,7 @@ export class ShipmentDto {
 
   @Transform(trimToNull)
   @IsOptional()
-  @Matches(/^\+?\d{8,13}$/, { message: "Driver's phone is 8 to 13 digits" })
+  @Matches(DRIVER_PHONE_PATTERN, { message: DRIVER_PHONE_MESSAGE })
   driverPhone?: string | null;
 
   @Transform(trim)

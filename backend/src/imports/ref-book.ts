@@ -4,7 +4,7 @@
 import type { PrismaService } from '../database/prisma.service.js';
 import { RowProblem } from './import-cells.js';
 
-export type RefKind = 'category' | 'brand' | 'unit' | 'customer' | 'item' | 'bankAccount' | 'accountHead' | 'ledger' | 'ledgerGroup';
+export type RefKind = 'category' | 'brand' | 'unit' | 'customer' | 'vendor' | 'item' | 'bankAccount' | 'accountHead' | 'ledger' | 'ledgerGroup';
 
 /** What a column needs to write a name for an id. */
 export interface RefNames {
@@ -16,6 +16,7 @@ const LABELS: Record<RefKind, string> = {
   brand: 'brand',
   unit: 'unit',
   customer: 'customer',
+  vendor: 'vendor',
   item: 'item (by SKU)',
   bankAccount: 'bank or cash account',
   accountHead: 'expense or income head',
@@ -49,7 +50,7 @@ export class RefBook implements RefNames {
     const found = this.ids.get(kind)?.get(key(name)) ?? [];
     if (found.length === 1) return found[0];
     if (found.length > 1) {
-      throw new RowProblem(`More than one ${LABELS[kind]} is called "${name}"${kind === 'customer' ? '; use their GSTIN' : ''}`);
+      throw new RowProblem(`More than one ${LABELS[kind]} is called "${name}"${kind === 'customer' || kind === 'vendor' ? '; use their GSTIN' : ''}`);
     }
     throw new RowProblem(`No ${LABELS[kind]} called "${name}"${kind === 'category' ? ` (write a sub-category as Parent${CATEGORY_SEPARATOR}Sub-category)` : ''}`);
   }
@@ -102,6 +103,13 @@ export class RefBook implements RefNames {
           kind,
           (
             await db.party.findMany({ where: { isCustomer: true }, select: { id: true, displayName: true, gstin: true } })
+          ).map((party) => ({ id: party.id, name: party.displayName, aliases: [party.gstin] })),
+        );
+      case 'vendor':
+        return this.set(
+          kind,
+          (
+            await db.party.findMany({ where: { isVendor: true }, select: { id: true, displayName: true, gstin: true } })
           ).map((party) => ({ id: party.id, name: party.displayName, aliases: [party.gstin] })),
         );
       case 'item':

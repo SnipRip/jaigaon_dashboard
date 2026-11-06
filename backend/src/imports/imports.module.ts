@@ -11,6 +11,7 @@ import { PartiesModule } from '../parties/parties.module.js';
 import { PriceListModule } from '../price-list/price-list.module.js';
 import { PricingModule } from '../pricing/pricing.module.js';
 import { UnitsModule } from '../units/units.module.js';
+import { VehiclesModule } from '../vehicles/vehicles.module.js';
 import { ImporterRegistry } from './importer-registry.js';
 import { ImportsController } from './imports.controller.js';
 import { ImportsService } from './imports.service.js';
@@ -30,6 +31,7 @@ import { ImportsService } from './imports.service.js';
     PriceListModule,
     LoansModule,
     LedgersModule,
+    VehiclesModule,
   ],
   controllers: [ImportsController],
   providers: [ImporterRegistry, ImportsService],
