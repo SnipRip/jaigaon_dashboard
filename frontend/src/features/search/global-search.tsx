@@ -4,19 +4,36 @@ import clsx from "clsx";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
-import { searchEntries, type SearchEntry } from "./search-match";
+import useSWR from "swr";
+import { useDebounceValue } from "usehooks-ts";
+import { apiGet } from "@/lib/api-client";
+import type { SearchResultView } from "@/types/search";
 
-// The top bar's search (SOW 17): products, parties, invoices, Shipping Bill
-// and LEO numbers, vehicles. Arrow keys move, Enter opens, Escape closes,
-// Ctrl+K (⌘K) jumps here from anywhere.
-export function GlobalSearch({ index }: { index: SearchEntry[] }) {
+/** Wait this long after the last key before asking the server. */
+const TYPING_PAUSE_MS = 250;
+/** Results shown; the server sends at most five of each kind. */
+const SHOWN = 10;
+/** Fewer characters match nearly everything (the server refuses them too). */
+const MIN_LENGTH = 2;
+
+const searchPath = (query: string) => `/search?q=${encodeURIComponent(query)}`;
+
+// The top bar's search (SOW 17) on the server (GET /search): items, parties,
+// quotations, invoices and their document numbers (IRN, e-way bill, Shipping
+// Bill, LEO …), bills, shipments, transfers, receipts and payments, expenses,
+// vehicles; only what the user's role may open. Arrow keys move, Enter
+// opens, Escape closes, Ctrl+K (⌘K) jumps here from anywhere.
+export function GlobalSearch() {
   const router = useRouter();
   const listId = useId();
   const input = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
-  const results = searchEntries(index, query);
+  const [asked] = useDebounceValue(query.trim(), TYPING_PAUSE_MS);
+  const { data, error, isLoading } = useSWR<SearchResultView[]>(asked.length >= MIN_LENGTH ? searchPath(asked) : null, apiGet, { keepPreviousData: true });
+  const waiting = asked !== query.trim() || isLoading;
+  const results = (asked.length >= MIN_LENGTH ? (data ?? []) : []).slice(0, SHOWN);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -29,7 +46,7 @@ export function GlobalSearch({ index }: { index: SearchEntry[] }) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const go = (target: SearchEntry | undefined) => {
+  const go = (target: SearchResultView | undefined) => {
     if (!target) return;
     router.push(target.href);
     setOpen(false);
@@ -81,9 +98,11 @@ export function GlobalSearch({ index }: { index: SearchEntry[] }) {
         <kbd className="hidden rounded bg-ink/7 px-1.5 py-px text-[11px] font-medium text-muted lg:inline">Ctrl K</kbd>
       </div>
       {open && query.trim() && (
-        <div className="glass-popover absolute inset-x-0 top-[calc(100%+6px)] z-30 animate-pop-in p-1">
-          {results.length === 0 ? (
-            <p className="px-2.5 py-2 text-[13px] text-muted">Nothing matches &ldquo;{query.trim()}&rdquo;.</p>
+        <div className="glass-popover absolute left-0 top-[calc(100%+6px)] w-[max(100%,22rem)] z-30 animate-pop-in p-1">
+          {error ? (
+            <p className="px-2.5 py-2 text-[13px] text-muted">Search is not available right now.</p>
+          ) : results.length === 0 ? (
+            <p className="px-2.5 py-2 text-[13px] text-muted">{query.trim().length < MIN_LENGTH ? "Type at least 2 characters." : waiting ? "Searching…" : <>Nothing matches &ldquo;{query.trim()}&rdquo;.</>}</p>
           ) : (
             <ul id={listId} role="listbox" aria-label="Search results">
               {results.map((result, index) => (

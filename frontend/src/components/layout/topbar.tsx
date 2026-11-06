@@ -9,11 +9,10 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import { findNavItem } from "@/config/navigation";
 import { useCurrentUser } from "@/features/auth/current-user-context";
 import { GlobalSearch } from "@/features/search/global-search";
-import type { SearchEntry } from "@/features/search/search-match";
 
 // Page title (taken from the navigation config), global search and the
 // shortcuts that are useful on every screen.
-export function Topbar({ onOpenMenu, searchIndex }: { onOpenMenu: () => void; searchIndex: SearchEntry[] }) {
+export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   const page = findNavItem(usePathname());
   const user = useCurrentUser();
 
@@ -33,7 +32,7 @@ export function Topbar({ onOpenMenu, searchIndex }: { onOpenMenu: () => void; se
         {page && <span className="truncate text-xs text-muted">{page.summary}</span>}
       </div>
 
-      <GlobalSearch index={searchIndex} />
+      <GlobalSearch />
 
       <Link href="/quotations/new" className={buttonClasses("primary", "shrink-0 max-sm:w-8 max-sm:px-0")}>
         <Plus aria-hidden="true" />

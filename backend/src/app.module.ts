@@ -39,6 +39,7 @@ import { ExpensesModule } from './expenses/expenses.module.js';
 import { ShipmentsModule } from './shipments/shipments.module.js';
 import { VehiclesModule } from './vehicles/vehicles.module.js';
 import { TransportersModule } from './transporters/transporters.module.js';
+import { SearchModule } from './search/search.module.js';
 import { DocumentRegisterModule } from './document-register/document-register.module.js';
 import { ProfitModule } from './profit/profit.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
@@ -76,6 +77,7 @@ import { WhatsappOptInsModule } from './whatsapp-optins/whatsapp-optins.module.j
     ShipmentsModule,
     VehiclesModule,
     TransportersModule,
+    SearchModule,
     DocumentRegisterModule,
     ProfitModule,
     DashboardModule,

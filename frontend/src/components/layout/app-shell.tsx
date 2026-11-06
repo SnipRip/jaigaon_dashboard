@@ -3,7 +3,6 @@
 import { useState, type ReactNode } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import type { SearchEntry } from "@/features/search/search-match";
 import { PageBackdrop } from "./page-backdrop";
 import { PointerLight } from "./pointer-light";
 import { Sidebar } from "./sidebar";
@@ -14,7 +13,7 @@ const SIDEBAR_COLLAPSED_KEY = "jqe.sidebar-collapsed";
 // The frame around every signed-in page: sidebar, top bar and the page itself.
 // The collapsed state is remembered per browser. Below the `lg` breakpoint the
 // sidebar becomes a drawer opened from the top bar.
-export function AppShell({ children, searchIndex }: { children: ReactNode; searchIndex: SearchEntry[] }) {
+export function AppShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useLocalStorage(SIDEBAR_COLLAPSED_KEY, false, {
     initializeWithValue: false,
   });
@@ -50,7 +49,7 @@ export function AppShell({ children, searchIndex }: { children: ReactNode; searc
           )}
 
           <div className="flex min-w-0 flex-1 flex-col gap-3 sm:gap-3.5">
-            <Topbar onOpenMenu={() => setDrawerOpen(true)} searchIndex={searchIndex} />
+            <Topbar onOpenMenu={() => setDrawerOpen(true)} />
             <main className="flex min-w-0 flex-col gap-3 sm:gap-3.5">{children}</main>
           </div>
         </div>

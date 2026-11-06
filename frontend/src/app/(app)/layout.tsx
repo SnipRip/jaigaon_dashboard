@@ -3,7 +3,6 @@ import { AppShell } from "@/components/layout/app-shell";
 import { PageBackdrop } from "@/components/layout/page-backdrop";
 import { CurrentUserProvider } from "@/features/auth/current-user-context";
 import { PendingPasswordGate } from "@/features/auth/pending-password-gate";
-import { buildSearchIndex } from "@/features/search/search-index";
 import { getCurrentUser } from "@/lib/server/current-user";
 
 // Every route in the (app) group renders inside this layout, so nothing in it
@@ -21,7 +20,7 @@ async function AuthenticatedShell({ children }: { children: ReactNode }) {
   return (
     <CurrentUserProvider user={user}>
       <PendingPasswordGate />
-      <AppShell searchIndex={buildSearchIndex()}>{children}</AppShell>
+      <AppShell>{children}</AppShell>
     </CurrentUserProvider>
   );
 }
