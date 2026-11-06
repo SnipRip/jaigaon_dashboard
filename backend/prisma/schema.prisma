@@ -408,6 +408,9 @@ model Party {
   exportRoute   ExportRoute?
   // Vendors: goods transport agency, freight under reverse charge.
   isGta         Boolean       @default(false)
+  // Vendors without a GSTIN: the 15-character TRANSIN from the e-way bill
+  // portal, their transporter ID on e-way bills (a GSTIN serves otherwise).
+  transin       String?       @unique
 
   addressLine String?
   city        String?

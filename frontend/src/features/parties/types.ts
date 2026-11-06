@@ -47,6 +47,8 @@ export interface Party {
   /** Vendors. */
   udyamNumber?: string;
   isGta?: boolean;
+  /** Vendors without a GSTIN: their transporter ID on e-way bills. */
+  transin?: string;
   bankAccount?: { name: string; number: string; ifsc: string };
 
   /** Customers: what they owe. Vendors: what we owe. See dueFor in party-rules.ts. */

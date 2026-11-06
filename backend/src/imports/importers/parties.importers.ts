@@ -39,7 +39,10 @@ function partyColumns(role: 'customer' | 'vendor'): ImportColumn<Party>[] {
     { header: 'Currency', field: 'currency', kind: 'choice', choices: CURRENCIES, keepIfBlank: true, value: (party) => party.currency },
     ...(role === 'customer'
       ? [{ header: 'Export route', field: 'exportRoute', kind: 'choice', choices: ROUTES, value: (party) => label(ROUTES, party.exportRoute) } satisfies ImportColumn<Party>]
-      : [{ header: 'Bills as a GTA', field: 'isGta', kind: 'yesno', hint: 'A goods transport agency: freight under reverse charge.', value: (party) => (party.isGta ? 'Yes' : 'No') } satisfies ImportColumn<Party>]),
+      : [
+          { header: 'Bills as a GTA', field: 'isGta', kind: 'yesno', hint: 'A goods transport agency: freight under reverse charge.', value: (party) => (party.isGta ? 'Yes' : 'No') } satisfies ImportColumn<Party>,
+          { header: 'TRANSIN', field: 'transin', kind: 'text', hint: 'A transporter without a GSTIN: its 15-character transporter ID for e-way bills.', value: (party) => party.transin } satisfies ImportColumn<Party>,
+        ]),
     { header: 'Contact person', field: 'contactPerson', kind: 'text', value: (party) => party.contactPerson },
     { header: 'Phone', field: 'phone', kind: 'text', value: (party) => party.phone },
     { header: 'Email', field: 'email', kind: 'text', value: (party) => party.email },

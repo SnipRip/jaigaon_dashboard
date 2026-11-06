@@ -9,6 +9,8 @@ export interface TransporterView {
   treatment: PartyView["treatment"];
   /** Goes on the e-way bill as the transporter ID. */
   gstin: string | null;
+  /** Without a GSTIN: the TRANSIN, the transporter ID instead. */
+  transin: string | null;
   /** Bills freight as a goods transport agency: reverse charge. */
   isGta: boolean;
   isArchived: boolean;

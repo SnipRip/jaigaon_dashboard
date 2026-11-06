@@ -24,6 +24,8 @@ export const partySchema = z
     currency: z.enum(["INR", "BTN"]),
     exportRoute: z.enum(["lut", "igst"]),
     isGta: z.boolean(),
+    /** Vendors without a GSTIN (backend: TRANSIN_PATTERN). */
+    transin: z.union([z.literal(""), z.string().trim().toUpperCase().regex(/^\d{2}[A-Z0-9]{13}$/, "15 characters: the state code, then 13 letters or digits")]),
 
     addressLine: z.string().trim().max(160),
     city: z.string().trim().max(60),

@@ -191,7 +191,7 @@ export class SearchService {
       where: {
         isArchived: false,
         OR: roles,
-        ...everyWord<Prisma.PartyWhereInput>(words, [(w) => ({ displayName: has(w) }), (w) => ({ legalName: has(w) }), (w) => ({ gstin: has(w) }), (w) => ({ phone: has(w) }), (w) => ({ city: has(w) })]),
+        ...everyWord<Prisma.PartyWhereInput>(words, [(w) => ({ displayName: has(w) }), (w) => ({ legalName: has(w) }), (w) => ({ gstin: has(w) }), (w) => ({ transin: has(w) }), (w) => ({ phone: has(w) }), (w) => ({ city: has(w) })]),
       },
       orderBy: { displayName: 'asc' },
       take: PER_KIND * 2,

@@ -54,6 +54,7 @@ function toValues(role: PartyRole, party?: Party): PartyFormValues {
     currency: party?.currency ?? "INR",
     exportRoute: party?.exportRoute ?? "lut",
     isGta: party?.isGta ?? false,
+    transin: party?.transin ?? "",
     addressLine: party?.billing.line1 ?? "",
     city: party?.billing.city ?? "",
     pin: party?.billing.pin ?? "",
@@ -293,6 +294,16 @@ export function PartyForm({ role, party, companyState, onSave, onArchive }: Part
                   <p className="text-[11.5px] text-muted">Yes for truck transporters whose freight bills fall under reverse charge.</p>
                 </div>
               )}
+            />
+          )}
+
+          {isVendor && !needsGstin(treatment) && treatment !== "overseas" && (
+            <TextField
+              label="TRANSIN (transporter ID)"
+              placeholder="19AAAAA0000A1Z5"
+              hint="Only for a transporter without a GSTIN: the ID the e-way bill portal gave it."
+              error={errors.transin?.message}
+              {...register("transin")}
             />
           )}
         </GlassCard>

@@ -18,6 +18,7 @@ const base: PartyFacts = {
   currency: 'INR',
   exportRoute: null,
   isGta: false,
+  transin: null,
   creditLimit: null,
   openingBalanceSide: 'PAYABLE',
 };
@@ -130,5 +131,13 @@ describe('partyProblem', () => {
       /Unknown GST state code/,
     );
     expect(partyProblem({ ...consumer, placeOfSupply: '19' })).toBeNull();
+  });
+
+  it('takes a TRANSIN only from a vendor without a GSTIN', () => {
+    const transporter: PartyFacts = { ...base, isCustomer: false, isVendor: true, treatment: 'UNREGISTERED', gstin: null, placeOfSupply: '19', transin: '19AAAAA0000A1Z5' };
+    expect(partyProblem(transporter)).toBeNull();
+    expect(partyProblem({ ...transporter, transin: '19AAA' })).toMatch(/15 characters/);
+    expect(partyProblem({ ...base, isVendor: true, placeOfSupply: '19', pan: 'ABCDE1234F', transin: '19AAAAA0000A1Z5' })).toMatch(/uses it as the transporter ID/);
+    expect(settleParty({ ...transporter, isCustomer: true, isVendor: false }).transin).toBeNull();
   });
 });

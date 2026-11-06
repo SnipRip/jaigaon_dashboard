@@ -8,6 +8,9 @@ import {
 } from '../common/gst/gstin.js';
 import type { BalanceSide, GstTreatment } from '../generated/prisma/enums.js';
 
+/** The transporter ID the e-way bill portal gives a transporter without a GSTIN. */
+export const TRANSIN_PATTERN = /^\d{2}[A-Z0-9]{13}$/;
+
 /** The fields the rules look at, after an update is merged onto the stored party. */
 export interface PartyFacts {
   isCustomer: boolean;
@@ -21,6 +24,7 @@ export interface PartyFacts {
   currency: 'INR' | 'BTN';
   exportRoute: 'LUT' | 'IGST' | null;
   isGta: boolean;
+  transin: string | null;
   creditLimit: number | null;
   openingBalanceSide: BalanceSide;
 }
@@ -63,7 +67,10 @@ export function settleParty<T extends PartyFacts>(party: T): T {
   } else {
     settled.exportRoute = null;
   }
-  if (!party.isVendor) settled.isGta = false;
+  if (!party.isVendor) {
+    settled.isGta = false;
+    settled.transin = null;
+  }
   if (!party.isCustomer) {
     settled.creditLimit = null;
   }
@@ -92,6 +99,11 @@ export function partyProblem(party: PartyFacts): string | null {
     }
   } else if (party.gstin) {
     return 'Only registered, composition and SEZ parties have a GSTIN';
+  }
+
+  if (party.transin) {
+    if (party.gstin) return 'A vendor with a GSTIN uses it as the transporter ID; leave TRANSIN blank';
+    if (!TRANSIN_PATTERN.test(party.transin)) return 'TRANSIN is 15 characters: the state code, then 13 letters or digits';
   }
 
   if (party.treatment === 'OVERSEAS') {

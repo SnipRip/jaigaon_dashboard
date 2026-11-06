@@ -19,12 +19,12 @@ import { formatDate, formatQuantity } from "@/lib/format";
 import type { TransporterView } from "@/types/transporter";
 import { TRANSPORTERS_PATH, withArchived } from "./masters-api";
 
-type Filter = "all" | "gta" | "no-gstin" | "archived";
+type Filter = "all" | "gta" | "no-id" | "archived";
 
 const FILTERS: { value: Filter; label: string; test?: (transporter: TransporterView) => boolean }[] = [
   { value: "all", label: "All" },
   { value: "gta", label: "Reverse charge (GTA)", test: (transporter) => transporter.isGta },
-  { value: "no-gstin", label: "Without GSTIN", test: (transporter) => !transporter.gstin },
+  { value: "no-id", label: "No transporter ID", test: (transporter) => !transporter.gstin && !transporter.transin },
   { value: "archived", label: "Archived" },
 ];
 
@@ -37,7 +37,7 @@ function freightGst(transporter: TransporterView): { label: string; tone: Status
 }
 
 const matches = (transporter: TransporterView, needle: string) =>
-  !needle || [transporter.displayName, transporter.gstin, transporter.phone, transporter.contactPerson].some((text) => text?.toLowerCase().includes(needle));
+  !needle || [transporter.displayName, transporter.gstin, transporter.transin, transporter.phone, transporter.contactPerson].some((text) => text?.toLowerCase().includes(needle));
 
 // Transporters (real): a view of the vendors who carry our goods, not a
 // table of its own. A vendor shows here when it bills freight as a GTA, has
@@ -60,7 +60,7 @@ export function TransportersMaster() {
       <div className="grid grid-cols-2 gap-3.5 md:grid-cols-4">
         <StatTile label="Transporters" value={formatQuantity(live.length)} />
         <StatTile label="Under reverse charge" value={formatQuantity(live.filter((transporter) => transporter.isGta).length)} />
-        <StatTile label="Without GSTIN" value={formatQuantity(live.filter((transporter) => !transporter.gstin).length)} />
+        <StatTile label="No transporter ID" value={formatQuantity(live.filter((transporter) => !transporter.gstin && !transporter.transin).length)} />
         <StatTile label="Vehicles on record" value={formatQuantity(live.reduce((sum, transporter) => sum + transporter.vehicleCount, 0))} />
       </div>
 
@@ -84,7 +84,7 @@ export function TransportersMaster() {
             label="Search transporters"
             value={query}
             onChange={setQuery}
-            placeholder="Search by name, GSTIN or phone"
+            placeholder="Search by name, GSTIN, TRANSIN or phone"
             trailing={`${visible.length} of ${shown.length}`}
           />
           <FilterGroup label="Show">
@@ -119,12 +119,13 @@ export function TransportersMaster() {
                     <div className="text-xs text-muted">{[transporter.contactPerson, transporter.phone].filter(Boolean).join(" · ")}</div>
                   </td>
                   <td className="text-left">
-                    {transporter.gstin ?? (
+                    {transporter.gstin ?? transporter.transin ?? (
                       <>
-                        <span className="text-muted">No GSTIN</span>
-                        <div className="text-xs font-normal text-muted">E-way bill by vehicle number</div>
+                        <span className="text-muted">None</span>
+                        <div className="text-xs font-normal text-muted">Add the TRANSIN on the vendor, or the e-way bill goes by vehicle number</div>
                       </>
                     )}
+                    {!transporter.gstin && transporter.transin && <div className="text-xs font-normal text-muted">TRANSIN</div>}
                   </td>
                   <td className="text-left">
                     <StatusChip tone={gst.tone}>{gst.label}</StatusChip>

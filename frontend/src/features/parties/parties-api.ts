@@ -43,6 +43,7 @@ export function toParty(view: PartyView): Party {
     balanceSide: view.openingBalanceSide === "RECEIVABLE" ? "receivable" : "payable",
     udyamNumber: orUndefined(view.udyamNumber),
     isGta: view.isGta,
+    transin: orUndefined(view.transin),
     bankAccount: view.bankAccountNumber
       ? { name: view.bankName ?? "", number: view.bankAccountNumber, ifsc: view.ifsc ?? "" }
       : undefined,
@@ -80,6 +81,7 @@ function partyBody(values: PartyFormValues) {
     currency: overseas ? values.currency : "INR",
     exportRoute: overseas && isCustomer ? values.exportRoute.toUpperCase() : null,
     isGta: isVendor && values.isGta,
+    transin: isVendor && !withGstin ? orNull(values.transin) : null,
     addressLine: orNull(values.addressLine),
     city: orNull(values.city),
     pin: overseas ? null : orNull(values.pin),

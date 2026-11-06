@@ -18,6 +18,8 @@ export interface PartyView {
   currency: "INR" | "BTN";
   exportRoute: "LUT" | "IGST" | null;
   isGta: boolean;
+  /** Vendors without a GSTIN: transporter ID on e-way bills. */
+  transin: string | null;
   addressLine: string | null;
   city: string | null;
   pin: string | null;

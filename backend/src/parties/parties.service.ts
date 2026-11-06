@@ -49,6 +49,7 @@ const factsOf = (party: Party): PartyFacts => ({
   currency: party.currency,
   exportRoute: party.exportRoute,
   isGta: party.isGta,
+  transin: party.transin,
   creditLimit: toNumber(party.creditLimit),
   openingBalanceSide: party.openingBalanceSide,
 });
@@ -88,6 +89,7 @@ export class PartiesService {
         currency: dto.currency ?? 'INR',
         exportRoute: dto.exportRoute ?? null,
         isGta: dto.isGta ?? false,
+        transin: dto.transin ?? null,
         creditLimit: dto.creditLimit ?? null,
         openingBalanceSide: dto.openingBalanceSide ?? 'RECEIVABLE',
       }),

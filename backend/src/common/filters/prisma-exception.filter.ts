@@ -44,6 +44,7 @@ const FIELD_LABELS: Record<string, string> = {
   financialYear: 'financial year',
   gstin: 'GSTIN',
   sku: 'SKU',
+  transin: 'TRANSIN',
   skuPrefix: 'SKU prefix',
   uqc: 'UQC',
 };

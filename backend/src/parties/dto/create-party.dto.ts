@@ -114,6 +114,12 @@ export class CreatePartyDto {
   @IsBoolean()
   isGta?: boolean;
 
+  /** Vendors without a GSTIN; checked against TRANSIN_PATTERN in party-rules. */
+  @Transform(codeOrNull)
+  @IsOptional()
+  @IsString()
+  transin?: string | null;
+
   @Transform(trimToNull)
   @IsOptional()
   @IsString()

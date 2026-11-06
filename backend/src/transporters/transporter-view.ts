@@ -17,6 +17,7 @@ export const transporterSelect = {
   phone: true,
   treatment: true,
   gstin: true,
+  transin: true,
   isGta: true,
   isArchived: true,
   _count: {
