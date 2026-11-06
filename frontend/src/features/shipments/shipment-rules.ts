@@ -1,6 +1,6 @@
-// Shipment stages and the papers each stage needs. No React.
-import type { DispatchDocumentKind, Invoice } from "@/features/invoices/types";
-import type { Shipment, ShipmentStatus } from "./types";
+// Shipment stage names and hints for the screens (the server holds the
+// papers each stage needs: backend/src/shipments/shipment-rules.ts). No React.
+import type { ShipmentStatus } from "./types";
 
 export const SHIPMENT_STAGES: { status: ShipmentStatus; label: string; hint: string }[] = [
   { status: "planned", label: "Planned", hint: "Invoices picked, truck booked" },
@@ -18,22 +18,5 @@ export const stageIndex = (status: ShipmentStatus) => SHIPMENT_STAGES.findIndex(
 /** The next stage, or undefined once delivered. */
 export const nextStage = (status: ShipmentStatus) => SHIPMENT_STAGES[stageIndex(status) + 1]?.status;
 
-/** Papers a truck needs before it may reach each stage. */
-const NEEDED_BY: Partial<Record<ShipmentStatus, DispatchDocumentKind[]>> = {
-  "in-transit": ["lorry-challan", "eway-bill"],
-  "at-border": ["customs-invoice", "packing-list", "shipping-bill"],
-  cleared: ["leo"],
-};
-
-/** Papers missing on any invoice of the shipment for it to move to `status`. */
-export function missingFor(status: ShipmentStatus, invoices: Invoice[]): { invoice: Invoice; kind: DispatchDocumentKind }[] {
-  const needed = SHIPMENT_STAGES.slice(0, stageIndex(status) + 1).flatMap((stage) => NEEDED_BY[stage.status] ?? []);
-  return invoices.flatMap((invoice) => needed.filter((kind) => !invoice.documents[kind]).map((kind) => ({ invoice, kind })));
-}
-
 export const shipmentNumber = (financialYear: string, sequence: number) =>
   `SHP/${financialYear.replace("-", "").slice(2)}/${String(sequence).padStart(4, "0")}`;
-
-/** Export invoices not yet on any shipment, which a new shipment can carry. */
-export const unshippedInvoices = (invoices: Invoice[], shipments: Shipment[]) =>
-  invoices.filter((invoice) => invoice.kind === "export" && invoice.status !== "cancelled" && !shipments.some((shipment) => shipment.invoiceIds.includes(invoice.id)));

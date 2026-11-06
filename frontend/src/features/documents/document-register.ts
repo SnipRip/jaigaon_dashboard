@@ -1,9 +1,7 @@
-// Sample data only: the dashboard and global search still build a register
-// and a missing list from the sample invoices, bills and shipments. The
-// /documents page reads the real register (documents-api.ts,
-// backend/src/document-register).
+// Sample data only: global search still builds a register from the sample
+// invoices, bills and shipments. The /documents page reads the real register
+// (documents-api.ts, backend/src/document-register).
 import { documentType } from "@/features/invoices/dispatch-documents";
-import { invoiceTax, invoiceTotals, missingDocuments, needsEinvoice } from "@/features/invoices/invoice-rules";
 import type { DispatchDocumentKind, Invoice } from "@/features/invoices/types";
 import type { Party } from "@/features/parties/types";
 import type { Bill } from "@/features/purchases/types";
@@ -70,20 +68,4 @@ export function buildRegister(invoices: Invoice[], bills: Bill[], shipments: Shi
   });
 
   return [...fromInvoices, ...fromBills].sort((a, b) => b.date.localeCompare(a.date));
-}
-
-/** Required papers not yet attached, on issued invoices. */
-export function missingRegister(invoices: Invoice[], parties: Party[], companyState: string) {
-  return invoices
-    .filter((invoice) => invoice.status === "issued")
-    .flatMap((invoice) => {
-      const party = parties.find((candidate) => candidate.id === invoice.partyId)!;
-      const totals = invoiceTotals(invoice.lines, invoiceTax(companyState, invoice, party).regime);
-      return missingDocuments(invoice, totals.grandTotal, needsEinvoice(invoice, party)).map((kind) => ({
-        invoice,
-        party: party.displayName,
-        kind,
-        name: documentType(kind).name,
-      }));
-    });
 }

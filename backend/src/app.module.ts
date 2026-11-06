@@ -39,6 +39,7 @@ import { ExpensesModule } from './expenses/expenses.module.js';
 import { ShipmentsModule } from './shipments/shipments.module.js';
 import { DocumentRegisterModule } from './document-register/document-register.module.js';
 import { ProfitModule } from './profit/profit.module.js';
+import { DashboardModule } from './dashboard/dashboard.module.js';
 import { SettlementsModule } from './settlements/settlements.module.js';
 import { StaffModule } from './staff/staff.module.js';
 import { UnitsModule } from './units/units.module.js';
@@ -73,6 +74,7 @@ import { WhatsappOptInsModule } from './whatsapp-optins/whatsapp-optins.module.j
     ShipmentsModule,
     DocumentRegisterModule,
     ProfitModule,
+    DashboardModule,
     StockMovesModule,
     CompanyProfileModule,
     SalesSettingsModule,

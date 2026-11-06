@@ -7,5 +7,6 @@ import { DocumentRegisterService } from './document-register.service.js';
 @Module({
   controllers: [DocumentRegisterController],
   providers: [DocumentRegisterService],
+  exports: [DocumentRegisterService],
 })
 export class DocumentRegisterModule {}

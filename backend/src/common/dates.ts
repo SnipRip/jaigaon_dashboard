@@ -21,3 +21,6 @@ const DAY_MONTH_YEAR = new Intl.DateTimeFormat('en-IN', {
 });
 /** "3 Nov 2026", for messages. */
 export const formatDate = (iso: string) => DAY_MONTH_YEAR.format(dateOnly(iso));
+
+/** A YYYY-MM-DD date moved by whole days. */
+export const addDays = (iso: string, days: number) => isoDate(new Date(dateOnly(iso).getTime() + days * 86_400_000));

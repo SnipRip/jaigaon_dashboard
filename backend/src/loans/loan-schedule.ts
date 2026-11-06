@@ -11,7 +11,7 @@
 // Flexible loans: one row per interest date (interest on what was owed then,
 // for the period) and one for the repay-by date. An interest entry settles
 // the row it names; the repay-by row is settled once nothing is owed.
-import { dateOnly, isoDate } from '../common/dates.js';
+import { addDays, dateOnly, isoDate } from '../common/dates.js';
 import type { InterestFrequency, LoanEntryKind, LoanRepayment } from '../generated/prisma/enums.js';
 import { FREQUENCY_MONTHS } from './loan-kinds.js';
 
@@ -80,7 +80,6 @@ export function addMonths(iso: string, months: number): string {
   return isoDate(target);
 }
 
-const addDays = (iso: string, days: number) => isoDate(new Date(dateOnly(iso).getTime() + days * 86_400_000));
 const monthsBetween = (from: string, to: string) =>
   (dateOnly(to).getTime() - dateOnly(from).getTime()) / (86_400_000 * (365 / 12));
 

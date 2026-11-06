@@ -31,12 +31,18 @@ export interface CostSource {
   stockBatches: { remaining: Prisma.Decimal; landedRate: Prisma.Decimal; billLineId?: string | null }[];
 }
 
+/** The rows `stockOnHand` reads. */
+export interface StockSource {
+  openingStock: { quantity: Prisma.Decimal; drawn?: Prisma.Decimal }[];
+  stockBatches: { remaining: Prisma.Decimal }[];
+}
+
 const paise = (value: number) => Math.round(value * 100) / 100;
 
 const thousandths = (value: Prisma.Decimal) => Math.round(toNumber(value) * 1000);
 
 /** Quantity on hand, in thousandths so 0.1 + 0.2 kg stays 0.3. */
-export function stockOnHand(source: CostSource): number {
+export function stockOnHand(source: StockSource): number {
   const opening = source.openingStock.reduce((sum, row) => sum + thousandths(row.quantity) - (row.drawn ? thousandths(row.drawn) : 0), 0);
   const batches = source.stockBatches.reduce((sum, row) => sum + thousandths(row.remaining), 0);
   return (opening + batches) / 1000;

@@ -4,7 +4,7 @@ import { HEAD_GROUPS } from '../account-heads/account-head-rules.js';
 import { BANK_CASH_GROUPS } from '../bank-cash-accounts/bank-cash-rules.js';
 import { expensePostings, expenseVoucherType } from '../books/expense-postings.js';
 import { systemLedgers } from '../books/system-ledgers.js';
-import { dateOnly, isoDate, todayInIndia } from '../common/dates.js';
+import { addDays, dateOnly, isoDate, todayInIndia } from '../common/dates.js';
 import { toNumber } from '../common/decimal.js';
 import { PrismaService } from '../database/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
@@ -24,7 +24,6 @@ type Tx = Prisma.TransactionClient;
 const fail = (message: string | null) => {
   if (message) throw new BadRequestException(message);
 };
-const addDays = (iso: string, days: number) => isoDate(new Date(dateOnly(iso).getTime() + days * 86_400_000));
 
 // Expenses. In one transaction: the head is locked FOR SHARE (it cannot be
 // archived or turned into income meanwhile), the vendor row FOR UPDATE (as

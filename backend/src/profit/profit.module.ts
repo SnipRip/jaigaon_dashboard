@@ -7,5 +7,6 @@ import { ProfitService } from './profit.service.js';
 @Module({
   controllers: [ProfitController],
   providers: [ProfitService],
+  exports: [ProfitService],
 })
 export class ProfitModule {}

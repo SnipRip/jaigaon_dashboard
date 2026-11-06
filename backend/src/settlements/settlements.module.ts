@@ -9,5 +9,6 @@ import { SettlementsService } from './settlements.service.js';
   imports: [NumberSeriesModule],
   controllers: [SettlementsController],
   providers: [SettlementsService],
+  exports: [SettlementsService],
 })
 export class SettlementsModule {}

@@ -1,6 +1,7 @@
 // Receipts and payments: who may pay whom through which account, how much
 // can be applied to what, the cash limit, BRC, due dates, ageing and the
 // MSME 45-day rule. Pure; settlements.service.ts loads the facts.
+import { addDays } from '../common/dates.js';
 import type { BankCashKind, PaymentMode, SettlementDirection } from '../generated/prisma/enums.js';
 
 const money = (value: number) => Math.round(value * 100) / 100;
@@ -78,11 +79,6 @@ export function brcProblem(brc: { number: string; date: string } | null, receipt
   return null;
 }
 
-const addDays = (iso: string, days: number) => {
-  const date = new Date(`${iso}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-};
 export const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 
 /** An invoice falls due after the customer's credit days. */
