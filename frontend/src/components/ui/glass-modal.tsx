@@ -1,5 +1,6 @@
 "use client";
 
+import { clsx } from "clsx";
 import { X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import type { ReactNode } from "react";
@@ -13,19 +14,30 @@ interface GlassModalProps {
   children: ReactNode;
   /** Buttons, right-aligned along the bottom. */
   footer?: ReactNode;
+  /** "wide" for a dialog holding a table rather than a short form. */
+  size?: "default" | "wide";
 }
 
 // A dialog floating over the page (Radix Dialog: focus is trapped inside,
 // Escape and a click outside close it). The sheet is the dense popover glass
 // and the page behind is dimmed, not blurred a second time, so text in the
 // dialog stays sharp and opening it costs one blur layer, not two.
-export function GlassModal({ open, onOpenChange, title, description, children, footer }: GlassModalProps) {
+export function GlassModal({ open, onOpenChange, title, description, children, footer, size = "default" }: GlassModalProps) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-30 animate-fade-in bg-ink/35" />
         <div className="pointer-events-none fixed inset-0 z-30 flex items-end justify-center p-3 sm:items-center sm:p-6">
-          <Dialog.Content className="glass-popover pointer-events-auto flex max-h-full w-full max-w-[480px] animate-pop-in flex-col gap-3.5 overflow-y-auto [border-radius:12px] px-[18px] py-4">
+          <Dialog.Content
+            // Closing a toast is not a click outside the dialog.
+            onInteractOutside={(event) => {
+              if (event.target instanceof Element && event.target.closest("[data-sonner-toaster]")) event.preventDefault();
+            }}
+            className={clsx(
+              "glass-popover pointer-events-auto flex max-h-full w-full animate-pop-in flex-col gap-3.5 overflow-y-auto [border-radius:12px] px-[18px] py-4",
+              size === "wide" ? "max-w-[860px]" : "max-w-[480px]",
+            )}
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 flex-col gap-0.5">
                 <Dialog.Title className="text-[15px] leading-tight font-semibold">{title}</Dialog.Title>

@@ -68,7 +68,7 @@ export function ProfileForm() {
           <TextField label="Email · set by the administrator" value={user.email} disabled readOnly />
           <TextField label="Role · set by the administrator" value={user.role === "ADMIN" ? "Administrator" : "Staff"} disabled readOnly />
         </div>
-        {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
+        {result && <FormMessage tone={result.tone} result={result}>{result.text}</FormMessage>}
         <div className="flex flex-wrap gap-2.5">
           <Button type="submit" disabled={isSubmitting || !isDirty}>
             {isSubmitting ? "Saving…" : "Save profile"}

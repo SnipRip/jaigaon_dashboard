@@ -110,7 +110,7 @@ export function LutRegisterCard({ luts, onChanged }: LutRegisterCardProps) {
           </tbody>
         </GlassTable>
       )}
-      {notice && <FormMessage tone={notice.tone}>{notice.text}</FormMessage>}
+      {notice && <FormMessage tone={notice.tone} result={notice}>{notice.text}</FormMessage>}
 
       <GlassModal
         open={editing !== undefined}

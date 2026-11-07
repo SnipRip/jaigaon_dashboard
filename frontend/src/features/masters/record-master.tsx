@@ -288,7 +288,7 @@ export function RecordMaster<T extends MasterRecord>({
           </tbody>
         </GlassTable>
         {visible.length === 0 && <p className="py-6 text-center text-[13px] text-muted">No {many} match.</p>}
-        {notice && <FormMessage tone={notice.tone}>{notice.text}</FormMessage>}
+        {notice && <FormMessage tone={notice.tone} result={notice}>{notice.text}</FormMessage>}
         {footnote && <p className="text-xs font-semibold text-muted">{footnote}</p>}
       </GlassCard>
 

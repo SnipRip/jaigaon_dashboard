@@ -244,7 +244,7 @@ export function OrderForm({ vendors, catalog, godowns, companyState, order, onSa
         <GlassCard className="flex flex-col gap-3">
           <TextArea label="Terms for the vendor" rows={4} error={errors.terms?.message} {...register("terms")} />
           <TextField label="Notes" placeholder="For us only" error={errors.notes?.message} {...register("notes")} />
-          {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
+          {result && <FormMessage tone={result.tone} result={result}>{result.text}</FormMessage>}
           <div className="flex flex-wrap gap-2.5">
             <Button type="submit" size="lg" disabled={isSubmitting}>
               {isSubmitting ? "Saving…" : order ? "Save changes" : "Save order"}

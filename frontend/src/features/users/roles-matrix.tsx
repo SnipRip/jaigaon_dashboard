@@ -115,7 +115,7 @@ export function RolesMatrix({ initialRoles, modules, onSaved }: RolesMatrixProps
           ))}
         </tbody>
       </GlassTable>
-      {notice && <FormMessage tone={notice.tone}>{notice.text}</FormMessage>}
+      {notice && <FormMessage tone={notice.tone} result={notice}>{notice.text}</FormMessage>}
       <Button className="self-start" disabled={role.locked || saving} onClick={() => void save()}>
         {saving ? "Saving…" : `Save ${role.name} role`}
       </Button>

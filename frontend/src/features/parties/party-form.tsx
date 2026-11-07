@@ -362,7 +362,7 @@ export function PartyForm({ role, party, companyState, onSave, onArchive }: Part
         </GlassCard>
 
         <GlassCard className="flex flex-col gap-3">
-          {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
+          {result && <FormMessage tone={result.tone} result={result}>{result.text}</FormMessage>}
           <div className="flex flex-wrap gap-2.5">
             <Button type="submit" size="lg" disabled={isSubmitting || (Boolean(party) && !isDirty)}>
               {isSubmitting ? "Saving…" : party ? "Save changes" : `Save ${ROLE_TEXT[role].one}`}

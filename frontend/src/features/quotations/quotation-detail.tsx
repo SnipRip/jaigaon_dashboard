@@ -199,7 +199,7 @@ export function QuotationDetail({ quotation, party, issuer, items, onChanged }: 
               </p>
             )}
           </div>
-          {notice && <FormMessage tone={notice.tone}>{notice.text}</FormMessage>}
+          {notice && <FormMessage tone={notice.tone} result={notice}>{notice.text}</FormMessage>}
         </GlassCard>
 
         {quotation.history.length > 0 && (

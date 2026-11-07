@@ -83,7 +83,7 @@ export function PasswordForm() {
           error={errors.confirmPassword?.message}
           {...register("confirmPassword")}
         />
-        {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
+        {result && <FormMessage tone={result.tone} result={result}>{result.text}</FormMessage>}
         <Button type="submit" disabled={isSubmitting} className="self-start">
           {isSubmitting ? "Updating…" : "Update password"}
         </Button>

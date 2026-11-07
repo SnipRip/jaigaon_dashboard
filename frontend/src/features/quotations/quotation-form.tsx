@@ -349,7 +349,7 @@ export function QuotationForm({ customers, catalog, companyState, revising, init
         <GlassCard className="flex flex-col gap-3">
           <TextArea label="Terms and conditions" rows={5} error={errors.terms?.message} {...register("terms")} />
           <TextField label="Notes for the customer" error={errors.notes?.message} {...register("notes")} />
-          {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
+          {result && <FormMessage tone={result.tone} result={result}>{result.text}</FormMessage>}
           <div className="flex flex-wrap gap-2.5">
             <Button type="submit" size="lg" disabled={isSubmitting}>
               {isSubmitting ? "Saving…" : revising ? `Save revision R${revising.revision + 1}` : "Save quotation"}

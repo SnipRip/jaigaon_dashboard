@@ -623,7 +623,7 @@ export function BillForm({ vendors, catalog, purchases, godowns, companyState, i
             </Button>
             <span className="text-xs font-semibold text-muted">Uploading scans switches on when file storage is chosen.</span>
           </div>
-          {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
+          {result && <FormMessage tone={result.tone} result={result}>{result.text}</FormMessage>}
           <div className="flex flex-wrap gap-2.5">
             <Button type="submit" size="lg" disabled={isSubmitting}>
               {isSubmitting ? "Saving…" : "Save bill"}

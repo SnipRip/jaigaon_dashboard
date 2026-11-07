@@ -417,7 +417,7 @@ export function ItemGroupForm({ catalog, group, brands, units, gstRates, onSave 
       />
 
       <GlassCard className="flex flex-col gap-3">
-        {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
+        {result && <FormMessage tone={result.tone} result={result}>{result.text}</FormMessage>}
         <div className="flex flex-wrap gap-2.5">
           <Button type="submit" size="lg" disabled={isSubmitting}>
             {isSubmitting

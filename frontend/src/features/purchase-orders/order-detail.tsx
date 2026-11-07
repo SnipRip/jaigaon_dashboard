@@ -184,7 +184,7 @@ export function OrderDetail({ order, onChanged }: { order: PurchaseOrderView; on
           )}
           {!open && <p className="text-xs font-semibold text-muted">This order is {order.status.toLowerCase()}.</p>}
           {order.receipt === "RECEIVED" && open && <p className="text-xs font-semibold text-muted">Everything ordered has come in.</p>}
-          {notice && <FormMessage tone={notice.tone}>{notice.text}</FormMessage>}
+          {notice && <FormMessage tone={notice.tone} result={notice}>{notice.text}</FormMessage>}
         </GlassCard>
       </div>
     </div>

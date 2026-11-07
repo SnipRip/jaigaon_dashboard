@@ -68,10 +68,10 @@ export function UsersWorkspace({ activity, modules }: UsersWorkspaceProps) {
   const users = useMemo(() => staff.data?.map(toStaffUser), [staff.data]);
 
   if (!isAdmin) {
-    return <FormMessage tone="error">Only an administrator can manage users and roles. Your own profile and password are under Settings.</FormMessage>;
+    return <FormMessage tone="error" persistent>Only an administrator can manage users and roles. Your own profile and password are under Settings.</FormMessage>;
   }
   const loadError = staff.error ?? accessRoles.error;
-  if (loadError) return <FormMessage tone="error">{loadError instanceof Error ? loadError.message : "Could not load users."}</FormMessage>;
+  if (loadError) return <FormMessage tone="error" persistent>{loadError instanceof Error ? loadError.message : "Could not load users."}</FormMessage>;
   if (!users || !accessRoles.data) return <p className="text-[13px] font-medium text-muted">Loading users…</p>;
 
   const roles = [administratorRole(modules.map((module) => module.href)), ...accessRoles.data.map(toRole)];

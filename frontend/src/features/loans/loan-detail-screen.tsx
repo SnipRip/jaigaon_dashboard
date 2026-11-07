@@ -208,7 +208,7 @@ export function LoanDetailScreen({ loanId }: { loanId: string }) {
         <div className="flex flex-col gap-3.5">
           <GlassCard className="flex flex-col gap-3">
             <CardTitle>Entries and Tally vouchers</CardTitle>
-            {notice && <FormMessage tone={notice.tone}>{notice.text}</FormMessage>}
+            {notice && <FormMessage tone={notice.tone} result={notice}>{notice.text}</FormMessage>}
             {loan.entries.length === 0 && <p className="text-sm font-semibold text-muted">No entry recorded yet.</p>}
             {[...loan.entries].reverse().map((entry) => (
               <div key={entry.id} className={clsx("flex flex-col gap-2", entry.cancelledAt && "opacity-60")}>

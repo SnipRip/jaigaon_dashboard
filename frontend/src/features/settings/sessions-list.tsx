@@ -61,7 +61,7 @@ export function SessionsList() {
         ))}
       </ul>
 
-      {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
+      {result && <FormMessage tone={result.tone} result={result}>{result.text}</FormMessage>}
       <Button variant="outline" onClick={signOut} className="mt-2 self-start">
         Sign out of this device
       </Button>

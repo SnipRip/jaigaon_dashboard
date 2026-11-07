@@ -202,7 +202,7 @@ export function HsnWorkspace({ codes, gstRates, onChanged }: HsnWorkspaceProps) 
             <p className="text-sm font-semibold text-muted">Pick a code to see and edit it.</p>
           </GlassCard>
         )}
-        {notice && <FormMessage tone={notice.tone}>{notice.text}</FormMessage>}
+        {notice && <FormMessage tone={notice.tone} result={notice}>{notice.text}</FormMessage>}
       </div>
 
       <GlassModal open={adding} onOpenChange={setAdding} title="New HSN or SAC code" description="Goods use HSN codes, services SAC codes.">

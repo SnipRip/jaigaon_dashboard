@@ -221,7 +221,7 @@ export function InvoiceDetail({ initialInvoice, party, issuer, bank, onChanged, 
                 Cancel this invoice
               </Button>
             ))}
-          {notice && <FormMessage tone={notice.tone}>{notice.text}</FormMessage>}
+          {notice && <FormMessage tone={notice.tone} result={notice}>{notice.text}</FormMessage>}
         </GlassCard>
 
         {(invoice.status === "issued" || Object.keys(invoice.documents).length > 0) && (

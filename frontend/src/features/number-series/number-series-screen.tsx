@@ -15,20 +15,21 @@ import { useToday } from "@/lib/use-today";
 import type { NumberedKind, NumberSeriesView } from "@/types/number-series";
 import { isMasterCode, KINDS, METHODS, resetLabel } from "./number-kinds";
 import { seriesListPath } from "./number-series-api";
-import { SeriesPanel } from "./series-panel";
+import { SeriesDialog } from "./series-dialog";
 
-// Every numbered kind in one list, grouped; the selected one's formats and
-// settings below. Formats follow Tally's "applicable from" prefixes: a new
+// Every numbered kind in one list, grouped; a click opens that kind's formats
+// and settings in a dialog. Formats follow Tally's "applicable from" prefixes: a new
 // format from a date, never an edit of one that has given out numbers.
 export function NumberSeriesScreen() {
   const today = useToday();
   const { data, error, mutate } = useSWR<NumberSeriesView[]>(today ? seriesListPath(today) : null, apiGet);
-  const [selected, setSelected] = useState<NumberedKind>("SALES_INVOICE");
+  const [openKind, setOpenKind] = useState<NumberedKind | null>(null);
   if (!data || !today) return <LoadNotice error={error} what="number series" />;
 
   const documents = data.filter((series) => !isMasterCode(series.kind));
   const setUp = data.filter((series) => series.current).length;
-  const active = data.find((series) => series.kind === selected) ?? data[0];
+  // Looked up from the list each render, so the dialog shows saved changes.
+  const open = data.find((series) => series.kind === openKind);
   const groups = [...new Set(data.map((series) => KINDS[series.kind].group))];
 
   return (
@@ -65,12 +66,12 @@ export function NumberSeriesScreen() {
                 .map((series) => {
                   const format = series.formats.find((candidate) => candidate.id === series.current?.formatId);
                   return (
-                    <tr key={series.id} className={clsx(series.kind === active.kind && "bg-brand-tint/45")}>
+                    <tr key={series.id} className={clsx(series.kind === openKind && "bg-brand-tint/45")}>
                       <td className="text-left">
                         <button
                           type="button"
-                          aria-pressed={series.kind === active.kind}
-                          onClick={() => setSelected(series.kind)}
+                          aria-haspopup="dialog"
+                          onClick={() => setOpenKind(series.kind)}
                           className="text-left font-semibold hover:text-brand hover:underline"
                         >
                           {KINDS[series.kind].label}
@@ -100,7 +101,7 @@ export function NumberSeriesScreen() {
         </p>
       </GlassCard>
 
-      <SeriesPanel key={active.id} series={active} today={today} onChanged={mutate} />
+      <SeriesDialog series={open} today={today} onClose={() => setOpenKind(null)} onChanged={mutate} />
     </div>
   );
 }

@@ -485,7 +485,7 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates, onSa
       </GlassCard>
 
       <GlassCard className="flex flex-col gap-3">
-        {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
+        {result && <FormMessage tone={result.tone} result={result}>{result.text}</FormMessage>}
         <div className="flex flex-wrap gap-2.5">
           <Button type="submit" size="lg" disabled={isSubmitting}>
             {isSubmitting ? "Saving…" : isNew ? "Save item" : "Save changes"}

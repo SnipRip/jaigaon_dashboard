@@ -170,7 +170,7 @@ export function ExpenseForm({ vendors, accounts, bills, invoices, shipments, ini
             {nextNumber?.number && <StatusChip tone="neutral">{nextNumber.number}</StatusChip>}
           </div>
           {date && nextNumber && !nextNumber.number && (
-            <FormMessage tone="error">
+            <FormMessage tone="error" persistent>
               {"No number format for expenses on this date. Add one under Masters, Number series first."}
             </FormMessage>
           )}
@@ -256,7 +256,7 @@ export function ExpenseForm({ vendors, accounts, bills, invoices, shipments, ini
             <p className="text-sm font-medium text-muted">It goes on the vendor&apos;s account and is paid later from Payments, like a bill.</p>
           )}
           {paid === "now" && mode === "CASH" && preview.total > CASH_EXPENSE_LIMIT && (
-            <FormMessage tone="error">Cash over ₹10,000 to one person in a day is not allowed as a business expense (Income-tax Act s.40A(3)). Pay by bank if you can.</FormMessage>
+            <FormMessage tone="error" persistent>Cash over ₹10,000 to one person in a day is not allowed as a business expense (Income-tax Act s.40A(3)). Pay by bank if you can.</FormMessage>
           )}
         </GlassCard>
 

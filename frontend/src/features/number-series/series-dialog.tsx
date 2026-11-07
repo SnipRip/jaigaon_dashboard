@@ -5,7 +5,6 @@ import { useState, type ReactNode } from "react";
 import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { FormMessage } from "@/components/ui/form-message";
-import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { GlassModal } from "@/components/ui/glass-modal";
 import { GlassTable } from "@/components/ui/glass-table";
 import { SelectField } from "@/components/ui/select-field";
@@ -22,16 +21,32 @@ import { deleteFormat, issuedPath, saveSeriesSettings } from "./number-series-ap
 
 type Notice = { tone: "success" | "error"; text: string };
 
-interface SeriesPanelProps {
-  series: NumberSeriesView;
+interface SeriesDialogProps {
+  /** The kind being set up; undefined while the dialog is closed. */
+  series?: NumberSeriesView;
   today: string;
+  onClose: () => void;
   /** Reloads the list after a change. */
   onChanged: () => Promise<unknown>;
 }
 
-// One kind's numbering: how numbers are given, the Tally voucher type, its
-// formats over time and the latest numbers given out.
-export function SeriesPanel({ series, today, onChanged }: SeriesPanelProps) {
+// One kind's numbering in a dialog over the list: how numbers are given, the
+// Tally voucher type, its formats over time and the latest numbers given out.
+export function SeriesDialog({ series, today, onClose, onChanged }: SeriesDialogProps) {
+  return (
+    <GlassModal
+      open={series !== undefined}
+      onOpenChange={(open) => !open && onClose()}
+      size="wide"
+      title={series ? KINDS[series.kind].label : "Numbering"}
+      description="How these numbers are given, and the formats they follow over time."
+    >
+      {series && <SeriesBody key={series.id} series={series} today={today} onChanged={onChanged} />}
+    </GlassModal>
+  );
+}
+
+function SeriesBody({ series, today, onChanged }: Omit<SeriesDialogProps, "series" | "onClose"> & { series: NumberSeriesView }) {
   const kind = KINDS[series.kind];
   // undefined: dialog closed; null: adding; a format: editing it.
   const [editing, setEditing] = useState<NumberFormatView | null | undefined>(undefined);
@@ -54,9 +69,8 @@ export function SeriesPanel({ series, today, onChanged }: SeriesPanelProps) {
   };
 
   return (
-    <GlassCard className="flex flex-col gap-3.5">
+    <div className="flex flex-col gap-3.5">
       <div className="flex flex-wrap items-center gap-2">
-        <CardTitle>{kind.label}</CardTitle>
         {kind.gst && <StatusChip tone="brand">GST document</StatusChip>}
         <Button variant="outline" className="ml-auto" onClick={() => setEditing(null)}>
           <Plus aria-hidden="true" />
@@ -120,7 +134,7 @@ export function SeriesPanel({ series, today, onChanged }: SeriesPanelProps) {
       )}
 
       <IssuedList kind={series.kind} rows={issued.data} />
-      {notice && <FormMessage tone={notice.tone}>{notice.text}</FormMessage>}
+      {notice && <FormMessage tone={notice.tone} result={notice}>{notice.text}</FormMessage>}
 
       <GlassModal
         open={editing !== undefined}
@@ -143,7 +157,7 @@ export function SeriesPanel({ series, today, onChanged }: SeriesPanelProps) {
           />
         )}
       </GlassModal>
-    </GlassCard>
+    </div>
   );
 }
 

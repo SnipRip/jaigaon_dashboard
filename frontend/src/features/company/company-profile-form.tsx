@@ -165,7 +165,7 @@ export function CompanyProfileForm({ initial, onSave }: CompanyProfileFormProps)
           <p className="text-xs font-medium text-muted">The AD code is issued every year, so it sits beside that year&apos;s LUT.</p>
         </section>
 
-        {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
+        {result && <FormMessage tone={result.tone} result={result}>{result.text}</FormMessage>}
         <div>
           <Button type="submit" disabled={!isDirty || isSubmitting}>
             {isSubmitting ? "Saving…" : "Save company profile"}

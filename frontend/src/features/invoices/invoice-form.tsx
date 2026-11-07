@@ -487,7 +487,7 @@ export function InvoiceForm({ kind, customers, catalog, godowns, luts, companySt
 
         <GlassCard className="flex flex-col gap-3">
           <TextField label="Notes on the invoice" placeholder="Delivery terms, site name" error={errors.notes?.message} {...register("notes")} />
-          {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
+          {result && <FormMessage tone={result.tone} result={result}>{result.text}</FormMessage>}
           <div className="flex flex-wrap gap-2.5">
             <Button type="submit" size="lg" disabled={isSubmitting}>
               {isSubmitting ? "Issuing…" : "Issue invoice"}

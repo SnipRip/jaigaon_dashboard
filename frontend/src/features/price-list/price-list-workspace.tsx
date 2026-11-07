@@ -240,7 +240,7 @@ export function PriceListWorkspace({ sheet, categories, date, onDateChange, onSa
           </div>
         )}
 
-        {notice && <FormMessage tone={notice.tone}>{notice.text}</FormMessage>}
+        {notice && <FormMessage tone={notice.tone} result={notice}>{notice.text}</FormMessage>}
 
         <PriceListTable
           rows={drawn}

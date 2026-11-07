@@ -198,7 +198,7 @@ export function CategoriesWorkspace({ masters, onChanged, units, gstRates }: Cat
             <p className="text-sm font-semibold text-muted">Pick a category or sub-category to edit it.</p>
           </GlassCard>
         )}
-        {notice && <FormMessage tone={notice.tone}>{notice.text}</FormMessage>}
+        {notice && <FormMessage tone={notice.tone} result={notice}>{notice.text}</FormMessage>}
       </div>
 
       <GlassModal

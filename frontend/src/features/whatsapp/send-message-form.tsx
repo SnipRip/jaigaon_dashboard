@@ -64,7 +64,7 @@ export function SendMessageForm({ templates, optIns, documents }: SendMessageFor
             onChange={(event) => setValues((current) => Object.assign([...current], { [index]: event.target.value }))}
           />
         ))}
-        {message && <FormMessage tone={message.tone}>{message.text}</FormMessage>}
+        {message && <FormMessage tone={message.tone} result={message}>{message.text}</FormMessage>}
         <Button variant="success" onClick={send} size="lg">
           <Send aria-hidden="true" className="size-[18px]" />
           Send on WhatsApp

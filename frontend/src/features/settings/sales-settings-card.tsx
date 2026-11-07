@@ -43,7 +43,7 @@ export function SalesSettingsCard() {
           </Switch.Root>
         </div>
       )}
-      {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
+      {result && <FormMessage tone={result.tone} result={result}>{result.text}</FormMessage>}
     </GlassCard>
   );
 }

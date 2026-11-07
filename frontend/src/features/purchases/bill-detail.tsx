@@ -317,7 +317,7 @@ export function BillDetail({ bill, bills, parties, items, companyState, onChange
             </Button>
           </GlassCard>
         )}
-        {notice && <FormMessage tone={notice.tone}>{notice.text}</FormMessage>}
+        {notice && <FormMessage tone={notice.tone} result={notice}>{notice.text}</FormMessage>}
       </div>
     </div>
   );

@@ -176,7 +176,7 @@ export function SchemesWorkspace({ schemes, targetOptions, itemOptions, customer
             </tbody>
           </GlassTable>
           {visible.length === 0 && <p className="py-6 text-center text-[13px] text-muted">No schemes match.</p>}
-          {notice && <FormMessage tone={notice.tone}>{notice.text}</FormMessage>}
+          {notice && <FormMessage tone={notice.tone} result={notice}>{notice.text}</FormMessage>}
           <p className="text-xs font-semibold text-muted">
             Schemes come off the rate a line takes (special rate, today&rsquo;s rate or a typed one), after any discount typed on the line. Line schemes work per item line; order schemes on the whole quotation, spread over its lines so GST is on what the customer pays.
           </p>

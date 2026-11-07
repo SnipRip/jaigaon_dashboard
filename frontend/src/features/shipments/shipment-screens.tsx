@@ -35,7 +35,7 @@ export function ShipmentFormScreen({ shipmentId }: { shipmentId?: string }) {
   const { profile, error: profileError } = useCompanyProfile();
   const error = shipments.error ?? current.error ?? invoices.error ?? vendors.error ?? vehicles.error ?? profileError;
   if (!shipments.data || (shipmentId && !current.data) || !invoices.data || !vendors.data || !vehicles.data || !profile) return <LoadNotice error={error} what="the form" />;
-  if (current.data?.cancelledAt) return <FormMessage tone="error">This shipment is cancelled; it can no longer be changed.</FormMessage>;
+  if (current.data?.cancelledAt) return <FormMessage tone="error" persistent>This shipment is cancelled; it can no longer be changed.</FormMessage>;
   const taken = shippedInvoiceIds(shipments.data, shipmentId);
   return (
     <ShipmentForm
