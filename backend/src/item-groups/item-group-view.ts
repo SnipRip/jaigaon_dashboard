@@ -5,7 +5,7 @@ import { readAttributes, type GroupAttribute } from '../items/item-rules.js';
 export interface ItemGroupView {
   id: string;
   name: string;
-  skuPrefix: string;
+  skuPrefix: string | null;
   categoryId: string;
   subCategoryId: string | null;
   brandId: string | null;

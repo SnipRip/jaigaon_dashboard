@@ -3,6 +3,7 @@
 import { isoDate } from '../common/dates.js';
 import { toNumber } from '../common/decimal.js';
 import type { Prisma } from '../generated/prisma/client.js';
+import { enteredView } from '../items/line-units.js';
 import { pendingQuantity } from './purchase-rules.js';
 
 const optionalDate = (date: Date | null) => (date ? isoDate(date) : null);
@@ -86,6 +87,7 @@ export const toBillView = (bill: BillRow) => ({
     unit: line.unit,
     quantity: toNumber(line.quantity),
     rate: toNumber(line.rate),
+    entered: enteredView(line, line.unit),
     discountPct: toNumber(line.discountPct),
     gstRatePct: toNumber(line.gstRatePct),
     itcEligible: line.itcEligible,
@@ -145,6 +147,7 @@ export function toOrderView(order: OrderRow, units: Map<string, string>, figures
       unit: units.get(line.itemId) ?? 'unit',
       quantity,
       rate: toNumber(line.rate),
+      entered: enteredView(line, units.get(line.itemId) ?? 'unit'),
       discountPct: toNumber(line.discountPct),
       gstRatePct: toNumber(line.gstRatePct),
       received,

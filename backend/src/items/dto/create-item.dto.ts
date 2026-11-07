@@ -21,8 +21,9 @@ import {
 import { trim, trimToNull } from '../../common/dto/text-transforms.js';
 import { AlternateUnitDto, OpeningStockDto } from './item-line.dto.js';
 
-export const SKU_PATTERN = /^[A-Za-z0-9-]+$/;
-export const SKU_MESSAGE = 'SKU uses letters, digits and dashes only';
+// Dashes, slashes and dots: the separators the SKU generator offers (Zoho's).
+export const SKU_PATTERN = /^[A-Za-z0-9./-]+$/;
+export const SKU_MESSAGE = 'SKU uses letters, digits, dashes, slashes and dots only';
 
 // Fields left out inherit from the group, sub-category or category
 // (GST rate, unit). HSN is always the item's own.
@@ -32,12 +33,14 @@ export class CreateItemDto {
   @Length(2, 120)
   name: string;
 
+  /** Optional; blank clears it. */
   @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.trim().toUpperCase() : value,
+    typeof value === 'string' ? value.trim().toUpperCase() || null : value,
   )
+  @IsOptional()
   @Length(2, 40)
   @Matches(SKU_PATTERN, { message: SKU_MESSAGE })
-  sku: string;
+  sku?: string | null;
 
   @IsUUID()
   categoryId: string;
@@ -77,6 +80,11 @@ export class CreateItemDto {
   @IsOptional()
   @IsUUID()
   unitId?: string | null;
+
+  /** GST reporting unit: the base unit when left out, else one of the alternate units. */
+  @IsOptional()
+  @IsUUID()
+  reportingUnitId?: string | null;
 
   @IsOptional()
   @IsQuantity()

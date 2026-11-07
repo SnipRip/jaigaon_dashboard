@@ -1,4 +1,5 @@
 // Purchase orders and vendor bills as the backend returns them (backend/src/purchases).
+import type { EnteredLineView } from "./entered-line";
 import type { PaymentModeView } from "./settlement";
 
 export type LandedCostMethodView = "VALUE" | "QUANTITY" | "WEIGHT";
@@ -13,6 +14,8 @@ export interface PurchaseBillLineView {
   unit: string;
   quantity: number;
   rate: number;
+  /** As entered and printed; quantity and rate above are per base unit. */
+  entered: EnteredLineView;
   discountPct: number;
   gstRatePct: number;
   itcEligible: boolean;
@@ -77,10 +80,12 @@ export interface PurchaseOrderLineView {
   id: string;
   itemId: string;
   itemName: string;
-  sku: string;
+  sku: string | null;
   unit: string;
   quantity: number;
   rate: number;
+  /** As entered and printed; quantity and rate above are per base unit. */
+  entered: EnteredLineView;
   discountPct: number;
   gstRatePct: number;
   received: number;

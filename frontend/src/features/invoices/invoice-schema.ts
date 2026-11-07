@@ -33,6 +33,8 @@ export const invoiceSchema = z.object({
     .array(
       z.object({
         itemId: z.string().min(1, "Pick an item"),
+        /** One of the item's units; blank = the base unit. Quantity and rate are in it. */
+        unit: z.string(),
         quantity: number("quantity", 3).refine((value) => Number(value) > 0, "Must be more than 0"),
         rate: number("rate", 2),
         discountPct: z.union([z.literal(""), number("discount", 2).refine((value) => Number(value) < 100, "Below 100%")]),

@@ -15,6 +15,8 @@ export const orderSchema = z
       .array(
         z.object({
           itemId: z.string().min(1, "Pick an item"),
+          /** One of the item's units; blank = the base unit. */
+          unit: z.string(),
           quantity: decimal(3, "Enter the quantity").refine((value) => Number(value) > 0, "More than 0"),
           rate: decimal(2, "Enter the rate"),
           discountPct: z.union([z.literal(""), decimal(2, "0 to 99")]).refine((value) => !value || Number(value) < 100, "0 to 99"),

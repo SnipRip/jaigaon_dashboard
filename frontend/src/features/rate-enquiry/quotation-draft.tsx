@@ -16,12 +16,13 @@ interface QuotationDraftProps {
 }
 
 // The quotation being built. Totals are live. "Continue as a quotation"
-// carries the customer and lines to the quotation form (SKU:quantity in the
-// address); WhatsApp sending waits for the WhatsApp Business API.
+// carries the customer and lines to the quotation form (item id:quantity in
+// the address, as SKUs are optional); WhatsApp sending waits for the WhatsApp
+// Business API.
 export function QuotationDraft({ customerId, customerName, lines, onQuantityChange }: QuotationDraftProps) {
   const totals = draftTotals(lines);
   const carried = lines.filter((line) => line.quantity > 0);
-  const params = new URLSearchParams({ lines: carried.map((line) => `${line.item.sku}:${line.quantity}`).join(",") });
+  const params = new URLSearchParams({ lines: carried.map((line) => `${line.item.itemId}:${line.quantity}`).join(",") });
   if (customerId) params.set("customer", customerId);
   const continueHref = `/quotations/new?${params}`;
 

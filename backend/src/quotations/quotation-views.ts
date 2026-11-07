@@ -2,6 +2,7 @@
 import { isoDate } from '../common/dates.js';
 import { toNumber } from '../common/decimal.js';
 import type { Prisma } from '../generated/prisma/client.js';
+import { enteredView } from '../items/line-units.js';
 import type { AppliedScheme } from '../schemes/scheme-rules.js';
 
 export const quotationInclude = {
@@ -46,6 +47,7 @@ export const toQuotationView = (quotation: QuotationRow) => ({
     unit: line.unit,
     quantity: toNumber(line.quantity),
     rate: toNumber(line.rate),
+    entered: enteredView(line, line.unit),
     discountPct: toNumber(line.discountPct),
     rateSource: line.rateSource,
     suggestedRate: toNumber(line.suggestedRate),

@@ -14,6 +14,10 @@ export interface VariantLine {
   row: VariantRow;
   /** The item this variant already is, when editing a saved group. */
   existing?: Item;
+  /** `existing` is a standalone item joining the group on save. */
+  adopting?: boolean;
+  /** The existing item's own base unit, when it differs from the group's. */
+  unit?: string;
   errors?: Partial<Record<keyof VariantRow, string>>;
 }
 
@@ -74,15 +78,18 @@ export function VariantRowsTable({ lines, unit, onChange }: VariantRowsTableProp
                     <span className="font-semibold">{Object.values(line.values).join(" · ")}</span>
                   )}
                   {!line.existing && <StatusChip tone="brand">New</StatusChip>}
+                  {line.adopting && <StatusChip tone="brand">Joining</StatusChip>}
                 </div>
-                <div className="text-xs text-muted">{line.name}</div>
+                <div className="text-xs text-muted">{line.adopting ? `${line.existing?.name} · keeps its name, stock and history` : line.name}</div>
                 {firstError && <div className="text-xs font-semibold text-danger-strong">{firstError}</div>}
               </td>
-              <td>{input(line, "sku", "SKU", "left")}</td>
+              <td>
+                {line.adopting ? <div className="pt-2.5 text-left text-[13px]">{line.existing?.sku ?? "No SKU"}</div> : input(line, "sku", "SKU", "left")}
+              </td>
               <td className="text-right">
                 {line.existing ? (
                   <div className="pt-2.5 text-[13px]">
-                    {formatQuantity(line.existing.stock)} {unit}
+                    {formatQuantity(line.existing.stock)} {line.unit ?? unit}
                     <div className="text-[11px] text-muted">in stock</div>
                   </div>
                 ) : (
@@ -99,7 +106,13 @@ export function VariantRowsTable({ lines, unit, onChange }: VariantRowsTableProp
                   input(line, "openingRate", "Opening rate")
                 )}
               </td>
-              <td>{input(line, "reorderLevel", "Reorder level")}</td>
+              <td>
+                {line.adopting ? (
+                  <div className="pt-2.5 text-[13px]">{formatQuantity(line.existing?.reorderLevel ?? 0)}</div>
+                ) : (
+                  input(line, "reorderLevel", "Reorder level")
+                )}
+              </td>
             </tr>
           );
         })}

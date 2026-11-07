@@ -1,4 +1,5 @@
 // Quotations as the backend returns them (backend/src/quotations).
+import type { EnteredLineView } from "./entered-line";
 import type { AppliedSchemeView } from "./scheme";
 
 export type QuotationStatusView = "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "CANCELLED" | "CONVERTED";
@@ -13,6 +14,8 @@ export interface QuotationLineView {
   unit: string;
   quantity: number;
   rate: number;
+  /** As entered and printed; quantity and rate above are per base unit. */
+  entered: EnteredLineView;
   discountPct: number;
   rateSource: LineRateSourceView;
   suggestedRate: number | null;

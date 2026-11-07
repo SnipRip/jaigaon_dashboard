@@ -100,7 +100,7 @@ export function PriceListWorkspace({ sheet, categories, date, onDateChange, onSa
   const needle = query.trim().toLowerCase();
   const visible = tableRows.filter(({ row, edit, figures }) => {
     if (category !== ALL && row.categoryId !== category && row.subCategoryId !== category) return false;
-    if (needle && !`${row.name} ${row.sku}`.toLowerCase().includes(needle)) return false;
+    if (needle && !`${row.name} ${row.sku ?? ""}`.toLowerCase().includes(needle)) return false;
     if (show === "changed") return edit !== undefined;
     if (show === "listed") return row.entry !== null;
     if (show === "low-margin") return figures.margin !== null && figures.margin < LOW_MARGIN;

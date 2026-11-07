@@ -26,9 +26,18 @@ export class PurchaseBillLineDto {
   @IsUUID()
   orderLineId?: string | null;
 
+  /** One of the item's units (symbol), as on the vendor's bill; left out = the base unit. */
+  @Transform(trimToNull)
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  unit?: string | null;
+
+  /** In `unit`. */
   @IsQuantity()
   quantity: number;
 
+  /** Per `unit`. */
   @IsAmount()
   rate: number;
 

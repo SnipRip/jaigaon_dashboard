@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, Wand2 } from "lucide-react";
+import { Barcode, Plus, Trash2, Wand2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
@@ -12,7 +12,10 @@ import { SelectField } from "@/components/ui/select-field";
 import { TextField } from "@/components/ui/text-field";
 import { InheritedField } from "./inherited-field";
 import { itemGroupSchema, variantRowSchema, type ItemGroupFormValues, type VariantRow } from "./item-group-schema";
-import { generateVariants, resolveDefaults, variantName, variantSku, type ItemCatalog } from "./item-rules";
+import { AdoptItemsCard, type AdoptedItem } from "./adopt-items-card";
+import { generateVariants, resolveDefaults, resolveItemDefaults, variantName, type ItemCatalog } from "./item-rules";
+import { SkuPatternDialog } from "./sku-pattern-dialog";
+import { skuFromPattern, uniqueSku, type SkuPattern } from "./sku-rules";
 import { saveErrorText, type ItemFormOptions } from "./item-form";
 import { OptionsInput } from "./options-input";
 import type { Item, ItemGroup } from "./types";
@@ -32,15 +35,9 @@ const variantKey = (values: Record<string, string>) =>
   JSON.stringify(Object.keys(values).sort().map((name) => [name, values[name]]));
 const text = (value: number | undefined) => (value === undefined ? "" : String(value));
 
-/** "IS-TMT-12" → "IS-TMT": the shared start of the variants' SKUs. */
-function skuPrefixOf(variants: Item[]) {
-  const first = variants[0]?.sku ?? "";
-  return first.includes("-") ? first.slice(0, first.lastIndexOf("-")) : first;
-}
-
 function rowFromItem(item: Item): VariantRow {
   return {
-    sku: item.sku,
+    sku: item.sku ?? "",
     openingStock: "",
     openingRate: "",
     reorderLevel: text(item.reorderLevel),
@@ -58,6 +55,8 @@ export function ItemGroupForm({ catalog, group, brands, units, gstRates, onSave 
   const [edits, setEdits] = useState<Record<string, Partial<VariantRow>>>({});
   const [rowErrors, setRowErrors] = useState<Record<string, VariantLine["errors"]>>({});
   const [bulk, setBulk] = useState({ openingRate: "", reorderLevel: "" });
+  const [adopted, setAdopted] = useState<AdoptedItem[]>([]);
+  const [skuDialogOpen, setSkuDialogOpen] = useState(false);
   const [result, setResult] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
   const {
@@ -70,7 +69,7 @@ export function ItemGroupForm({ catalog, group, brands, units, gstRates, onSave 
     resolver: zodResolver(itemGroupSchema),
     defaultValues: {
       name: group?.name ?? "",
-      skuPrefix: group?.skuPrefix ?? skuPrefixOf(existingVariants),
+      skuPrefix: group?.skuPrefix ?? "",
       categoryId: group?.categoryId ?? "",
       subCategoryId: group?.subCategoryId ?? NONE,
       brand: group?.brand ?? NONE,
@@ -95,14 +94,47 @@ export function ItemGroupForm({ catalog, group, brands, units, gstRates, onSave 
   );
   const unit = (overridden.has("unit") && unitOverride) || inherited.unit.value || "unit";
 
+  // Standalone items in this placement that may join the group (adopt-items-card.tsx).
+  const candidates = catalog.items.filter(
+    (item) => !item.groupId && item.categoryId === categoryId && (item.subCategoryId ?? NONE) === (subCategoryId ?? NONE),
+  );
+  const adoptedOf = new Map(adopted.map((row) => [variantKey(row.values), catalog.items.find((item) => item.id === row.itemId)]));
+
   const lines: VariantLine[] = generateVariants(attributes ?? []).map((values) => {
     const key = variantKey(values);
-    const existing = existingVariants.find((item) => variantKey(item.attributeValues ?? {}) === key);
-    const base: VariantRow = existing
-      ? rowFromItem(existing)
-      : { sku: variantSku(skuPrefix ?? "", values), openingStock: "", openingRate: "", reorderLevel: "" };
-    return { key, values, name: variantName(name ?? "", values), existing, row: { ...base, ...edits[key] }, errors: rowErrors[key] };
+    const saved = existingVariants.find((item) => variantKey(item.attributeValues ?? {}) === key);
+    const joining = saved ? undefined : adoptedOf.get(key);
+    const existing = saved ?? joining;
+    const base: VariantRow = existing ? rowFromItem(existing) : { sku: "", openingStock: "", openingRate: "", reorderLevel: "" };
+    return {
+      key,
+      values,
+      name: variantName(name ?? "", values),
+      existing,
+      adopting: Boolean(joining),
+      // A joining item keeps its own unit (the backend pins it).
+      unit: joining ? resolveItemDefaults(catalog, joining).unit.value : undefined,
+      row: { ...base, ...edits[key] },
+      errors: rowErrors[key],
+    };
   });
+
+  // Fills the rows' SKUs from the pattern; a SKU any other item has is numbered.
+  const applySkuPattern = (pattern: SkuPattern, replace: boolean) => {
+    const own = new Set(lines.map((line) => line.existing?.id).filter(Boolean));
+    const taken = new Set(catalog.items.filter((item) => item.sku && !own.has(item.id)).map((item) => item.sku!.toUpperCase()));
+    const editable = lines.filter((line) => !line.adopting);
+    const keep = (line: VariantLine) => !replace && line.row.sku.trim() !== "";
+    for (const line of editable) if (keep(line)) taken.add(line.row.sku.trim().toUpperCase());
+    setEdits((current) => {
+      const next = { ...current };
+      for (const line of editable) {
+        if (keep(line)) continue;
+        next[line.key] = { ...next[line.key], sku: uniqueSku(skuFromPattern(pattern, name ?? "", line.values), taken) };
+      }
+      return next;
+    });
+  };
 
   const editRow = (key: string, field: keyof VariantRow, value: string) =>
     setEdits((current) => ({ ...current, [key]: { ...current[key], [field]: value } }));
@@ -134,9 +166,10 @@ export function ItemGroupForm({ catalog, group, brands, units, gstRates, onSave 
         found[line.key] = Object.fromEntries(check.error.issues.map((issue) => [issue.path[0], issue.message]));
       }
     }
-    const skus = lines.map((line) => line.row.sku.trim().toUpperCase());
+    // Blank SKUs are allowed; a filled one must be unique among the rows.
+    const skus = lines.map((line) => (line.adopting ? "" : line.row.sku.trim().toUpperCase()));
     lines.forEach((line, index) => {
-      if (skus.indexOf(skus[index]) !== index) found[line.key] = { ...found[line.key], sku: "This SKU is used twice" };
+      if (skus[index] && skus.indexOf(skus[index]) !== index) found[line.key] = { ...found[line.key], sku: "This SKU is used twice" };
     });
     setRowErrors(found);
     const problems = Object.keys(found).length;
@@ -148,6 +181,7 @@ export function ItemGroupForm({ catalog, group, brands, units, gstRates, onSave 
     try {
       await onSave(values, overridden, lines);
       setEdits({});
+      setAdopted([]);
       setResult({ tone: "success", text: `${values.name} saved with ${lines.length} ${lines.length === 1 ? "variant" : "variants"}.` });
     } catch (error) {
       setResult({ tone: "error", text: saveErrorText(error) });
@@ -164,9 +198,9 @@ export function ItemGroupForm({ catalog, group, brands, units, gstRates, onSave 
           <div className="grid gap-3.5 md:grid-cols-2">
             <TextField label="Group name" placeholder="TMT Bar Fe 600" error={errors.name?.message} {...register("name")} />
             <TextField
-              label="SKU prefix"
+              label="SKU prefix (optional)"
               placeholder="IS-TMT"
-              hint="Each variant's SKU starts with this"
+              hint="Offered as a part when you generate SKUs"
               error={errors.skuPrefix?.message}
               {...register("skuPrefix")}
             />
@@ -345,6 +379,10 @@ export function ItemGroupForm({ catalog, group, brands, units, gstRates, onSave 
               <Wand2 aria-hidden="true" className="size-[18px]" />
               Fill all variants
             </Button>
+            <Button variant="outline" onClick={() => setSkuDialogOpen(true)} disabled={lines.length === 0 || !name?.trim()}>
+              <Barcode aria-hidden="true" className="size-[18px]" />
+              Generate SKUs
+            </Button>
           </div>
         </div>
         <VariantRowsTable lines={lines} unit={unit} onChange={editRow} />
@@ -354,13 +392,39 @@ export function ItemGroupForm({ catalog, group, brands, units, gstRates, onSave 
             first.
           </p>
         )}
+        {skuDialogOpen && (
+          <SkuPatternDialog
+            open
+            onOpenChange={setSkuDialogOpen}
+            groupName={name ?? ""}
+            skuPrefix={skuPrefix?.trim() ?? ""}
+            attributes={(attributes ?? []).map((attribute) => attribute.name).filter(Boolean)}
+            sample={lines[0]?.values ?? {}}
+            onApply={applySkuPattern}
+          />
+        )}
       </GlassCard>
+
+      <AdoptItemsCard
+        candidates={candidates}
+        attributes={attributes ?? []}
+        adopted={adopted}
+        isTaken={(values) => {
+          const key = variantKey(values);
+          return existingVariants.some((item) => variantKey(item.attributeValues ?? {}) === key) || adoptedOf.has(key);
+        }}
+        onChange={setAdopted}
+      />
 
       <GlassCard className="flex flex-col gap-3">
         {result && <FormMessage tone={result.tone}>{result.text}</FormMessage>}
         <div className="flex flex-wrap gap-2.5">
           <Button type="submit" size="lg" disabled={isSubmitting}>
-            {isSubmitting ? "Saving…" : isNew ? `Create group and ${lines.length} items` : "Save changes"}
+            {isSubmitting
+              ? "Saving…"
+              : isNew
+                ? `Create group with ${lines.length} ${lines.length === 1 ? "variant" : "variants"}`
+                : "Save changes"}
           </Button>
           <Link href="/items" className={buttonClasses("neutral", "ml-auto", "lg")}>
             Back to items

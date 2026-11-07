@@ -52,7 +52,8 @@ export interface UnitConversion {
 export interface Item {
   id: string;
   name: string;
-  sku: string;
+  /** Optional. */
+  sku?: string;
   categoryId: string;
   subCategoryId?: string;
   groupId?: string;
@@ -63,6 +64,8 @@ export interface Item {
   /** Overrides only. Missing values are inherited, see item-rules.ts. */
   overrides: ItemDefaults;
   alternateUnits: UnitConversion[];
+  /** GST reporting unit (symbol); undefined = the base unit. */
+  reportingUnit?: string;
   /** Kilograms per base unit, for truck load and e-way bill weight. */
   weightKg?: number;
   mrp?: number;

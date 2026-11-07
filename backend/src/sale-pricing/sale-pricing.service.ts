@@ -3,6 +3,7 @@ import { dateOnly } from '../common/dates.js';
 import { sumTax, taxOn, type TaxSplit } from '../common/gst/tax-split.js';
 import type { LineRateSource, Prisma } from '../generated/prisma/client.js';
 import { loadItemFacts, type ItemDocumentFacts } from '../items/item-document-facts.js';
+import { enteredColumns, toBaseLine } from '../items/line-units.js';
 import { LineRateOptionsService, type LineRateOptionsView } from '../pricing/line-rate-options.service.js';
 import { SchemesService } from '../schemes/schemes.service.js';
 import { rateSourceOf, schemeSourceOf } from './sale-rules.js';
@@ -11,8 +12,10 @@ type Tx = Prisma.TransactionClient;
 
 const money = (value: number) => Math.round(value * 100) / 100;
 
+/** Quantity and rate in `unit` (one of the item's units; blank = base). */
 export interface SaleLineInput {
   itemId: string;
+  unit?: string | null;
   quantity: number;
   rate: number;
   discountPct?: number;
@@ -40,6 +43,10 @@ export interface PricedSaleLine {
     quantity: number;
     rate: number;
     discountPct: number;
+    lineUnit: string | null;
+    lineQuantity: number;
+    lineRate: number;
+    unitFactor: number;
     rateSource: LineRateSource;
     suggestedRate: number | null;
     itemPriceId: string | null;
@@ -87,17 +94,21 @@ export class SalePricingService {
     ]);
     const offeredOf = new Map(offered.map((row) => [row.itemId, row]));
 
-    const lines = input.lines.map((line, position) => {
-      const item = facts.get(line.itemId)!;
+    const lines = input.lines.map((entered, position) => {
+      const item = facts.get(entered.itemId)!;
       if (item.isArchived) throw new BadRequestException(`${item.name} is archived`);
-      if (line.quantity <= 0) throw new BadRequestException(`Enter the quantity of ${item.name}`);
+      if (entered.quantity <= 0) throw new BadRequestException(`Enter the quantity of ${item.name}`);
       if (item.gstRatePct === null) throw new BadRequestException(`${item.name} has no GST rate: set its HSN in the HSN master`);
+      const units = toBaseLine(item, entered);
+      const line = { itemId: entered.itemId, quantity: units.quantity, rate: units.rate, discountPct: entered.discountPct, units };
       const options = offeredOf.get(line.itemId)!;
-      const rateSource = rateSourceOf(line.rate, {
-        special: options.specialRate?.rate ?? null,
-        sheet: options.todaysRate?.rate ?? null,
-        lastQuoted: options.lastQuoted?.rate ?? null,
-        lastSold: options.lastSold?.rate ?? null,
+      // The offered rates are per base unit; the typed one is per the line's unit.
+      const perLineUnit = (rate: number | null | undefined) => (rate == null ? null : money(rate * units.unitFactor));
+      const rateSource = rateSourceOf(units.lineRate, {
+        special: perLineUnit(options.specialRate?.rate),
+        sheet: perLineUnit(options.todaysRate?.rate),
+        lastQuoted: perLineUnit(options.lastQuoted?.rate),
+        lastSold: perLineUnit(options.lastSold?.rate),
       });
       return { line, position, item, options, rateSource, discountPct: line.discountPct ?? 0 };
     });
@@ -138,8 +149,8 @@ export class SalePricingService {
           hsn: item.hsn,
           unit: item.unit,
           quantity: line.quantity,
-          rate: line.rate,
           discountPct,
+          ...enteredColumns(line.units),
           rateSource,
           suggestedRate: options.rate,
           itemPriceId: rateSource === 'SHEET' ? (options.todaysRate?.id ?? null) : null,

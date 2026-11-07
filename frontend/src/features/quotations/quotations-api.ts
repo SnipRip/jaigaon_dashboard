@@ -4,6 +4,7 @@
 // figures so the screens show exactly what was saved.
 import type { Issuer } from "@/features/invoices/invoice-document";
 import { stateName } from "@/features/gst/indian-states";
+import { enteredLine } from "@/features/items/line-units";
 import { apiRequest } from "@/lib/api-client";
 import type { CompanyProfileView } from "@/types/company";
 import type { QuotationStatusView, QuotationView } from "@/types/quotation";
@@ -24,9 +25,7 @@ export function toQuotation(view: QuotationView): Quotation {
       itemId: line.itemId,
       description: line.description,
       hsn: line.hsn,
-      quantity: line.quantity,
-      unit: line.unit,
-      rate: line.rate,
+      ...enteredLine(line),
       discountPct: line.discountPct,
       gstRatePct: line.gstRatePct,
     })),
@@ -45,7 +44,8 @@ export interface QuotationBody {
   status?: "DRAFT" | "SENT";
   terms: string | null;
   notes: string | null;
-  lines: { itemId: string; quantity: number; rate: number; discountPct: number }[];
+  /** Quantity and rate in `unit` (null = the base unit). */
+  lines: { itemId: string; unit: string | null; quantity: number; rate: number; discountPct: number }[];
 }
 
 export const createQuotation = (body: QuotationBody) => apiRequest<QuotationView>(QUOTATIONS_PATH, { method: "POST", body });

@@ -133,7 +133,8 @@ model Unit {
 
   categoryDefaults ItemCategory[]
   groupDefaults    ItemGroup[]
-  items            Item[]
+  items            Item[]               @relation("ItemBaseUnit")
+  reportingItems   Item[]               @relation("ItemReportingUnit")
   conversions      ItemUnitConversion[]
 }
 
@@ -222,7 +223,8 @@ model ItemCategory {
 model ItemGroup {
   id            String        @id @default(uuid()) @db.Uuid
   name          String
-  skuPrefix     String        @unique
+  // Optional, like item SKUs; the SKU generator starts variants' SKUs with it.
+  skuPrefix     String?       @unique
   categoryId    String        @db.Uuid
   category      ItemCategory  @relation("GroupCategory", fields: [categoryId], references: [id], onDelete: Restrict)
   subCategoryId String?       @db.Uuid
@@ -246,7 +248,8 @@ model ItemGroup {
 model Item {
   id                String        @id @default(uuid()) @db.Uuid
   name              String
-  sku               String        @unique
+  // Optional (client, 7 Nov 2026); unique when given.
+  sku               String?       @unique
   categoryId        String        @db.Uuid
   category          ItemCategory  @relation("ItemCategory", fields: [categoryId], references: [id], onDelete: Restrict)
   subCategoryId     String?       @db.Uuid
@@ -263,7 +266,11 @@ model Item {
   // Overrides only; null inherits from group, sub-category, category.
   gstRatePct        Decimal?      @db.Decimal(5, 2)
   unitId            String?       @db.Uuid
-  unit              Unit?         @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  unit              Unit?         @relation("ItemBaseUnit", fields: [unitId], references: [id], onDelete: Restrict)
+  // The unit GST returns report this item in (Tally's reporting UQC): the
+  // base unit when null, else one of the item's alternate units.
+  reportingUnitId   String?       @db.Uuid
+  reportingUnit     Unit?         @relation("ItemReportingUnit", fields: [reportingUnitId], references: [id], onDelete: Restrict)
   // Kilograms per base unit, for truck load and e-way bill weight.
   weightKg          Decimal?      @db.Decimal(12, 3)
   mrp               Decimal?      @db.Decimal(12, 2)
@@ -1333,9 +1340,14 @@ model PurchaseOrderLine {
   // Base units.
   quantity    Decimal       @db.Decimal(14, 3)
   // Per base unit, before GST: the rate agreed with the vendor.
-  rate        Decimal       @db.Decimal(12, 2)
+  rate        Decimal       @db.Decimal(14, 4)
   discountPct Decimal       @default(0) @db.Decimal(5, 2)
   gstRatePct  Decimal       @db.Decimal(5, 2)
+  // As entered (line-units.ts): null unit = the base unit.
+  lineUnit     String?
+  lineQuantity Decimal      @db.Decimal(14, 3)
+  lineRate     Decimal      @db.Decimal(12, 2)
+  unitFactor   Decimal      @default(1) @db.Decimal(14, 4)
 
   billLines PurchaseBillLine[]
 
@@ -1447,11 +1459,17 @@ model PurchaseBillLine {
   // As on the bill, kept as printed.
   description String
   hsn         String
+  // Base unit, quantity and rate per base unit (stock and cost use these).
   unit        String
   quantity    Decimal            @db.Decimal(14, 3)
-  rate        Decimal            @db.Decimal(12, 2)
+  rate        Decimal            @db.Decimal(14, 4)
   discountPct Decimal            @default(0) @db.Decimal(5, 2)
   gstRatePct  Decimal            @db.Decimal(5, 2)
+  // As on the vendor's bill (line-units.ts): null unit = the base unit.
+  lineUnit     String?
+  lineQuantity Decimal           @db.Decimal(14, 3)
+  lineRate     Decimal           @db.Decimal(12, 2)
+  unitFactor   Decimal           @default(1) @db.Decimal(14, 4)
   // Section 17(5) and the like: the GST becomes cost.
   itcEligible Boolean            @default(true)
   taxable     Decimal            @db.Decimal(14, 2)
@@ -1611,11 +1629,17 @@ model QuotationLine {
   item           Item           @relation(fields: [itemId], references: [id], onDelete: Restrict)
   description    String
   hsn            String
+  // Base unit and quantity; rate per base unit before GST, as offered (the
+  // typed discount comes off it).
   unit           String
   quantity       Decimal        @db.Decimal(14, 3)
-  // Per unit before GST, as offered; the typed discount comes off it.
-  rate           Decimal        @db.Decimal(12, 2)
+  rate           Decimal        @db.Decimal(14, 4)
   discountPct    Decimal        @default(0) @db.Decimal(5, 2)
+  // As quoted and printed (line-units.ts): null unit = the base unit.
+  lineUnit       String?
+  lineQuantity   Decimal        @db.Decimal(14, 3)
+  lineRate       Decimal        @db.Decimal(12, 2)
+  unitFactor     Decimal        @default(1) @db.Decimal(14, 4)
   rateSource     LineRateSource
   // What the line was offered first (special, else today's rate); null with neither.
   suggestedRate  Decimal?       @db.Decimal(12, 2)
@@ -1783,10 +1807,20 @@ model InvoiceLine {
   item           Item           @relation(fields: [itemId], references: [id], onDelete: Restrict)
   description    String
   hsn            String
+  // Base unit and quantity, rate per base unit (stock, cost, schemes).
   unit           String
   quantity       Decimal        @db.Decimal(14, 3)
-  rate           Decimal        @db.Decimal(12, 2)
+  rate           Decimal        @db.Decimal(14, 4)
   discountPct    Decimal        @default(0) @db.Decimal(5, 2)
+  // As invoiced and printed (line-units.ts): null unit = the base unit.
+  lineUnit       String?
+  lineQuantity   Decimal        @db.Decimal(14, 3)
+  lineRate       Decimal        @db.Decimal(12, 2)
+  unitFactor     Decimal        @default(1) @db.Decimal(14, 4)
+  // GSTR-1 HSN summary: the item's reporting unit and the quantity in it,
+  // fixed at save so a later change to the item does not rewrite returns.
+  reportUnit     String
+  reportQuantity Decimal        @db.Decimal(14, 3)
   rateSource     LineRateSource
   suggestedRate  Decimal?       @db.Decimal(12, 2)
   itemPriceId    String?        @db.Uuid

@@ -109,8 +109,9 @@ export function LandedCostCard({ goods, tagged, items, chargeName, method, onMet
                 <td>{formatInr(row.share)}</td>
                 <td className="font-semibold">{formatInr(row.landedCost)}</td>
                 <td>
-                  {formatRate(row.line.rate)} → <span className="font-semibold text-ink">{formatRate(row.landedRate)}</span>
-                  <div className="text-xs text-muted">per {row.line.unit}</div>
+                  {/* Stock is valued per base unit, so both rates are per it. */}
+                  {formatRate(row.line.rate / (row.line.unitFactor ?? 1))} → <span className="font-semibold text-ink">{formatRate(row.landedRate)}</span>
+                  <div className="text-xs text-muted">per {row.line.baseUnit ?? row.line.unit}</div>
                 </td>
                 {savedRates && (
                   <td>

@@ -184,11 +184,16 @@ export function lastPurchaseRate(
 export const chargeBillsFor = (bills: Bill[], billId: string) =>
   bills.filter((bill) => bill.kind === "charges" && bill.landedCostFor === billId && bill.status !== "void");
 
-/** Kilograms on a line: from a kg or ton unit, else from the item's weight per unit. */
-export function lineWeightKg(line: Pick<BillLine, "quantity" | "unit">, item?: Pick<Item, "weightKg">): number | undefined {
-  if (line.unit === "kg") return line.quantity;
-  if (line.unit === "ton") return line.quantity * 1000;
-  return item?.weightKg === undefined ? undefined : line.quantity * item.weightKg;
+/** A line's quantity in the item's base unit (lines may be entered in any of its units). */
+const baseQuantity = (line: Pick<BillLine, "quantity" | "unitFactor">) => line.quantity * (line.unitFactor ?? 1);
+
+/** Kilograms on a line: from a kg or ton base unit, else from the item's weight per base unit. */
+export function lineWeightKg(line: Pick<BillLine, "quantity" | "unit" | "baseUnit" | "unitFactor">, item?: Pick<Item, "weightKg">): number | undefined {
+  const quantity = baseQuantity(line);
+  const unit = line.baseUnit ?? line.unit;
+  if (unit === "kg") return quantity;
+  if (unit === "ton") return quantity * 1000;
+  return item?.weightKg === undefined ? undefined : quantity * item.weightKg;
 }
 
 export interface LandedCostRow {
@@ -218,7 +223,7 @@ export function allocateLandedCost(
   const rows = lines.map((line) => {
     const totals = lineTotals(line, split);
     const ownCost = money(totals.taxable + (line.itc === "ineligible" ? totals.taxes.reduce((sum, tax) => sum + tax.amount, 0) : 0));
-    const basis = method === "value" ? totals.taxable : method === "quantity" ? line.quantity : weightOf(line);
+    const basis = method === "value" ? totals.taxable : method === "quantity" ? baseQuantity(line) : weightOf(line);
     return { line, basis, ownCost };
   });
   if (rows.some((row) => row.basis === undefined)) return null;
@@ -230,7 +235,9 @@ export function allocateLandedCost(
     const share = index === rows.length - 1 ? money(charges - given) : totalBasis ? money((charges * basis) / totalBasis) : 0;
     given = money(given + share);
     const landedCost = money(row.ownCost + share);
-    return { ...row, basis, share, landedCost, landedRate: row.line.quantity ? money(landedCost / row.line.quantity) : 0 };
+    // Per base unit, as stock is valued.
+    const quantity = baseQuantity(row.line);
+    return { ...row, basis, share, landedCost, landedRate: quantity ? money(landedCost / quantity) : 0 };
   });
 }
 

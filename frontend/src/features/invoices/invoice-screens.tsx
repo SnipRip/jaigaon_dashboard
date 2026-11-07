@@ -88,7 +88,14 @@ export function NewInvoiceScreen({ kind, quotationId }: { kind: InvoiceKind; quo
           id: from.id,
           label: quotationLabel(from),
           partyId: from.partyId,
-          lines: from.lines.map((line) => ({ itemId: line.itemId, quantity: line.quantity, rate: line.rate, discountPct: line.discountPct })),
+          // In the unit it was quoted in.
+          lines: from.lines.map((line) => ({
+            itemId: line.itemId,
+            unit: line.entered.unit,
+            quantity: line.entered.quantity,
+            rate: line.entered.rate,
+            discountPct: line.discountPct,
+          })),
         }
       }
       onSaved={async () => {

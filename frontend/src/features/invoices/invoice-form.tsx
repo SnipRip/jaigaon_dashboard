@@ -16,12 +16,15 @@ import { StatusChip } from "@/components/ui/status-chip";
 import { TextField } from "@/components/ui/text-field";
 import { describeComponents } from "@/features/gst/gst-rules";
 import { INDIAN_STATES, stateName } from "@/features/gst/indian-states";
-import { resolveItemDefaults, type ItemCatalog } from "@/features/items/item-rules";
+import { itemLabel, type ItemCatalog } from "@/features/items/item-rules";
+import { LineUnitSelect } from "@/features/items/line-unit-select";
+import { conversionText, ratePerUnit, restateRate } from "@/features/items/line-units";
 import { PICKED_VEHICLE_HINT, useLiveVehicles, VehicleSelect } from "@/features/masters/vehicle-picker";
 import { placeOf } from "@/features/parties/party-rules";
 import type { Party } from "@/features/parties/types";
 import { previewTotals } from "@/features/quotations/quotation-rules";
-import { schemeRateSource, toLineRateOptions, type LineRateOptions } from "@/features/rates/line-rate-options";
+import { toLineRateOptions, type LineRateOptions } from "@/features/rates/line-rate-options";
+import { EMPTY_SALE_LINE, saleLineFactor, saleLineRow } from "@/features/rates/sale-line-row";
 import { LineRatePicker } from "@/features/rates/line-rate-picker";
 import { fetchLineOptions, LINE_OPTIONS_PATH } from "@/features/rates/rates-api";
 import { EVALUATE_SCHEMES_PATH, fetchSchemeResult } from "@/features/schemes/schemes-api";
@@ -50,7 +53,7 @@ interface InvoiceFormProps {
   /** Sales setting: the item picker lists only items with stock in the chosen godown. */
   inStockOnly: boolean;
   /** Converting a quotation: its customer and lines; it is marked converted on save. */
-  fromQuotation?: { id: string; label: string; partyId: string; lines: { itemId: string; quantity: number; rate: number; discountPct: number }[] };
+  fromQuotation?: { id: string; label: string; partyId: string; lines: { itemId: string; unit?: string; quantity: number; rate: number; discountPct: number }[] };
   onSaved: () => Promise<void>;
 }
 
@@ -59,7 +62,7 @@ const KIND_TEXT: Record<InvoiceKind, { title: string; hint: string }> = {
   export: { title: "Export invoice", hint: "For buyers in Bhutan and abroad. Under LUT it carries no GST and quotes the LUT number." },
 };
 
-const emptyLine = { itemId: "", quantity: "", rate: "", discountPct: "" };
+const emptyLine = EMPTY_SALE_LINE;
 
 // The bill. Its kind is picked before this opens: a local GST tax invoice or
 // an export invoice. Picking an item fills the customer's special rate, else
@@ -100,6 +103,7 @@ export function InvoiceForm({ kind, customers, catalog, godowns, luts, companySt
       notes: "",
       lines: fromQuotation?.lines.map((line) => ({
         itemId: line.itemId,
+        unit: line.unit ?? "",
         quantity: String(line.quantity),
         rate: String(line.rate),
         discountPct: line.discountPct ? String(line.discountPct) : "",
@@ -152,7 +156,8 @@ export function InvoiceForm({ kind, customers, catalog, godowns, luts, companySt
       const views = await fetchLineOptions([LINE_OPTIONS_PATH, customerId, day, [...new Set(wanted.map((row) => row.itemId))]]);
       for (const { index, itemId } of wanted) {
         const view = views.find((candidate) => candidate.itemId === itemId);
-        setValue(`lines.${index}.rate`, view?.rate !== null && view?.rate !== undefined ? String(view.rate) : "", { shouldValidate: true });
+        const factor = factorOfLine(getValues(`lines.${index}`));
+        setValue(`lines.${index}.rate`, view?.rate !== null && view?.rate !== undefined ? String(ratePerUnit(view.rate, factor)) : "", { shouldValidate: true });
         setValue(`lines.${index}.discountPct`, "");
       }
     } catch {
@@ -178,34 +183,21 @@ export function InvoiceForm({ kind, customers, catalog, godowns, luts, companySt
     setValue(`lines.${index}.discountPct`, "");
   };
 
-  const toRow = (line: InvoiceFormValues["lines"][number] | undefined, index: number) => {
-    const item = catalog.items.find((candidate) => candidate.id === line?.itemId);
-    if (!item || !line) return undefined;
-    const defaults = resolveItemDefaults(catalog, item);
-    const quantity = Number(line.quantity) || 0;
-    const rate = Number(line.rate) || 0;
-    const discountPct = Number(line.discountPct) || 0;
-    const options = optionsOf.get(item.id);
-    return {
-      key: String(index),
-      item,
-      hsn: defaults.hsn.value ?? "",
-      unit: defaults.unit.value ?? "",
-      gstRatePct: defaults.gstRatePct.value ?? 0,
-      quantity,
-      rate,
-      discountPct,
-      gross: Math.round(quantity * rate * (1 - discountPct / 100) * 100) / 100,
-      options,
-      rateSource: schemeRateSource(rate, options),
-    };
+  const factorOfLine = (line: { itemId: string; unit: string } | undefined) => saleLineFactor(catalog, line);
+  /** A new unit on the line: the typed rate follows it (₹7 a kg → ₹350 a bag). */
+  const pickUnit = (index: number, unit: string, factor: number) => {
+    const rate = Number(getValues(`lines.${index}.rate`));
+    if (rate > 0) setValue(`lines.${index}.rate`, String(restateRate(rate, factorOfLine(getValues(`lines.${index}`)), factor)));
+    setValue(`lines.${index}.unit`, unit, { shouldValidate: true });
   };
-  const rows = (lines ?? []).map(toRow);
+
+  const rows = (lines ?? []).map((line, index) => saleLineRow(catalog, line, index, optionsOf));
   const valid = rows.filter((row): row is NonNullable<typeof row> => row !== undefined && row.quantity > 0 && row.rate > 0);
 
   // What the schemes in force take off, asked of the backend once typing settles.
   const [schemeInput] = useDebounceValue(
-    JSON.stringify(valid.map((row) => ({ key: row.key, itemId: row.item.id, quantity: row.quantity, rate: row.rate, discountPct: row.discountPct, rateSource: row.rateSource }))),
+    // Schemes work per base unit, as on save.
+    JSON.stringify(valid.map((row) => ({ key: row.key, itemId: row.item.id, quantity: row.base.quantity, rate: row.base.rate, discountPct: row.discountPct, rateSource: row.rateSource }))),
     400,
   );
   const { data: schemes } = useSWR(date && schemeInput !== "[]" ? ([EVALUATE_SCHEMES_PATH, partyId || undefined, date, schemeInput] as const) : null, fetchSchemeResult, {
@@ -242,7 +234,13 @@ export function InvoiceForm({ kind, customers, catalog, godowns, luts, companySt
         vehicleId: values.vehicleId || null,
         notes: values.notes.trim() || null,
         quotationId: fromQuotation?.id,
-        lines: values.lines.map((line) => ({ itemId: line.itemId, quantity: Number(line.quantity), rate: Number(line.rate), discountPct: Number(line.discountPct) || 0 })),
+        lines: values.lines.map((line) => ({
+          itemId: line.itemId,
+          unit: line.unit || null,
+          quantity: Number(line.quantity),
+          rate: Number(line.rate),
+          discountPct: Number(line.discountPct) || 0,
+        })),
       };
       try {
         const saved = await createInvoice(body);
@@ -257,7 +255,7 @@ export function InvoiceForm({ kind, customers, catalog, godowns, luts, companySt
 
   const godownName = godownId ? (godowns.find((godown) => godown.id === godownId)?.name ?? "the chosen godown") : undefined;
   const pickable = inStockOnly ? itemsInStock(catalog.items, godownId, itemIds) : catalog.items;
-  const itemOptions = pickable.map((item) => ({ value: item.id, label: `${item.name} · ${item.sku}` }));
+  const itemOptions = pickable.map((item) => ({ value: item.id, label: itemLabel(item) }));
 
   return (
     <form onSubmit={onSubmit} noValidate className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -413,7 +411,7 @@ export function InvoiceForm({ kind, customers, catalog, godowns, luts, companySt
             const lineErrors = errors.lines?.[index];
             return (
               <div key={field.id} className="glass-inset flex flex-col gap-2.5 rounded-(--radius-tile) p-3">
-                <div className="grid items-start gap-2.5 @2xl:grid-cols-[minmax(0,3fr)_1fr_1fr_1fr_auto]">
+                <div className="grid items-start gap-2.5 @2xl:grid-cols-[minmax(0,3fr)_0.8fr_1fr_1fr_1fr_auto]">
                   <div className="flex flex-col gap-1.5">
                     <Controller
                       control={control}
@@ -425,6 +423,7 @@ export function InvoiceForm({ kind, customers, catalog, godowns, luts, companySt
                           value={itemField.value || undefined}
                           onValueChange={(value) => {
                             setValue(`lines.${index}.itemId`, value, { shouldValidate: true });
+                            setValue(`lines.${index}.unit`, "");
                             void suggest([index]);
                           }}
                         />
@@ -432,8 +431,9 @@ export function InvoiceForm({ kind, customers, catalog, godowns, luts, companySt
                     />
                     {lineErrors?.itemId && <p className="text-xs font-semibold text-danger-strong">{lineErrors.itemId.message}</p>}
                   </div>
+                  <LineUnitSelect choices={row?.choices ?? []} value={lines?.[index]?.unit ?? ""} onChange={(unit, factor) => pickUnit(index, unit, factor)} />
                   <TextField label={`Quantity${row ? ` (${row.unit})` : ""}`} inputMode="decimal" error={lineErrors?.quantity?.message} {...register(`lines.${index}.quantity`)} />
-                  <TextField label="Rate (₹)" inputMode="decimal" error={lineErrors?.rate?.message} {...register(`lines.${index}.rate`)} />
+                  <TextField label={`Rate (₹${row ? ` per ${row.unit}` : ""})`} inputMode="decimal" error={lineErrors?.rate?.message} {...register(`lines.${index}.rate`)} />
                   <TextField label="Discount %" inputMode="decimal" error={lineErrors?.discountPct?.message} {...register(`lines.${index}.discountPct`)} />
                   <Button variant="neutral" aria-label="Remove this line" disabled={lineFields.fields.length === 1} onClick={() => lineFields.remove(index)} className="w-11 px-0 @2xl:mt-[22px]">
                     <Trash2 aria-hidden="true" className="size-[18px]" />
@@ -445,7 +445,7 @@ export function InvoiceForm({ kind, customers, catalog, godowns, luts, companySt
                     {pricedRow.applied.map((applied) => (
                       <li key={applied.schemeId}>
                         <StatusChip tone="success">
-                          {applied.name}: {applied.freeQuantity ? `+${formatQuantity(applied.freeQuantity)} ${row?.unit ?? ""} free` : `− ${formatRate(applied.amount)}`}
+                          {applied.name}: {applied.freeQuantity ? `+${formatQuantity(applied.freeQuantity)} ${row?.baseUnit ?? ""} free` : `− ${formatRate(applied.amount)}`}
                         </StatusChip>
                       </li>
                     ))}
@@ -454,9 +454,14 @@ export function InvoiceForm({ kind, customers, catalog, godowns, luts, companySt
                 {row && (
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs font-semibold text-muted">
                     {/* The godown's own stock: issuing draws only from it. */}
-                    <span className={row.quantity + (pricedRow?.freeQuantity ?? 0) > stockIn(row.item, godownId) ? "text-danger-strong" : undefined}>
-                      Stock {formatQuantity(stockIn(row.item, godownId))} {row.unit} {godownName ? `in ${godownName}` : "in all godowns"}
+                    <span className={row.base.quantity + (pricedRow?.freeQuantity ?? 0) > stockIn(row.item, godownId) ? "text-danger-strong" : undefined}>
+                      Stock {formatQuantity(stockIn(row.item, godownId))} {row.baseUnit} {godownName ? `in ${godownName}` : "in all godowns"}
                     </span>
+                    {row.factor !== 1 && (
+                      <span>
+                        {conversionText(row.unit, row.factor, row.baseUnit)} · {formatQuantity(row.base.quantity)} {row.baseUnit}
+                      </span>
+                    )}
                     <span>HSN {row.hsn}</span>
                     <span>GST {row.gstRatePct}% → {describeComponents(row.gstRatePct, tax.regime)}</span>
                     <span className="ml-auto font-semibold text-ink tabular-nums">

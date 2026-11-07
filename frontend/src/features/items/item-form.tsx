@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeftRight, Plus, Trash2 } from "lucide-react";
+import { ArrowLeftRight, Plus, Trash2, Wand2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
@@ -21,6 +21,7 @@ import { TodaysRateField } from "./todays-rate-field";
 import { hasPictureChanges, NO_PICTURE_CHANGES, type PictureChanges } from "./item-picture-rules";
 import { findGroup, resolveDefaults, resolveItemDefaults, type ItemCatalog } from "./item-rules";
 import { itemSchema, type ItemFormValues } from "./item-schema";
+import { suggestItemSku } from "./sku-rules";
 import type { Item } from "./types";
 import { NONE, OVERRIDE_FIELD, useOverrides, type Overridable } from "./use-overrides";
 
@@ -52,6 +53,8 @@ export const saveErrorText = (error: unknown) =>
   error instanceof ApiError ? error.message : "Could not save. Check the connection and try again.";
 
 const text = (value: number | undefined) => (value === undefined ? "" : String(value));
+/** Select value for "the base unit" (a select option cannot be blank). */
+const BASE_UNIT = "__base__";
 
 function toFormValues(item: Item | undefined, godowns: string[], currentHsn?: string): ItemFormValues {
   return {
@@ -70,6 +73,7 @@ function toFormValues(item: Item | undefined, godowns: string[], currentHsn?: st
       const quantity = perBase ? 1 / conversion.baseQuantity : conversion.baseQuantity;
       return { unit: conversion.unit, quantity: String(Number(quantity.toFixed(3))), perBase };
     }),
+    reportingUnit: item?.reportingUnit ?? "",
     weightKg: text(item?.weightKg),
     mrp: text(item?.mrp),
     preferredSupplier: item?.preferredSupplier ?? "",
@@ -101,9 +105,9 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates, onSa
   const alternateUnits = useFieldArray({ control, name: "alternateUnits" });
   const isDirty = fieldsDirty || hasPictureChanges(pictures);
 
-  const [categoryId, subCategoryId, unitOverride, conversions, hsn, name] = useWatch({
+  const [categoryId, subCategoryId, unitOverride, conversions, hsn, name, brand, reportingUnit] = useWatch({
     control,
-    name: ["categoryId", "subCategoryId", "unitOverride", "alternateUnits", "hsn", "name"],
+    name: ["categoryId", "subCategoryId", "unitOverride", "alternateUnits", "hsn", "name", "brand", "reportingUnit"],
   });
   const category = catalog.categories.find((candidate) => candidate.id === categoryId);
   const place = { categoryId, subCategoryId: subCategoryId === NONE ? undefined : subCategoryId, groupId: item?.groupId };
@@ -140,12 +144,26 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates, onSa
     () => setResult({ tone: "error", text: "Some fields need attention. See the ones marked in red above." }),
   );
 
+  // From category, brand and name, numbered when another item has it.
+  const generateSku = () => {
+    const taken = new Set(catalog.items.filter((other) => other.id !== item?.id && other.sku).map((other) => other.sku!.toUpperCase()));
+    setValue("sku", suggestItemSku({ name: name ?? "", category: category?.name, brand: brand === NONE ? undefined : brand }, taken), {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
+
   const categoryOptions = catalog.categories.map((candidate) => ({ value: candidate.id, label: candidate.name }));
   const subCategoryOptions = [
     { value: NONE, label: category?.subCategories.length ? "None" : "No sub-categories" },
     ...(category?.subCategories ?? []).map((sub) => ({ value: sub.id, label: sub.name })),
   ];
   const unitOptions = units.map((unit) => ({ value: unit, label: unit }));
+  // The form keeps "" for the base unit, whatever it ends up being.
+  const reportingOptions = [
+    { value: BASE_UNIT, label: `${baseUnit} (base unit)` },
+    ...(conversions ?? []).filter((row) => row.unit && row.unit !== baseUnit).map((row) => ({ value: row.unit, label: row.unit })),
+  ];
 
   return (
     <form onSubmit={onSubmit} noValidate className="@container flex min-w-0 flex-col gap-3.5">
@@ -163,7 +181,24 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates, onSa
         </div>
         <div className="grid gap-3.5 @xl:grid-cols-2">
           <TextField label="Item name" placeholder="TMT Bar Fe 600 12 mm" error={errors.name?.message} {...register("name")} />
-          <TextField label="SKU / code" placeholder="IS-TMT-12" error={errors.sku?.message} {...register("sku")} />
+          <TextField
+            label="SKU / code (optional)"
+            placeholder="Leave blank, or generate one"
+            error={errors.sku?.message}
+            className="pr-24"
+            trailing={
+              <button
+                type="button"
+                onClick={generateSku}
+                disabled={!name?.trim()}
+                className="mr-1 inline-flex h-[26px] items-center gap-1 rounded-md px-2 text-xs font-semibold text-brand-strong hover:bg-brand/10 disabled:text-muted disabled:hover:bg-transparent"
+              >
+                <Wand2 aria-hidden="true" className="size-3.5" />
+                Generate
+              </button>
+            }
+            {...register("sku")}
+          />
           <Controller
             control={control}
             name="categoryId"
@@ -303,7 +338,24 @@ export function ItemForm({ catalog, item, brands, units, godowns, gstRates, onSa
               <Plus aria-hidden="true" className="size-[18px]" />
               Add a unit
             </Button>
+            {alternateUnits.fields.length > 0 && (
+              <p className="text-xs text-muted">
+                Bills, quotations and invoices can take any of these units. Stock and cost stay in {baseUnit}.
+              </p>
+            )}
           </div>
+
+          {reportingOptions.length > 1 && (
+            <div className="flex flex-col gap-1">
+              <SelectField
+                label="Unit for GST returns (reporting UQC)"
+                options={reportingOptions}
+                value={reportingOptions.some((option) => option.value === reportingUnit) ? reportingUnit : BASE_UNIT}
+                onValueChange={(value) => setValue("reportingUnit", value === BASE_UNIT ? "" : value, { shouldDirty: true })}
+              />
+              <p className="text-[11.5px] font-medium text-muted">The GSTR-1 HSN summary shows this item&apos;s quantity in this unit</p>
+            </div>
+          )}
 
           <TextField
             label={`Weight per ${baseUnit} (kg)`}

@@ -18,7 +18,9 @@ import { TextField } from "@/components/ui/text-field";
 import { describeComponents, treatmentLabel } from "@/features/gst/gst-rules";
 import { INDIAN_STATES } from "@/features/gst/indian-states";
 import { lineTotals } from "@/features/invoices/invoice-rules";
-import { resolveItemDefaults, type ItemCatalog } from "@/features/items/item-rules";
+import { itemLabel, resolveItemDefaults, type ItemCatalog } from "@/features/items/item-rules";
+import { LineUnitSelect } from "@/features/items/line-unit-select";
+import { conversionText, restateRate, typedLine, type UnitChoice } from "@/features/items/line-units";
 import { expenseHeadsOf, findHead } from "@/features/masters/account-head-rules";
 import { allocationLabel } from "@/features/masters/expense-heads-master";
 import { useAccountHeads } from "@/features/masters/use-account-heads";
@@ -72,7 +74,8 @@ const KIND_TEXT: Record<BillKind, { label: string; hint: string }> = {
   },
 };
 
-const emptyLine = { itemId: "", orderLineId: "", quantity: "", rate: "", discountPct: "", itc: "eligible" as const };
+const emptyLine = { itemId: "", orderLineId: "", unit: "", quantity: "", rate: "", discountPct: "", itc: "eligible" as const };
+const qty3 = (value: number) => Math.round(value * 1000) / 1000;
 const emptyCharge = { head: "", description: "", amount: "", gstRatePct: "18" };
 
 // A vendor bill, entered from the vendor's paper the way Zoho Books does it.
@@ -116,8 +119,10 @@ export function BillForm({ vendors, catalog, purchases, godowns, companyState, i
         ? pendingLines.map((line) => ({
             itemId: line.itemId,
             orderLineId: line.id,
-            quantity: String(line.pending),
-            rate: String(line.rate),
+            // In the unit it was ordered in; pending is counted in base units.
+            unit: line.entered.unit,
+            quantity: String(qty3(line.pending / line.entered.factor)),
+            rate: String(line.entered.rate),
             discountPct: line.discountPct ? String(line.discountPct) : "",
             itc: "eligible" as const,
           }))
@@ -190,35 +195,36 @@ export function BillForm({ vendors, catalog, purchases, godowns, companyState, i
   const pickItem = async (index: number, itemId: string) => {
     setValue(`lines.${index}.itemId`, itemId, { shouldValidate: true });
     setValue(`lines.${index}.orderLineId`, "");
+    setValue(`lines.${index}.unit`, "");
     try {
       const [last] = await fetchLastRates(["last-rates", vendorId || undefined, itemId] as const);
       if (last && !getValues(`lines.${index}.rate`)) setValue(`lines.${index}.rate`, String(last.rate));
+      const item = catalog.items.find((candidate) => candidate.id === itemId);
+      const baseUnit = item ? (resolveItemDefaults(catalog, item).unit.value ?? "") : "";
       setLastPaid((current) => ({
         ...current,
-        [index]: last ? `Last paid ${formatRate(last.rate)} on ${formatDate(last.date)}${last.fromThisVendor ? "" : ` to ${last.vendorName}`}` : "Not bought before",
+        [index]: last
+          ? `Last paid ${formatRate(last.rate)} per ${baseUnit} on ${formatDate(last.date)}${last.fromThisVendor ? "" : ` to ${last.vendorName}`}`
+          : "Not bought before",
       }));
     } catch {
       // Only a suggestion: the rate is typed from the bill anyway.
     }
   };
 
-  const toBillLine = (line?: BillFormValues["lines"][number]): BillLine | undefined => {
-    const item = catalog.items.find((candidate) => candidate.id === line?.itemId);
-    if (!item || !line) return undefined;
-    const defaults = resolveItemDefaults(catalog, item);
-    return {
-      itemId: item.id,
-      description: item.name,
-      hsn: defaults.hsn.value ?? "",
-      unit: defaults.unit.value ?? "",
-      gstRatePct: defaults.gstRatePct.value ?? 0,
-      quantity: Number(line.quantity) || 0,
-      rate: Number(line.rate) || 0,
-      discountPct: Number(line.discountPct) || 0,
-      itc: line.itc,
-    };
+  /** A new unit on the line, as printed on the vendor's bill: the typed rate follows it. */
+  const pickUnit = (index: number, unit: string, factor: number) => {
+    const rate = Number(getValues(`lines.${index}.rate`));
+    const from = toBillLine(getValues(`lines.${index}`))?.unitFactor ?? 1;
+    if (rate > 0) setValue(`lines.${index}.rate`, String(restateRate(rate, from, factor)));
+    setValue(`lines.${index}.unit`, unit, { shouldValidate: true });
   };
-  const billLines = isGoods ? (lines ?? []).map(toBillLine).filter((line): line is BillLine => line !== undefined) : [];
+
+  const toBillLine = (line?: BillFormValues["lines"][number]): (BillLine & { choices: UnitChoice[] }) | undefined => {
+    const typed = typedLine(catalog, line);
+    return typed && line && { ...typed, itc: line.itc };
+  };
+  const billLines: BillLine[] = isGoods ? (lines ?? []).map(toBillLine).filter((line) => line !== undefined) : [];
   const billCharges: BillCharge[] = (charges ?? []).map((charge) => ({
     head: charge.head,
     amount: Number(charge.amount) || 0,
@@ -251,6 +257,7 @@ export function BillForm({ vendors, catalog, purchases, godowns, companyState, i
             ? values.lines.map((line) => ({
                 itemId: line.itemId,
                 orderLineId: line.orderLineId || null,
+                unit: line.unit || null,
                 quantity: Number(line.quantity),
                 rate: Number(line.rate),
                 discountPct: Number(line.discountPct) || 0,
@@ -274,7 +281,7 @@ export function BillForm({ vendors, catalog, purchases, godowns, companyState, i
     () => setResult({ tone: "error", text: "Some fields need attention. See the ones marked in red above." }),
   );
 
-  const itemOptions = catalog.items.map((item) => ({ value: item.id, label: `${item.name} · ${item.sku}` }));
+  const itemOptions = catalog.items.map((item) => ({ value: item.id, label: itemLabel(item) }));
   const errorText = (message?: string) => message && <p className="text-xs font-semibold text-danger-strong">{message}</p>;
 
   if (!heads) return <LoadNotice error={headsError} what="expense heads" />;
@@ -398,7 +405,7 @@ export function BillForm({ vendors, catalog, purchases, godowns, companyState, i
               const lineErrors = errors.lines?.[index];
               return (
                 <div key={field.id} className="glass-inset flex flex-col gap-2.5 rounded-(--radius-tile) p-3">
-                  <div className="grid items-start gap-2.5 @2xl:grid-cols-[minmax(0,3fr)_1fr_1fr_1fr_auto]">
+                  <div className="grid items-start gap-2.5 @2xl:grid-cols-[minmax(0,3fr)_0.8fr_1fr_1fr_1fr_auto]">
                     <div className="flex flex-col gap-1.5">
                       <Controller
                         control={control}
@@ -416,19 +423,21 @@ export function BillForm({ vendors, catalog, purchases, godowns, companyState, i
                       {errorText(lineErrors?.itemId?.message)}
                       {lines?.[index]?.orderLineId ? (
                         <p className="text-xs font-semibold text-muted">
-                          From {order?.number}: {formatQuantity(order?.lines.find((row) => row.id === lines[index].orderLineId)?.pending ?? 0)} pending
+                          From {order?.number}: {formatQuantity(order?.lines.find((row) => row.id === lines[index].orderLineId)?.pending ?? 0)}{" "}
+                          {line?.baseUnit} pending
                         </p>
                       ) : (
                         lastPaid[index] && <p className="text-xs font-semibold text-muted">{lastPaid[index]}</p>
                       )}
                     </div>
+                    <LineUnitSelect choices={line?.choices ?? []} value={lines?.[index]?.unit ?? ""} onChange={(unit, factor) => pickUnit(index, unit, factor)} />
                     <TextField
                       label={`Quantity${line ? ` (${line.unit})` : ""}`}
                       inputMode="decimal"
                       error={lineErrors?.quantity?.message}
                       {...register(`lines.${index}.quantity`)}
                     />
-                    <TextField label="Rate (₹)" inputMode="decimal" error={lineErrors?.rate?.message} {...register(`lines.${index}.rate`)} />
+                    <TextField label={`Rate (₹${line ? ` per ${line.unit}` : ""})`} inputMode="decimal" error={lineErrors?.rate?.message} {...register(`lines.${index}.rate`)} />
                     <TextField label="Discount %" inputMode="decimal" error={lineErrors?.discountPct?.message} {...register(`lines.${index}.discountPct`)} />
                     <Button
                       variant="neutral"
@@ -443,6 +452,12 @@ export function BillForm({ vendors, catalog, purchases, godowns, companyState, i
                   {line && lineTotal && (
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs font-semibold text-muted">
                       <span>HSN {line.hsn}</span>
+                      {line.unitFactor !== 1 && (
+                        <span>
+                          {conversionText(line.unit, line.unitFactor ?? 1, line.baseUnit ?? "")} ·{" "}
+                          {formatQuantity(Math.round(line.quantity * (line.unitFactor ?? 1) * 1000) / 1000)} {line.baseUnit} into stock
+                        </span>
+                      )}
                       <span>GST {line.gstRatePct}% → {describeComponents(line.gstRatePct, tax?.regime ?? "no-gst")}</span>
                       {tax?.itc && (
                         <Controller

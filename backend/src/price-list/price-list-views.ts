@@ -17,7 +17,7 @@ export interface ItemPriceView extends ItemPriceFacts {
 export interface PriceSheetRowView {
   itemId: string;
   name: string;
-  sku: string;
+  sku: string | null;
   /** Base unit symbol, inherited from group or category when the item has none. */
   unit: string | null;
   categoryId: string;

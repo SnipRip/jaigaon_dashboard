@@ -10,13 +10,14 @@ import { toNumber } from '../common/decimal.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { bestMatch, rateOn } from '../hsn-codes/hsn-rules.js';
 import { inherited } from './item-rules.js';
+import type { ItemUnits } from './line-units.js';
 
 type Db = Prisma.TransactionClient;
 
-export interface ItemDocumentFacts {
+export interface ItemDocumentFacts extends ItemUnits {
   id: string;
   name: string;
-  sku: string;
+  sku: string | null;
   hsn: string;
   /** Unit symbol, as printed: kg, pcs. */
   unit: string;
@@ -49,6 +50,8 @@ export async function loadItemFacts(db: Db, itemIds: string[], date: string): Pr
         brandId: true,
         isArchived: true,
         unit: { select: { symbol: true } },
+        reportingUnit: { select: { symbol: true } },
+        alternateUnits: { select: { baseQuantity: true, unit: { select: { symbol: true } } } },
         group: level,
         subCategory: level,
         category: level,
@@ -77,6 +80,8 @@ export async function loadItemFacts(db: Db, itemIds: string[], date: string): Pr
           sku: item.sku,
           hsn: item.hsn,
           unit: unit ?? 'unit',
+          alternates: item.alternateUnits.map((row) => ({ unit: row.unit.symbol, factor: toNumber(row.baseQuantity) })),
+          reportingUnit: item.reportingUnit?.symbol ?? null,
           gstRatePct,
           weightKg: toNumber(item.weightKg),
           categoryId: item.categoryId,

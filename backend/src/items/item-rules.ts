@@ -74,6 +74,22 @@ export function checkAlternateUnits(baseUnitId: string, unitIds: string[]): stri
   return null;
 }
 
+/**
+ * The unit GST returns report the item in: kept only when it is one of the
+ * item's alternate units; the base unit (or nothing) is stored as null.
+ */
+export function settleReportingUnit(
+  baseUnitId: string,
+  alternateUnitIds: string[],
+  reportingUnitId: string | null | undefined,
+): { reportingUnitId: string | null; problem: string | null } {
+  if (!reportingUnitId || reportingUnitId === baseUnitId) return { reportingUnitId: null, problem: null };
+  if (!alternateUnitIds.includes(reportingUnitId)) {
+    return { reportingUnitId: null, problem: 'The GST reporting unit must be the base unit or one of the item\'s other units' };
+  }
+  return { reportingUnitId, problem: null };
+}
+
 export function checkOpeningStock(godownIds: string[]): string | null {
   return new Set(godownIds).size === godownIds.length ? null : 'Each godown can be listed once';
 }

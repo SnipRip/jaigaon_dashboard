@@ -17,6 +17,7 @@ import {
   inherited,
   openingValue,
   readAttributes,
+  settleReportingUnit,
 } from './item-rules.js';
 import { itemRowInclude, toItemView, type ItemView } from './item-view.js';
 
@@ -59,12 +60,16 @@ export class ItemsService {
     const { alternateUnits = [], openingStock = [], ...fields } = dto;
     return this.prisma.$transaction(async (tx) => {
       const baseUnitId = await this.check(tx, dto);
-      fail(checkAlternateUnits(baseUnitId, alternateUnits.map((row) => row.unitId)));
+      const unitIds = alternateUnits.map((row) => row.unitId);
+      fail(checkAlternateUnits(baseUnitId, unitIds));
       fail(checkOpeningStock(openingStock.map((row) => row.godownId)));
+      const reporting = settleReportingUnit(baseUnitId, unitIds, fields.reportingUnitId);
+      fail(reporting.problem);
 
       const item = await tx.item.create({
         data: {
           ...fields,
+          reportingUnitId: reporting.reportingUnitId,
           attributeValues: jsonOrNull(fields.attributeValues),
           alternateUnits: { create: alternateUnits },
           openingStock: { create: openingRows(openingStock) },
@@ -92,6 +97,13 @@ export class ItemsService {
       const baseUnitId = await this.check(tx, merged, id);
       const unitIds = (alternateUnits ?? current.alternateUnits).map((row) => row.unitId);
       fail(checkAlternateUnits(baseUnitId, unitIds));
+      // Re-checked on every save: dropping an alternate unit may drop the reporting unit with it.
+      const reporting = settleReportingUnit(
+        baseUnitId,
+        unitIds,
+        dto.reportingUnitId === undefined ? current.reportingUnitId : dto.reportingUnitId,
+      );
+      fail(reporting.problem);
 
       if (alternateUnits) {
         await tx.itemUnitConversion.deleteMany({ where: { itemId: id } });
@@ -112,6 +124,7 @@ export class ItemsService {
         where: { id },
         data: {
           ...fields,
+          reportingUnitId: reporting.reportingUnitId,
           attributeValues: jsonOrNull(fields.attributeValues),
           alternateUnits: alternateUnits ? { create: alternateUnits } : undefined,
           openingStock: openingStock ? { create: openingRows(openingStock, drawnOf) } : undefined,

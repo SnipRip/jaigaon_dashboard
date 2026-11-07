@@ -144,6 +144,11 @@ export function BillDetail({ bill, bills, parties, items, companyState, onChange
                     <td className="text-left">{line.hsn}</td>
                     <td>
                       {formatQuantity(line.quantity)} {line.unit}
+                      {line.unitFactor !== undefined && line.unitFactor !== 1 && (
+                        <div className="text-xs text-muted">
+                          {formatQuantity(Math.round(line.quantity * line.unitFactor * 1000) / 1000)} {line.baseUnit}
+                        </div>
+                      )}
                     </td>
                     <td>{formatRate(line.rate)}</td>
                     <td>{formatInr(lineTotals(line, split).taxable)}</td>

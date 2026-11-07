@@ -26,6 +26,8 @@ export const billSchema = z
       z.object({
         itemId: z.string(),
         orderLineId: z.string(),
+        /** As on the vendor's bill: one of the item's units, blank = the base unit. */
+        unit: z.string(),
         quantity: z.string().trim(),
         rate: z.string().trim(),
         discountPct: z.string().trim(),

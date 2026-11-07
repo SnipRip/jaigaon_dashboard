@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SKU_MAX, SKU_MESSAGE, SKU_PATTERN } from "./sku-rules";
 
 // Numbers are kept as text while typing (an empty field stays empty instead
 // of becoming 0) and checked here.
@@ -12,12 +13,8 @@ const optionalQuantity = (label: string) => z.union([z.literal(""), quantity(lab
 export const itemSchema = z
   .object({
     name: z.string().trim().min(2, "Enter the item name").max(120),
-    sku: z
-      .string()
-      .trim()
-      .min(2, "Enter a SKU or code")
-      .max(40)
-      .regex(/^[A-Za-z0-9-]+$/, "Use letters, digits and dashes only"),
+    // Optional (client, 7 Nov 2026); the Generate button fills one in.
+    sku: z.union([z.literal(""), z.string().trim().min(2, "A SKU has at least 2 characters").max(SKU_MAX).regex(SKU_PATTERN, SKU_MESSAGE)]),
     categoryId: z.string().min(1, "Pick a category"),
     subCategoryId: z.string(),
     brand: z.string(),
@@ -34,6 +31,8 @@ export const itemSchema = z
         perBase: z.boolean(),
       }),
     ),
+    /** GST reporting unit (Tally's reporting UQC): "" = the base unit. */
+    reportingUnit: z.string(),
     weightKg: optionalQuantity("weight"),
     mrp: optionalAmount("MRP"),
     preferredSupplier: z.string().max(120),

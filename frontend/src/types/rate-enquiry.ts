@@ -4,7 +4,7 @@ import type { LineRateOptionsView } from "./pricing";
 export interface RateEnquiryItemView {
   itemId: string;
   name: string;
-  sku: string;
+  sku: string | null;
   unit: string | null;
   categoryId: string;
   categoryName: string;

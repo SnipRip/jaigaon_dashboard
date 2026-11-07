@@ -5,7 +5,7 @@ import type { LineRateOptionsView } from './line-rate-options.service.js';
 export interface RateEnquiryItemView {
   itemId: string;
   name: string;
-  sku: string;
+  sku: string | null;
   /** Inherited: item → group → sub-category → category. */
   unit: string | null;
   categoryId: string;

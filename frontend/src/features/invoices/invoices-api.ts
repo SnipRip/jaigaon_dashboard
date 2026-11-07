@@ -5,6 +5,7 @@
 // saved one at a time against an issued invoice and come back on it.
 import { apiRequest } from "@/lib/api-client";
 import type { DispatchDocumentKindView, InvoiceKindView, InvoiceView } from "@/types/invoice";
+import { enteredLine } from "@/features/items/line-units";
 import type { DispatchDocument, DispatchDocumentKind, Invoice, InvoiceKind } from "./types";
 
 export const INVOICES_PATH = "/invoices";
@@ -55,9 +56,7 @@ export function toInvoice(view: InvoiceView): Invoice {
       itemId: line.itemId,
       description: line.description,
       hsn: line.hsn,
-      quantity: line.quantity,
-      unit: line.unit,
-      rate: line.rate,
+      ...enteredLine(line),
       discountPct: line.discountPct,
       gstRatePct: line.gstRatePct,
       schemeDiscount: line.schemeDiscount,
@@ -87,7 +86,8 @@ export interface InvoiceBody {
   vehicleId: string | null;
   notes: string | null;
   quotationId?: string;
-  lines: { itemId: string; quantity: number; rate: number; discountPct: number }[];
+  /** Quantity and rate in `unit` (null = the base unit). */
+  lines: { itemId: string; unit: string | null; quantity: number; rate: number; discountPct: number }[];
 }
 
 export const createInvoice = (body: InvoiceBody) => apiRequest<InvoiceView>(INVOICES_PATH, { method: "POST", body });

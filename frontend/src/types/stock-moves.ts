@@ -25,7 +25,7 @@ interface StockMoveLineView {
   id: string;
   itemId: string;
   itemName: string;
-  sku: string;
+  sku: string | null;
   unit: string;
   quantity: number;
   value: number;

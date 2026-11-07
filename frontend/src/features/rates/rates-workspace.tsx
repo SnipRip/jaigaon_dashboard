@@ -11,6 +11,7 @@ import { RateCheckCard } from "./rate-check-card";
 import { specialRateInForce } from "./rate-rules";
 import { specialRatePersistence, targetKey } from "./rates-api";
 import type { RateTarget, SpecialRate } from "./types";
+import { itemLabel } from "@/features/items/item-rules";
 
 /** A record as the list shows it: a readable title and the form's item-or-category key. */
 type Shown<T> = T & { title: string; target: string };
@@ -58,7 +59,7 @@ export function RatesWorkspace({ items, categories, customers, specialRates: rat
 
   const targetOptions = [
     ...[...categoryNames].map(([id, name]) => ({ value: `category:${id}`, label: `All of ${name}` })),
-    ...items.map((item) => ({ value: `item:${item.id}`, label: `${item.name} · ${item.sku}` })),
+    ...items.map((item) => ({ value: `item:${item.id}`, label: itemLabel(item) })),
   ];
   const customerOptions = customers.filter((party) => !party.archived).map((party) => ({ value: party.id, label: party.displayName }));
 

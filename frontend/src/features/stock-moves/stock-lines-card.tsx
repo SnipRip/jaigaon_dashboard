@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { SelectField } from "@/components/ui/select-field";
 import { TextField } from "@/components/ui/text-field";
-import { resolveItemDefaults, type ItemCatalog } from "@/features/items/item-rules";
+import { itemLabel, resolveItemDefaults, type ItemCatalog } from "@/features/items/item-rules";
 import { itemsInStock, stockIn } from "@/features/items/item-stock";
 import { formatQuantity, formatRate } from "@/lib/format";
 import { emptyStockLine, type StockLineValues } from "./stock-line-schema";
@@ -36,7 +36,7 @@ export function StockLinesCard({ catalog, godownId, godownName, adding, valueHin
   const lines = useWatch({ control, name: "lines" });
   const keepIds = (lines ?? []).map((line) => line.itemId).filter(Boolean);
   const listed = adding || !godownId ? catalog.items : itemsInStock(catalog.items, godownId, keepIds);
-  const itemOptions = listed.map((item) => ({ value: item.id, label: `${item.name} · ${item.sku}` }));
+  const itemOptions = listed.map((item) => ({ value: item.id, label: itemLabel(item) }));
   const errorText = (message?: string) => message && <p className="text-xs font-semibold text-danger-strong">{message}</p>;
 
   return (

@@ -49,7 +49,7 @@ const toCategory = (view: CategoryView, units: UnitView[]): Category => ({
 const toGroup = (view: ItemGroupView, units: UnitView[], brands: BrandView[]): ItemGroup => ({
   id: view.id,
   name: view.name,
-  skuPrefix: view.skuPrefix,
+  skuPrefix: view.skuPrefix ?? undefined,
   categoryId: view.categoryId,
   subCategoryId: view.subCategoryId ?? undefined,
   brand: brandNameOf(brands, view.brandId),
@@ -62,7 +62,7 @@ const toGroup = (view: ItemGroupView, units: UnitView[], brands: BrandView[]): I
 const toItem = (view: ItemView, units: UnitView[], brands: BrandView[]): Item => ({
   id: view.id,
   name: view.name,
-  sku: view.sku,
+  sku: view.sku ?? undefined,
   categoryId: view.categoryId,
   subCategoryId: view.subCategoryId ?? undefined,
   groupId: view.groupId ?? undefined,
@@ -71,6 +71,7 @@ const toItem = (view: ItemView, units: UnitView[], brands: BrandView[]): Item =>
   description: view.description ?? undefined,
   overrides: { hsn: view.hsn, gstRatePct: view.gstRatePct ?? undefined, unit: symbolOf(units, view.unitId) },
   alternateUnits: view.alternateUnits.map((row) => ({ unit: symbolOf(units, row.unitId) ?? "", baseQuantity: row.baseQuantity })),
+  reportingUnit: symbolOf(units, view.reportingUnitId),
   weightKg: view.weightKg ?? undefined,
   mrp: view.mrp ?? undefined,
   lastLandedCost: view.lastLandedCost ?? undefined,
@@ -157,7 +158,7 @@ const round4 = (value: number) => Math.round(value * 10_000) / 10_000;
 function itemBody(masters: ItemMasters, values: ItemFormValues, overridden: ReadonlySet<Overridable>, isNew: boolean) {
   return {
     name: values.name,
-    sku: values.sku,
+    sku: textOrNull(values.sku),
     categoryId: values.categoryId,
     subCategoryId: subCategoryOf(values.subCategoryId),
     brandId: brandId(masters, values.brand),
@@ -170,6 +171,8 @@ function itemBody(masters: ItemMasters, values: ItemFormValues, overridden: Read
       // Stored as "1 of this unit = N base units".
       baseQuantity: row.perBase ? round4(1 / Number(row.quantity)) : Number(row.quantity),
     })),
+    // Only a unit still among the alternates; anything else reports in the base unit.
+    reportingUnitId: values.alternateUnits.some((row) => row.unit === values.reportingUnit) ? unitId(masters, values.reportingUnit) : null,
     weightKg: numberOrNull(values.weightKg),
     mrp: numberOrNull(values.mrp),
     preferredSupplier: textOrNull(values.preferredSupplier),
@@ -222,7 +225,7 @@ export function saveItemGroup(
 ) {
   const details = {
     name: values.name,
-    skuPrefix: values.skuPrefix,
+    skuPrefix: textOrNull(values.skuPrefix),
     brandId: brandId(masters, values.brand),
     description: textOrNull(values.description),
     hsn: overridden.has("hsn") ? textOrNull(values.hsnOverride) : null,
@@ -230,20 +233,22 @@ export function saveItemGroup(
     defaultUnitId: overridden.has("unit") && values.unitOverride ? unitId(masters, values.unitOverride) : null,
     attributes: values.attributes,
     // A row that is already an item carries its id; its stock is not touched here.
-    variants: lines.map((line) => ({
+    // A standalone item being brought in goes under `adopt` instead.
+    variants: lines.filter((line) => !line.adopting).map((line) => ({
       id: line.existing?.id,
       attributeValues: line.values,
-      sku: line.row.sku,
+      sku: textOrNull(line.row.sku),
       openingStock: line.existing ? undefined : numberOrNull(line.row.openingStock),
       openingRate: line.existing ? undefined : numberOrNull(line.row.openingRate),
       reorderLevel: numberOrNull(line.row.reorderLevel) ?? undefined,
     })),
   };
+  const adopt = lines.filter((line) => line.adopting && line.existing).map((line) => ({ itemId: line.existing!.id, attributeValues: line.values }));
   return group
-    ? apiRequest<ItemGroupView>(`${ITEM_GROUPS_PATH}/${group.id}`, { method: "PATCH", body: details })
+    ? apiRequest<ItemGroupView>(`${ITEM_GROUPS_PATH}/${group.id}`, { method: "PATCH", body: { ...details, adopt } })
     : apiRequest<ItemGroupView>(ITEM_GROUPS_PATH, {
         method: "POST",
-        body: { ...details, categoryId: values.categoryId, subCategoryId: subCategoryOf(values.subCategoryId) },
+        body: { ...details, adopt, categoryId: values.categoryId, subCategoryId: subCategoryOf(values.subCategoryId) },
       });
 }
 

@@ -11,6 +11,7 @@ import type { PartyView } from "@/types/party";
 import type { SchemeView } from "@/types/scheme";
 import { EVALUATE_SCHEMES_PATH, SCHEMES_PATH } from "./schemes-api";
 import { SchemesWorkspace } from "./schemes-workspace";
+import { itemLabel } from "@/features/items/item-rules";
 
 const CUSTOMERS_PATH = `${PARTIES_PATH}?role=customer&includeArchived=true`;
 
@@ -31,11 +32,11 @@ export function SchemesScreen() {
         ...category.subCategories.map((sub) => ({ value: `category:${sub.id}`, label: `All of ${category.name} › ${sub.name}`, group: "Sub-category" })),
       ]),
       ...active(masters.brands).map((brand) => ({ value: `brand:${brand.id}`, label: `${brand.name} (brand)`, group: "Brand" })),
-      ...items.map((item) => ({ value: `item:${item.id}`, label: `${item.name} · ${item.sku}`, group: "Item" })),
+      ...items.map((item) => ({ value: `item:${item.id}`, label: itemLabel(item), group: "Item" })),
     ];
     return {
       targetOptions,
-      itemOptions: items.map((item) => ({ value: item.id, label: `${item.name} · ${item.sku}` })),
+      itemOptions: items.map((item) => ({ value: item.id, label: itemLabel(item) })),
       // Archived customers only for the names on old schemes; pickers use the live ones.
       customerOptions: customers.data.filter((party) => !party.isArchived).map((party) => ({ value: party.id, label: party.displayName })),
     };

@@ -12,16 +12,20 @@ export interface InvoiceLine {
   itemId: string;
   description: string;
   hsn: string;
+  /** In `unit`, as entered and printed (any of the item's units). */
   quantity: number;
   unit: string;
-  /** Per unit, before GST. */
+  /** Per `unit`, before GST. */
   rate: number;
   discountPct: number;
   gstRatePct: number;
   /** Rupees schemes took off the line (saved invoices and quotations). */
   schemeDiscount?: number;
-  /** Units schemes gave free. */
+  /** Base units schemes gave free. */
   freeQuantity?: number;
+  /** The item's base unit and how many of it one `unit` holds; absent = `unit` is the base. */
+  baseUnit?: string;
+  unitFactor?: number;
 }
 
 export type DispatchDocumentKind =

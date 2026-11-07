@@ -48,15 +48,15 @@ export function QuotationsListScreen() {
   return <QuotationsWorkspace quotations={data.quotations} parties={data.parties} items={data.masters.catalog.items} companyState={data.issuer.stateCode} />;
 }
 
-/** `customer` and `lines` ("SKU:qty,SKU:qty") come from Rate enquiry. */
+/** `customer` and `lines` ("itemId:qty,itemId:qty"; a SKU in older links) come from Rate enquiry. */
 export function NewQuotationScreen({ customer, lines }: { customer?: string; lines?: string }) {
   const { data, error, reload } = useQuotationData();
   if (!data) return <LoadNotice error={error} what="the quotation form" />;
   const { items } = data.masters.catalog;
   const carried = (lines ? lines.split(",") : [])
     .map((entry) => {
-      const [sku, quantity] = entry.split(":");
-      const item = items.find((candidate) => candidate.sku === sku);
+      const [key, quantity] = entry.split(":");
+      const item = items.find((candidate) => candidate.id === key) ?? items.find((candidate) => candidate.sku === key);
       return item && Number(quantity) > 0 ? { itemId: item.id, quantity: Number(quantity) } : undefined;
     })
     .filter((line) => line !== undefined);

@@ -148,6 +148,23 @@ export function toLineRateOptions(view: LineRateOptionsView, formatDate: (iso: s
 }
 
 /**
+ * The options re-stated per line unit: every rate the backend gives is per
+ * base unit, so a line in bags of 50 kg sees them × 50 (and the cost too, so
+ * margins stay right).
+ */
+export function scaleRateOptions(options: LineRateOptions, factor: number): LineRateOptions {
+  if (factor === 1) return options;
+  const scale = (rate: number) => money(rate * factor);
+  return {
+    suggested: options.suggested && { ...options.suggested, rate: scale(options.suggested.rate) },
+    choices: options.choices.map((choice) => ({ ...choice, rate: scale(choice.rate) })),
+    previousSheetRate: options.previousSheetRate && { ...options.previousSheetRate, rate: scale(options.previousSheetRate.rate) },
+    floor: options.floor === undefined ? undefined : scale(options.floor),
+    marginCost: options.marginCost === undefined ? undefined : options.marginCost * factor,
+  };
+}
+
+/**
  * The kind of rate a line took, as schemes see it: the special rate, today's
  * rate, or anything else (typed, or a past document's rate). The backend
  * works out the same on save.

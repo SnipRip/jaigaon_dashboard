@@ -13,7 +13,7 @@ export class GroupVariantDto extends VariantDto {
 
 // Placement is fixed once variants exist. Attributes may change only so far
 // as every active variant still fits them (options can be added; an option
-// in use cannot be removed).
+// in use cannot be removed). `adopt` comes from CreateItemGroupDto.
 export class UpdateItemGroupDto extends ArchivableUpdate(
   OmitType(CreateItemGroupDto, ['categoryId', 'subCategoryId', 'variants'] as const),
 ) {

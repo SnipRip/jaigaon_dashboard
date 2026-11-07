@@ -23,8 +23,9 @@ import { trim, trimToNull } from '../../common/dto/text-transforms.js';
 import { SKU_MESSAGE, SKU_PATTERN } from '../../items/dto/create-item.dto.js';
 import { MAX_GROUP_ATTRIBUTES } from '../../items/item-rules.js';
 
+// Blank becomes null: SKUs and the SKU prefix are optional.
 const upperTrim = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim().toUpperCase() : value;
+  typeof value === 'string' ? value.trim().toUpperCase() || null : value;
 
 export class GroupAttributeDto {
   @Transform(trim)
@@ -53,9 +54,10 @@ export class VariantDto {
   name?: string | null;
 
   @Transform(upperTrim)
+  @IsOptional()
   @Length(2, 40)
   @Matches(SKU_PATTERN, { message: SKU_MESSAGE })
-  sku: string;
+  sku?: string | null;
 
   /** The group's (or sub-category's) HSN when left out. */
   @Transform(trimToNull)
@@ -78,6 +80,15 @@ export class VariantDto {
   reorderLevel?: number;
 }
 
+/** A standalone item brought into the group as one of its variants. */
+export class AdoptItemDto {
+  @IsUUID()
+  itemId: string;
+
+  @IsObject()
+  attributeValues: Record<string, string>;
+}
+
 // Creating a group creates its variants (items) in the same transaction, as
 // the group form does. Later, each variant is edited as an item.
 export class CreateItemGroupDto {
@@ -87,9 +98,10 @@ export class CreateItemGroupDto {
   name: string;
 
   @Transform(upperTrim)
+  @IsOptional()
   @Length(2, 20)
   @Matches(SKU_PATTERN, { message: SKU_MESSAGE })
-  skuPrefix: string;
+  skuPrefix?: string | null;
 
   @IsUUID()
   categoryId: string;
@@ -133,4 +145,12 @@ export class CreateItemGroupDto {
   @ValidateNested({ each: true })
   @Type(() => VariantDto)
   variants: VariantDto[];
+
+  /** Items made one by one before the group existed; they keep their stock, SKU and history. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(200)
+  @ValidateNested({ each: true })
+  @Type(() => AdoptItemDto)
+  adopt?: AdoptItemDto[];
 }

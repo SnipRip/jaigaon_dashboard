@@ -1,13 +1,10 @@
 import { z } from "zod";
+import { SKU_MAX, SKU_MESSAGE, SKU_PATTERN } from "./sku-rules";
 
 export const itemGroupSchema = z.object({
   name: z.string().trim().min(2, "Enter the group name").max(100),
-  skuPrefix: z
-    .string()
-    .trim()
-    .min(2, "Enter a SKU prefix")
-    .max(20)
-    .regex(/^[A-Za-z0-9-]+$/, "Use letters, digits and dashes only"),
+  // Optional, like SKUs; the SKU generator can start every variant with it.
+  skuPrefix: z.union([z.literal(""), z.string().trim().min(2, "A prefix has at least 2 characters").max(20).regex(SKU_PATTERN, SKU_MESSAGE)]),
   categoryId: z.string().min(1, "Pick a category"),
   subCategoryId: z.string(),
   brand: z.string(),
@@ -37,7 +34,7 @@ const quantity = z.union([z.literal(""), z.string().trim().regex(/^\d+(\.\d{1,3}
 // opening stock is its first batch, so it needs the rate it cost.
 export const variantRowSchema = z
   .object({
-    sku: z.string().trim().min(2, "Enter a SKU").regex(/^[A-Za-z0-9-]+$/, "Letters, digits, dashes"),
+    sku: z.union([z.literal(""), z.string().trim().min(2, "At least 2 characters").max(SKU_MAX).regex(SKU_PATTERN, "Letters, digits, - / .")]),
     openingStock: quantity,
     openingRate: z.union([z.literal(""), price]),
     reorderLevel: quantity,

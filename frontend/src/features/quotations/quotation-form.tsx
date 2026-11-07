@@ -17,10 +17,13 @@ import { StatusChip } from "@/components/ui/status-chip";
 import { TextArea } from "@/components/ui/text-area";
 import { TextField } from "@/components/ui/text-field";
 import { describeComponents } from "@/features/gst/gst-rules";
-import { resolveItemDefaults, type ItemCatalog } from "@/features/items/item-rules";
+import { itemLabel, type ItemCatalog } from "@/features/items/item-rules";
 import type { Party } from "@/features/parties/types";
 import { profitOf } from "@/features/profit/profit-rules";
-import { schemeRateSource, toLineRateOptions, type LineRateOptions } from "@/features/rates/line-rate-options";
+import { LineUnitSelect } from "@/features/items/line-unit-select";
+import { conversionText, ratePerUnit, restateRate } from "@/features/items/line-units";
+import { toLineRateOptions, type LineRateOptions } from "@/features/rates/line-rate-options";
+import { EMPTY_SALE_LINE, saleLineFactor, saleLineRow } from "@/features/rates/sale-line-row";
 import { LineRatePicker } from "@/features/rates/line-rate-picker";
 import { fetchLineOptions, LINE_OPTIONS_PATH } from "@/features/rates/rates-api";
 import { EVALUATE_SCHEMES_PATH, fetchSchemeResult } from "@/features/schemes/schemes-api";
@@ -45,6 +48,8 @@ const schema = z.object({
     .array(
       z.object({
         itemId: z.string().min(1, "Pick an item"),
+        /** One of the item's units; blank = the base unit. */
+        unit: z.string(),
         quantity: decimal(3, "Enter the quantity").refine((value) => Number(value) > 0, "More than 0"),
         rate: decimal(2, "Enter the rate"),
         discountPct: z.union([z.literal(""), decimal(2, "0 to 99")]).refine((value) => !value || Number(value) < 100, "0 to 99"),
@@ -65,7 +70,7 @@ interface QuotationFormProps {
   onSaved: () => Promise<void>;
 }
 
-const emptyLine = { itemId: "", quantity: "", rate: "", discountPct: "" };
+const emptyLine = EMPTY_SALE_LINE;
 
 // A quotation. Picking an item fills the customer's special rate, else
 // today's rate from the rate sheet; the line also offers the last rate quoted
@@ -97,8 +102,9 @@ export function QuotationForm({ customers, catalog, companyState, revising, init
       lines: revising
         ? revising.lines.map((line) => ({
             itemId: line.itemId,
-            quantity: String(line.quantity),
-            rate: String(line.rate),
+            unit: line.entered.unit,
+            quantity: String(line.entered.quantity),
+            rate: String(line.entered.rate),
             discountPct: line.discountPct ? String(line.discountPct) : "",
           }))
         : initial?.lines.length
@@ -138,7 +144,8 @@ export function QuotationForm({ customers, catalog, companyState, revising, init
       const views = await fetchLineOptions([LINE_OPTIONS_PATH, customerId, day, [...new Set(wanted.map((row) => row.itemId))], revising?.id]);
       for (const { index, itemId } of wanted) {
         const view = views.find((candidate) => candidate.itemId === itemId);
-        setValue(`lines.${index}.rate`, view?.rate !== null && view?.rate !== undefined ? String(view.rate) : "", { shouldValidate: true });
+        const factor = saleLineFactor(catalog, getValues(`lines.${index}`));
+        setValue(`lines.${index}.rate`, view?.rate !== null && view?.rate !== undefined ? String(ratePerUnit(view.rate, factor)) : "", { shouldValidate: true });
         setValue(`lines.${index}.discountPct`, "");
       }
     } catch {
@@ -159,33 +166,19 @@ export function QuotationForm({ customers, catalog, companyState, revising, init
     setValue(`lines.${index}.discountPct`, "");
   };
 
-  const toRow = (line: QuotationFormValues["lines"][number] | undefined, index: number) => {
-    const item = catalog.items.find((candidate) => candidate.id === line?.itemId);
-    if (!item || !line) return undefined;
-    const defaults = resolveItemDefaults(catalog, item);
-    const quantity = Number(line.quantity) || 0;
-    const rate = Number(line.rate) || 0;
-    const discountPct = Number(line.discountPct) || 0;
-    const options = optionsOf.get(item.id);
-    return {
-      key: String(index),
-      item,
-      unit: defaults.unit.value ?? "",
-      gstRatePct: defaults.gstRatePct.value ?? 0,
-      quantity,
-      rate,
-      discountPct,
-      gross: Math.round(quantity * rate * (1 - discountPct / 100) * 100) / 100,
-      options,
-      rateSource: schemeRateSource(rate, options),
-    };
+  /** A new unit on the line: the typed rate follows it (₹7 a kg → ₹350 a bag). */
+  const pickUnit = (index: number, unit: string, factor: number) => {
+    const rate = Number(getValues(`lines.${index}.rate`));
+    if (rate > 0) setValue(`lines.${index}.rate`, String(restateRate(rate, saleLineFactor(catalog, getValues(`lines.${index}`)), factor)));
+    setValue(`lines.${index}.unit`, unit, { shouldValidate: true });
   };
-  const rows = (lines ?? []).map(toRow);
+
+  const rows = (lines ?? []).map((line, index) => saleLineRow(catalog, line, index, optionsOf));
   const valid = rows.filter((row): row is NonNullable<typeof row> => row !== undefined && row.quantity > 0 && row.rate > 0);
 
-  // What the schemes in force take off, asked of the backend once typing settles.
+  // What the schemes in force take off, asked of the backend once typing settles (per base unit, as on save).
   const [schemeInput] = useDebounceValue(
-    JSON.stringify(valid.map((row) => ({ key: row.key, itemId: row.item.id, quantity: row.quantity, rate: row.rate, discountPct: row.discountPct, rateSource: row.rateSource }))),
+    JSON.stringify(valid.map((row) => ({ key: row.key, itemId: row.item.id, quantity: row.base.quantity, rate: row.base.rate, discountPct: row.discountPct, rateSource: row.rateSource }))),
     400,
   );
   // The debounced lines lag the typed ones, so the key checks those, never an empty list.
@@ -202,7 +195,8 @@ export function QuotationForm({ customers, catalog, companyState, revising, init
   });
   const totals = previewTotals(priced, tax?.regime ?? "intra-state");
   const schemeTotal = Math.round(priced.reduce((sum, row) => sum + row.schemeDiscount, 0) * 100) / 100;
-  const cost = priced.reduce((sum, row) => sum + (row.options?.marginCost ?? 0) * (row.quantity + row.freeQuantity), 0);
+  // marginCost is per line unit (scaled); free units come back in base units.
+  const cost = priced.reduce((sum, row) => sum + ((row.options?.marginCost ?? 0) / row.factor) * (row.base.quantity + row.freeQuantity), 0);
   const profit = profitOf(totals.taxable, cost, 0);
   const costMissing = priced.some((row) => row.options && row.options.marginCost === undefined);
 
@@ -221,7 +215,13 @@ export function QuotationForm({ customers, catalog, companyState, revising, init
           status,
           terms: values.terms.trim() || null,
           notes: values.notes.trim() || null,
-          lines: values.lines.map((line) => ({ itemId: line.itemId, quantity: Number(line.quantity), rate: Number(line.rate), discountPct: Number(line.discountPct) || 0 })),
+          lines: values.lines.map((line) => ({
+            itemId: line.itemId,
+            unit: line.unit || null,
+            quantity: Number(line.quantity),
+            rate: Number(line.rate),
+            discountPct: Number(line.discountPct) || 0,
+          })),
         };
         try {
           const saved = revising ? await reviseQuotation(revising.id, { ...body, note: values.note.trim() }) : await createQuotation(body);
@@ -274,7 +274,7 @@ export function QuotationForm({ customers, catalog, companyState, revising, init
             const lineErrors = errors.lines?.[index];
             return (
               <div key={field.id} className="glass-inset flex flex-col gap-2.5 rounded-(--radius-tile) p-3">
-                <div className="grid items-start gap-2.5 @2xl:grid-cols-[minmax(0,3fr)_1fr_1fr_1fr_auto]">
+                <div className="grid items-start gap-2.5 @2xl:grid-cols-[minmax(0,3fr)_0.8fr_1fr_1fr_1fr_auto]">
                   <div className="flex flex-col gap-1.5">
                     <Controller
                       control={control}
@@ -282,10 +282,11 @@ export function QuotationForm({ customers, catalog, companyState, revising, init
                       render={({ field: itemField }) => (
                         <SelectField
                           label="Item"
-                          options={catalog.items.map((candidate) => ({ value: candidate.id, label: `${candidate.name} · ${candidate.sku}` }))}
+                          options={catalog.items.map((candidate) => ({ value: candidate.id, label: itemLabel(candidate) }))}
                           value={itemField.value || undefined}
                           onValueChange={(value) => {
                             setValue(`lines.${index}.itemId`, value, { shouldValidate: true });
+                            setValue(`lines.${index}.unit`, "");
                             void suggest([index]);
                           }}
                         />
@@ -293,8 +294,9 @@ export function QuotationForm({ customers, catalog, companyState, revising, init
                     />
                     {lineErrors?.itemId && <p className="text-xs font-semibold text-danger-strong">{lineErrors.itemId.message}</p>}
                   </div>
+                  <LineUnitSelect choices={row?.choices ?? []} value={lines?.[index]?.unit ?? ""} onChange={(unit, factor) => pickUnit(index, unit, factor)} />
                   <TextField label={`Quantity${row ? ` (${row.unit})` : ""}`} inputMode="decimal" error={lineErrors?.quantity?.message} {...register(`lines.${index}.quantity`)} />
-                  <TextField label="Rate (₹)" inputMode="decimal" error={lineErrors?.rate?.message} {...register(`lines.${index}.rate`)} />
+                  <TextField label={`Rate (₹${row ? ` per ${row.unit}` : ""})`} inputMode="decimal" error={lineErrors?.rate?.message} {...register(`lines.${index}.rate`)} />
                   <TextField label="Discount %" inputMode="decimal" error={lineErrors?.discountPct?.message} {...register(`lines.${index}.discountPct`)} />
                   <Button variant="neutral" aria-label="Remove this line" disabled={lineFields.fields.length === 1} onClick={() => lineFields.remove(index)} className="w-11 px-0 @2xl:mt-[22px]">
                     <Trash2 aria-hidden="true" className="size-[18px]" />
@@ -308,14 +310,19 @@ export function QuotationForm({ customers, catalog, companyState, revising, init
                         {pricedRow.applied.map((applied) => (
                           <li key={applied.schemeId}>
                             <StatusChip tone="success">
-                              {applied.name}: {applied.freeQuantity ? `+${formatQuantity(applied.freeQuantity)} ${row.unit} free` : `− ${formatRate(applied.amount)}`}
+                              {applied.name}: {applied.freeQuantity ? `+${formatQuantity(applied.freeQuantity)} ${row.baseUnit} free` : `− ${formatRate(applied.amount)}`}
                             </StatusChip>
                           </li>
                         ))}
                       </ul>
                     )}
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs font-semibold text-muted">
-                      <span>Stock {formatQuantity(row.item.stock)} {row.unit}</span>
+                      <span>Stock {formatQuantity(row.item.stock)} {row.baseUnit}</span>
+                      {row.factor !== 1 && (
+                        <span>
+                          {conversionText(row.unit, row.factor, row.baseUnit)} · {formatQuantity(row.base.quantity)} {row.baseUnit}
+                        </span>
+                      )}
                       <span>GST {row.gstRatePct}%{tax ? ` → ${describeComponents(row.gstRatePct, tax.regime)}` : ""}</span>
                       <span className="ml-auto font-semibold text-ink tabular-nums">
                         {pricedRow && pricedRow.schemeDiscount > 0 ? (

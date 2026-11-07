@@ -77,7 +77,7 @@ function placement(values: Record<string, unknown>, { refs }: ImportContext) {
 export function itemsImporter(items: ItemsService, prisma: PrismaService): MasterImporter<Item> {
   const columns: ImportColumn<Item>[] = [
     { header: 'Name', field: 'name', kind: 'text', required: true, value: (item) => item.name },
-    { header: 'SKU', field: 'sku', kind: 'text', required: true, hint: 'Unique item code; matches the row to a stored item.', value: (item) => item.sku },
+    { header: 'SKU', field: 'sku', kind: 'text', hint: 'Optional unique item code; matches the row to a stored item. Blank: matched by name among items with no SKU.', value: (item) => item.sku },
     { header: 'Category', field: 'category', kind: 'text', required: true, hint: 'Top-level category, as in the category tree.', value: (item, refs) => refs.nameOf('category', item.categoryId) },
     {
       header: 'Sub-category',
@@ -103,8 +103,14 @@ export function itemsImporter(items: ItemsService, prisma: PrismaService): Maste
     refs: ['category', 'brand', 'unit'],
     archivable: true,
     list: () => prisma.item.findMany({ orderBy: { name: 'asc' } }),
-    findExisting: async (values) =>
-      values.sku ? ((await prisma.item.findFirst({ where: { sku: sameText(values.sku) } }))?.id ?? null) : null,
+    findExisting: async (values) => {
+      if (values.sku) return (await prisma.item.findFirst({ where: { sku: sameText(values.sku) } }))?.id ?? null;
+      if (typeof values.name !== 'string') return null;
+      // No SKU: the one item of that name without a SKU; two such names cannot be told apart.
+      const named = await prisma.item.findMany({ where: { sku: null, name: sameText(values.name) }, select: { id: true }, take: 2 });
+      if (named.length > 1) throw new RowProblem(`Two items are named ${values.name}: give them SKUs to tell them apart`);
+      return named[0]?.id ?? null;
+    },
     create: async (values, context) => {
       const dto = await validDto(CreateItemDto, { ...pick(values, ITEM_FIELDS), ...placement(values, context) });
       return (await items.create(dto)).id;

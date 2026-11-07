@@ -1,4 +1,5 @@
 // Sales invoices as the backend returns them (backend/src/invoices).
+import type { EnteredLineView } from "./entered-line";
 import type { LineRateSourceView, SaleRegimeView } from "./quotation";
 import type { AppliedSchemeView } from "./scheme";
 import type { StockDrawView } from "./stock-moves";
@@ -17,6 +18,8 @@ export interface InvoiceLineView {
   unit: string;
   quantity: number;
   rate: number;
+  /** As entered and printed; quantity and rate above are per base unit. */
+  entered: EnteredLineView;
   discountPct: number;
   rateSource: LineRateSourceView;
   suggestedRate: number | null;

@@ -2,6 +2,7 @@
 // backend's bill to the `Bill` the purchase screens and rules read. The
 // backend works out and stores the figures; the screens show the same ones
 // live from features/purchases/purchase-rules.ts while a bill is typed.
+import { enteredLine } from "@/features/items/line-units";
 import { apiRequest } from "@/lib/api-client";
 import type { LandedCostMethodView, LastPurchaseRateView, PurchaseBillView, PurchaseOrderView } from "@/types/purchase";
 import type { Bill, LandedCostMethod } from "./types";
@@ -26,9 +27,7 @@ export function toBill(view: PurchaseBillView): Bill {
       itemId: line.itemId,
       description: line.description,
       hsn: line.hsn,
-      unit: line.unit,
-      quantity: line.quantity,
-      rate: line.rate,
+      ...enteredLine(line),
       discountPct: line.discountPct,
       gstRatePct: line.gstRatePct,
       itc: line.itcEligible ? "eligible" : "ineligible",

@@ -4,6 +4,7 @@ import { toNumber } from '../common/decimal.js';
 import { PrismaService } from '../database/prisma.service.js';
 import type { LandedCostMethod, Prisma } from '../generated/prisma/client.js';
 import { loadItemFacts } from '../items/item-document-facts.js';
+import { enteredColumns, toBaseLine } from '../items/line-units.js';
 import { NumberSeriesService } from '../number-series/number-series.service.js';
 import { liveSettlementNumbers } from '../settlements/settlements.service.js';
 import type { CreatePurchaseBillDto, LastPurchaseRatesQueryDto, ListPurchaseBillsQueryDto } from './dto/purchase-bill.dto.js';
@@ -57,10 +58,10 @@ export class PurchaseBillsService {
       const vendor = await liveVendor(tx, dto.vendorId);
       const state = await companyState(tx);
       const goods = dto.kind === 'GOODS';
-      const lines = goods ? (dto.lines ?? []) : [];
+      const entered = goods ? (dto.lines ?? []) : [];
       const charges = dto.charges ?? [];
       if (goods) {
-        if (lines.length === 0) fail('Add at least one item');
+        if (entered.length === 0) fail('Add at least one item');
         if (vendor.isGta) fail('A goods transport agency bills freight only: enter it as a freight, loading or labour bill');
         if (!dto.godownId) fail('Pick the godown the goods came into');
         await liveGodown(tx, dto.godownId!);
@@ -80,8 +81,22 @@ export class PurchaseBillsService {
       if (twice) throw new ConflictException(`Bill ${dto.vendorBillNumber} from this vendor is already entered as ${twice.reference}`);
 
       const tax = billTax(state, vendor, dto.sourceOfSupply ?? null);
-      const facts = await loadItemFacts(tx, lines.map((line) => line.itemId), dto.date);
-      await this.checkOrder(tx, dto, vendor.id);
+      const facts = await loadItemFacts(tx, entered.map((line) => line.itemId), dto.date);
+      // From here on quantity and rate are per base unit; `units` keeps what was typed.
+      const lines = entered.map((line) => {
+        const units = toBaseLine(facts.get(line.itemId)!, line);
+        return {
+          itemId: line.itemId,
+          orderLineId: line.orderLineId,
+          discountPct: line.discountPct,
+          gstRatePct: line.gstRatePct,
+          itcEligible: line.itcEligible,
+          quantity: units.quantity,
+          rate: units.rate,
+          units,
+        };
+      });
+      await this.checkOrder(tx, dto, lines, vendor.id);
 
       const heads = await tx.accountHead.findMany({
         where: { id: { in: [...new Set(charges.map((charge) => charge.headId))] } },
@@ -166,7 +181,7 @@ export class PurchaseBillsService {
                 hsn: item.hsn,
                 unit: item.unit,
                 quantity: line.quantity,
-                rate: line.rate,
+                ...enteredColumns(line.units),
                 discountPct: line.discountPct ?? 0,
                 gstRatePct: line.gstRatePct,
                 itcEligible: lineInputs[position].itcEligible,
@@ -261,8 +276,7 @@ export class PurchaseBillsService {
   }
 
   /** An order the bill fills: open, the same vendor, and lines still pending. */
-  private async checkOrder(tx: Db, dto: CreatePurchaseBillDto, vendorId: string) {
-    const lines = dto.lines ?? [];
+  private async checkOrder(tx: Db, dto: CreatePurchaseBillDto, lines: { itemId: string; orderLineId?: string | null; quantity: number }[], vendorId: string) {
     const linked = lines.filter((line) => line.orderLineId);
     if (!dto.purchaseOrderId) {
       if (linked.length) fail('Pick the purchase order these lines fill');

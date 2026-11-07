@@ -7,7 +7,7 @@ import { itemCostSource, itemCosts, stockByGodown, stockOnHand, type CostSource,
 export interface ItemView extends ItemCosts {
   id: string;
   name: string;
-  sku: string;
+  sku: string | null;
   categoryId: string;
   subCategoryId: string | null;
   groupId: string | null;
@@ -17,6 +17,8 @@ export interface ItemView extends ItemCosts {
   hsn: string;
   gstRatePct: number | null;
   unitId: string | null;
+  /** Null = the base unit. */
+  reportingUnitId: string | null;
   weightKg: number | null;
   mrp: number | null;
   preferredSupplier: string | null;
@@ -67,6 +69,7 @@ export function toItemView(item: ItemRow): ItemView {
     hsn: item.hsn,
     gstRatePct: toNumber(item.gstRatePct),
     unitId: item.unitId,
+    reportingUnitId: item.reportingUnitId,
     weightKg: toNumber(item.weightKg),
     mrp: toNumber(item.mrp),
     ...itemCosts(item),

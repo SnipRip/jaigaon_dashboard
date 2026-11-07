@@ -103,11 +103,8 @@ export function generateVariants(attributes: GroupAttribute[]): Record<string, s
 export const variantName = (groupName: string, values: Record<string, string>) =>
   [groupName.trim(), ...Object.values(values)].filter(Boolean).join(" ");
 
-/** "IS-TMT" + { Size: "12 mm" } → "IS-TMT-12MM". Editable afterwards. */
-export function variantSku(prefix: string, values: Record<string, string>): string {
-  const parts = Object.values(values).map((value) => value.toUpperCase().replace(/[^A-Z0-9]/g, ""));
-  return [prefix.trim().toUpperCase(), ...parts].filter(Boolean).join("-");
-}
+/** How pickers name an item: "Name · SKU", or the name alone when it has no SKU. */
+export const itemLabel = (item: { name: string; sku?: string | null }) => (item.sku ? `${item.name} · ${item.sku}` : item.name);
 
 export function matchesItemSearch(catalog: ItemCatalog, item: Item, query: string): boolean {
   const needle = query.trim().toLowerCase();

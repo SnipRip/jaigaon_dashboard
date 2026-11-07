@@ -181,7 +181,8 @@ export class ReportsService {
     const [lines, units] = await Promise.all([
       this.prisma.invoiceLine.findMany({
         where: { invoice: { status: 'ISSUED', date: period } },
-        select: { hsn: true, unit: true, gstRatePct: true, quantity: true, taxable: true, tax: true },
+        // In each item's reporting unit, as fixed when the invoice was saved.
+        select: { hsn: true, reportUnit: true, gstRatePct: true, reportQuantity: true, taxable: true, tax: true },
       }),
       this.prisma.unit.findMany({ select: { symbol: true, uqc: true } }),
     ]);
@@ -189,9 +190,9 @@ export class ReportsService {
     return hsnRows(
       lines.map((line) => ({
         hsn: line.hsn,
-        uqc: uqcOf.get(line.unit) ?? 'OTH',
+        uqc: uqcOf.get(line.reportUnit) ?? 'OTH',
         ratePct: n(line.gstRatePct),
-        quantity: n(line.quantity),
+        quantity: n(line.reportQuantity),
         taxable: n(line.taxable),
         tax: n(line.tax),
       })),
@@ -234,7 +235,7 @@ export class ReportsService {
       const stock = stockOnHand(item);
       const cost = itemCosts(item).stockCost ?? 0;
       return {
-        sku: item.sku,
+        sku: item.sku ?? '',
         item: item.name,
         stock,
         unit: inherited(item.unit?.symbol, item.group?.defaultUnit?.symbol, item.subCategory?.defaultUnit?.symbol, item.category.defaultUnit?.symbol) ?? '',

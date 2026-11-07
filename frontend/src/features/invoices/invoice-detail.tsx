@@ -117,8 +117,9 @@ export function InvoiceDetail({ initialInvoice, party, issuer, bank, onChanged, 
                       <td className="text-left">
                         {line.description}
                         <div className="text-xs text-muted">
-                          {formatQuantity(line.quantity)} {line.unit}
-                          {line.freeQuantity > 0 && ` + ${formatQuantity(line.freeQuantity)} free`}
+                          {formatQuantity(line.entered.quantity)} {line.entered.unit}
+                          {line.entered.factor !== 1 && ` (${formatQuantity(line.quantity)} ${line.unit})`}
+                          {line.freeQuantity > 0 && ` + ${formatQuantity(line.freeQuantity)} ${line.unit} free`}
                         </div>
                       </td>
                       <td className="text-left">

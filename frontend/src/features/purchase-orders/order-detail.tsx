@@ -82,18 +82,29 @@ export function OrderDetail({ order, onChanged }: { order: PurchaseOrderView; on
                       {line.itemName}
                     </Link>
                     <div className="text-xs text-muted">
-                      {line.sku} · GST {line.gstRatePct}%
+                      {[line.sku, `GST ${line.gstRatePct}%`].filter(Boolean).join(" · ")}
                     </div>
                   </td>
                   <td>
-                    {formatQuantity(line.quantity)} {line.unit}
+                    {formatQuantity(line.entered.quantity)} {line.entered.unit}
+                    {line.entered.factor !== 1 && (
+                      <div className="text-xs text-muted">
+                        {formatQuantity(line.quantity)} {line.unit}
+                      </div>
+                    )}
                   </td>
                   <td>
-                    {formatRate(line.rate)}
+                    {formatRate(line.entered.rate)}
+                    {line.entered.factor !== 1 && <div className="text-xs text-muted">per {line.entered.unit}</div>}
                     {line.discountPct > 0 && <div className="text-xs text-muted">less {line.discountPct}%</div>}
                   </td>
-                  <td className={line.received > 0 ? "text-success-strong" : "text-muted"}>{formatQuantity(line.received)}</td>
-                  <td className={line.pending > 0 ? "text-warning-strong" : "text-muted"}>{line.pending > 0 ? formatQuantity(line.pending) : "–"}</td>
+                  {/* Bills may come in any unit, so what came and what is left are counted in the base unit. */}
+                  <td className={line.received > 0 ? "text-success-strong" : "text-muted"}>
+                    {formatQuantity(line.received)} {line.unit}
+                  </td>
+                  <td className={line.pending > 0 ? "text-warning-strong" : "text-muted"}>
+                    {line.pending > 0 ? `${formatQuantity(line.pending)} ${line.unit}` : "–"}
+                  </td>
                 </tr>
               ))}
             </tbody>

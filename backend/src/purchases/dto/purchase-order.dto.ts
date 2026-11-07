@@ -8,11 +8,18 @@ export class PurchaseOrderLineDto {
   @IsUUID()
   itemId: string;
 
-  /** Base units. */
+  /** One of the item's units (symbol); left out = the base unit. */
+  @Transform(trimToNull)
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  unit?: string | null;
+
+  /** In `unit`. */
   @IsQuantity()
   quantity: number;
 
-  /** Per base unit, before GST: the rate agreed with the vendor. */
+  /** Per `unit`, before GST: the rate agreed with the vendor. */
   @IsAmount()
   rate: number;
 

@@ -69,7 +69,7 @@ export function QuotationDocument({ quotation, party, issuer, tax, totals }: Quo
                 {line.description}
                 {saved && saved.freeQuantity > 0 && (
                   <span className="block text-[11px] font-normal">
-                    + {formatQuantity(saved.freeQuantity)} {line.unit} free under the scheme
+                    + {formatQuantity(saved.freeQuantity)} {saved.unit} free under the scheme
                   </span>
                 )}
               </td>

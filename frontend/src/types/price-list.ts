@@ -30,7 +30,7 @@ export interface ItemPriceView {
 export interface PriceSheetRowView {
   itemId: string;
   name: string;
-  sku: string;
+  sku: string | null;
   unit: string | null;
   categoryId: string;
   subCategoryId: string | null;

@@ -4,6 +4,7 @@ import { toNumber } from '../common/decimal.js';
 import { PrismaService } from '../database/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { loadItemFacts } from '../items/item-document-facts.js';
+import { enteredColumns, toBaseLine } from '../items/line-units.js';
 import { NumberSeriesService } from '../number-series/number-series.service.js';
 import type { PurchaseOrderDto } from './dto/purchase-order.dto.js';
 import { companyState, liveGodown, liveVendor } from './purchase-context.js';
@@ -102,7 +103,8 @@ export class PurchaseOrdersService {
       if (line.quantity <= 0) throw new BadRequestException(`Enter the quantity of ${item.name}`);
       const gstRatePct = line.gstRatePct ?? item.gstRatePct;
       if (gstRatePct === null) throw new BadRequestException(`${item.name} has no GST rate: set its HSN in the HSN master, or enter the rate`);
-      return { position, itemId: line.itemId, quantity: line.quantity, rate: line.rate, discountPct: line.discountPct ?? 0, gstRatePct };
+      const units = toBaseLine(item, line);
+      return { position, itemId: line.itemId, quantity: units.quantity, ...enteredColumns(units), discountPct: line.discountPct ?? 0, gstRatePct };
     });
   }
 
@@ -132,9 +134,10 @@ export class PurchaseOrdersService {
     const units = new Map([...facts.values()].map((item) => [item.id, item.unit]));
     const vendorOf = new Map(vendors.map((vendor) => [vendor.id, vendor]));
     return orders.map((order) => {
+      // As entered: typed quantity × typed rate is the line's value exactly.
       const lines = order.lines.map((line) => ({
-        quantity: toNumber(line.quantity),
-        rate: toNumber(line.rate),
+        quantity: toNumber(line.lineQuantity),
+        rate: toNumber(line.lineRate),
         discountPct: toNumber(line.discountPct),
         gstRatePct: toNumber(line.gstRatePct),
         itcEligible: true,

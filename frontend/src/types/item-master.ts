@@ -53,7 +53,7 @@ export interface CategoryView extends SubCategoryView {
 export interface ItemGroupView {
   id: string;
   name: string;
-  skuPrefix: string;
+  skuPrefix: string | null;
   categoryId: string;
   subCategoryId: string | null;
   brandId: string | null;
@@ -69,7 +69,7 @@ export interface ItemGroupView {
 export interface ItemView {
   id: string;
   name: string;
-  sku: string;
+  sku: string | null;
   categoryId: string;
   subCategoryId: string | null;
   groupId: string | null;
@@ -80,6 +80,8 @@ export interface ItemView {
   /** Overrides only; null inherits. */
   gstRatePct: number | null;
   unitId: string | null;
+  /** GST reporting unit; null = the base unit. */
+  reportingUnitId: string | null;
   weightKg: number | null;
   mrp: number | null;
   /** Landed rate of the newest batch; null before any stock. */

@@ -16,7 +16,9 @@ import { TextField } from "@/components/ui/text-field";
 import { describeComponents } from "@/features/gst/gst-rules";
 import { invoiceTotals, lineTotals } from "@/features/invoices/invoice-rules";
 import type { InvoiceLine } from "@/features/invoices/types";
-import { resolveItemDefaults, type ItemCatalog } from "@/features/items/item-rules";
+import { itemLabel, type ItemCatalog } from "@/features/items/item-rules";
+import { LineUnitSelect } from "@/features/items/line-unit-select";
+import { conversionText, restateRate, typedLine } from "@/features/items/line-units";
 import type { Godown } from "@/features/masters/types";
 import type { Party } from "@/features/parties/types";
 import { placeOf } from "@/features/parties/party-rules";
@@ -38,7 +40,7 @@ interface OrderFormProps {
   onSaved: () => Promise<void>;
 }
 
-const emptyLine = { itemId: "", quantity: "", rate: "", discountPct: "" };
+const emptyLine = { itemId: "", unit: "", quantity: "", rate: "", discountPct: "" };
 
 // A purchase order: what we ask a vendor for, at the rate agreed. No stock
 // moves until the goods bill arrives against it. GST follows the vendor, as
@@ -67,8 +69,9 @@ export function OrderForm({ vendors, catalog, godowns, companyState, order, onSa
       notes: order?.notes ?? "",
       lines: order?.lines.map((line) => ({
         itemId: line.itemId,
-        quantity: String(line.quantity),
-        rate: String(line.rate),
+        unit: line.entered.unit,
+        quantity: String(line.entered.quantity),
+        rate: String(line.entered.rate),
         discountPct: line.discountPct ? String(line.discountPct) : "",
       })) ?? [emptyLine],
     },
@@ -84,36 +87,34 @@ export function OrderForm({ vendors, catalog, godowns, companyState, order, onSa
   const tax = vendor ? billTax(companyState, vendor) : undefined;
   const split = tax ? splitRegime(tax, companyState, vendor?.placeOfSupply) : "no-gst";
 
-  const toLine = (line?: OrderFormValues["lines"][number]): InvoiceLine | undefined => {
-    const item = catalog.items.find((candidate) => candidate.id === line?.itemId);
-    if (!item || !line) return undefined;
-    const defaults = resolveItemDefaults(catalog, item);
-    return {
-      itemId: item.id,
-      description: item.name,
-      hsn: defaults.hsn.value ?? "",
-      unit: defaults.unit.value ?? "",
-      gstRatePct: defaults.gstRatePct.value ?? 0,
-      quantity: Number(line.quantity) || 0,
-      rate: Number(line.rate) || 0,
-      discountPct: Number(line.discountPct) || 0,
-    };
-  };
-  const orderLines = (lines ?? []).map(toLine).filter((line): line is InvoiceLine => line !== undefined);
+  const toLine = (line?: OrderFormValues["lines"][number]) => typedLine(catalog, line);
+  const orderLines: InvoiceLine[] = (lines ?? []).map(toLine).filter((line) => line !== undefined);
   const totals = invoiceTotals(orderLines, split);
 
   const pickItem = async (index: number, itemId: string) => {
     setValue(`lines.${index}.itemId`, itemId, { shouldValidate: true });
+    setValue(`lines.${index}.unit`, "");
     try {
       const [last] = await fetchLastRates(["last-rates", vendorId || undefined, itemId] as const);
       if (last && !getValues(`lines.${index}.rate`)) setValue(`lines.${index}.rate`, String(last.rate));
+      const baseUnit = toLine(getValues(`lines.${index}`))?.baseUnit ?? "";
       setLastPaid((current) => ({
         ...current,
-        [index]: last ? `Last paid ${formatRate(last.rate)} on ${formatDate(last.date)}${last.fromThisVendor ? "" : ` to ${last.vendorName}`}` : "Not bought before",
+        [index]: last
+          ? `Last paid ${formatRate(last.rate)} per ${baseUnit} on ${formatDate(last.date)}${last.fromThisVendor ? "" : ` to ${last.vendorName}`}`
+          : "Not bought before",
       }));
     } catch {
       // Only a suggestion.
     }
+  };
+
+  /** A new unit on the line: the typed rate follows it. */
+  const pickUnit = (index: number, unit: string, factor: number) => {
+    const rate = Number(getValues(`lines.${index}.rate`));
+    const from = toLine(getValues(`lines.${index}`))?.unitFactor ?? 1;
+    if (rate > 0) setValue(`lines.${index}.rate`, String(restateRate(rate, from, factor)));
+    setValue(`lines.${index}.unit`, unit, { shouldValidate: true });
   };
 
   const onSubmit = handleSubmit(
@@ -129,6 +130,7 @@ export function OrderForm({ vendors, catalog, godowns, companyState, order, onSa
           notes: values.notes || null,
           lines: values.lines.map((line) => ({
             itemId: line.itemId,
+            unit: line.unit || null,
             quantity: Number(line.quantity),
             rate: Number(line.rate),
             discountPct: Number(line.discountPct) || 0,
@@ -145,7 +147,7 @@ export function OrderForm({ vendors, catalog, godowns, companyState, order, onSa
   );
 
   const errorText = (message?: string) => message && <p className="text-xs font-semibold text-danger-strong">{message}</p>;
-  const itemOptions = catalog.items.map((item) => ({ value: item.id, label: `${item.name} · ${item.sku}` }));
+  const itemOptions = catalog.items.map((item) => ({ value: item.id, label: itemLabel(item) }));
 
   return (
     <form onSubmit={onSubmit} noValidate className="grid items-start gap-3.5 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -202,7 +204,7 @@ export function OrderForm({ vendors, catalog, godowns, companyState, order, onSa
             const lineErrors = errors.lines?.[index];
             return (
               <div key={field.id} className="glass-inset flex flex-col gap-2.5 rounded-(--radius-tile) p-3">
-                <div className="grid items-start gap-2.5 @2xl:grid-cols-[minmax(0,3fr)_1fr_1fr_1fr_auto]">
+                <div className="grid items-start gap-2.5 @2xl:grid-cols-[minmax(0,3fr)_0.8fr_1fr_1fr_1fr_auto]">
                   <div className="flex flex-col gap-1.5">
                     <Controller
                       control={control}
@@ -214,8 +216,9 @@ export function OrderForm({ vendors, catalog, godowns, companyState, order, onSa
                     {errorText(lineErrors?.itemId?.message)}
                     {lastPaid[index] && <p className="text-xs font-semibold text-muted">{lastPaid[index]}</p>}
                   </div>
+                  <LineUnitSelect choices={line?.choices ?? []} value={lines?.[index]?.unit ?? ""} onChange={(unit, factor) => pickUnit(index, unit, factor)} />
                   <TextField label={`Quantity${line ? ` (${line.unit})` : ""}`} inputMode="decimal" error={lineErrors?.quantity?.message} {...register(`lines.${index}.quantity`)} />
-                  <TextField label="Rate (₹)" inputMode="decimal" error={lineErrors?.rate?.message} {...register(`lines.${index}.rate`)} />
+                  <TextField label={`Rate (₹${line ? ` per ${line.unit}` : ""})`} inputMode="decimal" error={lineErrors?.rate?.message} {...register(`lines.${index}.rate`)} />
                   <TextField label="Discount %" inputMode="decimal" error={lineErrors?.discountPct?.message} {...register(`lines.${index}.discountPct`)} />
                   <Button variant="neutral" aria-label="Remove this line" disabled={lineFields.fields.length === 1} onClick={() => lineFields.remove(index)} className="w-11 px-0 @2xl:mt-[22px]">
                     <Trash2 aria-hidden="true" className="size-[18px]" />
@@ -224,6 +227,7 @@ export function OrderForm({ vendors, catalog, godowns, companyState, order, onSa
                 {line && (
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-muted">
                     <span>HSN {line.hsn}</span>
+                    {line.unitFactor !== 1 && <span>{conversionText(line.unit, line.unitFactor ?? 1, line.baseUnit ?? "")}</span>}
                     <span>GST {line.gstRatePct}%{tax ? ` → ${describeComponents(line.gstRatePct, tax.regime)}` : ""}</span>
                     <span className="ml-auto text-ink tabular-nums">{formatRate(lineTotals(line, "no-gst").taxable)} before GST</span>
                   </div>

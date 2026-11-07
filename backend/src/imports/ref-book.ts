@@ -113,7 +113,11 @@ export class RefBook implements RefNames {
           ).map((party) => ({ id: party.id, name: party.displayName, aliases: [party.gstin] })),
         );
       case 'item':
-        return this.set(kind, (await db.item.findMany({ select: { id: true, sku: true } })).map((item) => ({ id: item.id, name: item.sku })));
+        // By SKU, or by name for an item without one (SKU is optional).
+        return this.set(
+          kind,
+          (await db.item.findMany({ select: { id: true, sku: true, name: true } })).map((item) => ({ id: item.id, name: item.sku ?? item.name, aliases: [item.sku ? item.name : null] })),
+        );
       case 'bankAccount':
         return this.set(kind, await db.bankCashAccount.findMany({ select: { id: true, name: true } }));
       case 'accountHead':

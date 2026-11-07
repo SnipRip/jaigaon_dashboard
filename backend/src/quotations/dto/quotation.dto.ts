@@ -9,10 +9,18 @@ export class QuotationLineDto {
   @IsUUID()
   itemId: string;
 
+  /** One of the item's units (symbol); left out = the base unit. */
+  @Transform(trimToNull)
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  unit?: string | null;
+
+  /** In `unit`. */
   @IsQuantity()
   quantity: number;
 
-  /** Per base unit before GST. Where it came from is worked out on save. */
+  /** Per `unit` before GST. Where it came from is worked out on save. */
   @IsAmount()
   rate: number;
 

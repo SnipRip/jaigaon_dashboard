@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable } from '@nestjs/comm
 import { dateOnly } from '../common/dates.js';
 import { PrismaService } from '../database/prisma.service.js';
 import type { Prisma, QuotationStatus } from '../generated/prisma/client.js';
+import { inReportingUnit } from '../items/line-units.js';
 import { NumberSeriesService } from '../number-series/number-series.service.js';
 import { companyState, liveGodown } from '../purchases/purchase-context.js';
 import { SalePricingService } from '../sale-pricing/sale-pricing.service.js';
@@ -87,11 +88,11 @@ export class InvoicesService {
 
         const claimed = await this.numbers.issue(tx, SERIES_OF[dto.kind], dto.date, { typed: dto.number ?? undefined });
         let cost = 0;
-        const lineRows = lines.map(({ row }, index) => {
+        const lineRows = lines.map(({ row, item }, index) => {
           const draws = drawsOf.get(index)!;
           const costOfGoods = costOfDraws(draws);
           cost = money(cost + costOfGoods);
-          return { ...row, costOfGoods, draws: { create: draws.map((draw) => ({ batchId: draw.batchId, quantity: draw.quantity, rate: draw.rate })) } };
+          return { ...row, ...inReportingUnit(item, row.quantity), costOfGoods, draws: { create: draws.map((draw) => ({ batchId: draw.batchId, quantity: draw.quantity, rate: draw.rate })) } };
         });
         const row = await tx.invoice.create({
           data: {
