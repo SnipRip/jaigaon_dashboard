@@ -23,6 +23,8 @@ export async function landBill(tx: Prisma.TransactionClient, goodsBillId: string
       godownId: true,
       allocation: true,
       chargesValue: true,
+      tax: true,
+      itcClaimable: true,
       lines: { orderBy: { position: 'asc' }, include: { item: { select: { weightKg: true, name: true } }, batch: { select: { id: true } } } },
       taggedCharges: { where: { status: 'OPEN' }, select: { cost: true } },
       expenses: { where: { cancelledAt: null }, select: { cost: true } },
@@ -30,7 +32,11 @@ export async function landBill(tx: Prisma.TransactionClient, goodsBillId: string
   });
   if (bill.status !== 'OPEN') return;
   const added = [...bill.taggedCharges, ...bill.expenses].reduce((sum, tagged) => sum + toNumber(tagged.cost), 0);
-  const charges = money(toNumber(bill.chargesValue) + added);
+  // With nothing claimable on the bill (we are composition or unregistered),
+  // the GST on its own freight and loading is cost too.
+  const chargeTaxIsCost = toNumber(bill.itcClaimable) <= 0;
+  const ownChargeTax = chargeTaxIsCost ? toNumber(bill.tax) - bill.lines.reduce((sum, line) => sum + toNumber(line.tax), 0) : 0;
+  const charges = money(toNumber(bill.chargesValue) + ownChargeTax + added);
   const lines = bill.lines.map((line) => ({
     quantity: toNumber(line.quantity),
     weightKg: lineWeightKg(toNumber(line.quantity), line.unit, toNumber(line.item.weightKg)),

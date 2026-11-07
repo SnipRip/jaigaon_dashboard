@@ -18,7 +18,7 @@ import { usePurchaseData } from "./use-purchase-data";
 export function PurchasesListScreen() {
   const { data, error } = usePurchaseData();
   if (!data) return <LoadNotice error={error} what="vendor bills" />;
-  return <PurchasesWorkspace bills={data.bills} parties={data.parties} companyState={data.companyState} />;
+  return <PurchasesWorkspace bills={data.bills} parties={data.parties} company={data.company} />;
 }
 
 export function NewBillScreen({ kind, forBill, orderId }: { kind?: string; forBill?: string; orderId?: string }) {
@@ -39,7 +39,7 @@ export function NewBillScreen({ kind, forBill, orderId }: { kind?: string; forBi
       catalog={data.masters.catalog}
       purchases={purchases}
       godowns={data.masters.godowns.map(toGodown)}
-      companyState={data.companyState}
+      company={data.company}
       initialKind={kind === "charges" || initialFor ? "charges" : "goods"}
       initialFor={initialFor}
       order={order.data?.status === "OPEN" ? order.data : undefined}
@@ -60,7 +60,7 @@ export function BillScreen({ billId }: { billId: string }) {
       bills={data.bills}
       parties={data.parties}
       items={data.masters.catalog.items}
-      companyState={data.companyState}
+      company={data.company}
       onChanged={reload}
     />
   );

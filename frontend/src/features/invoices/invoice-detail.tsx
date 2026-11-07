@@ -16,6 +16,7 @@ import { RATE_SOURCE_TEXT } from "@/features/rates/line-rate-options";
 import { ApiError } from "@/lib/api-client";
 import { formatDate, formatInr, formatPercent, formatQuantity, formatRate } from "@/lib/format";
 import { DispatchDocumentsPanel } from "./dispatch-documents-panel";
+import { registrationOn } from "@/features/gst/gst-rules";
 import { InvoiceDocument, type Issuer } from "./invoice-document";
 import { DrawSourceLink } from "@/features/stock-moves/draw-source-link";
 import { invoiceStage, invoiceTax, invoiceTotals, needsEinvoice } from "./invoice-rules";
@@ -47,7 +48,9 @@ export function InvoiceDetail({ initialInvoice, party, issuer, bank, onChanged, 
   const [cancelling, setCancelling] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
-  const tax = invoiceTax(issuer.stateCode, invoice, party);
+  // Printed as it was issued, even if our registration changed since.
+  const issuedAs = { ...issuer, ...registrationOn(issuer, invoice.stored?.regime) };
+  const tax = invoiceTax(issuedAs, invoice, party);
   const totals = invoiceTotals(invoice.lines, tax.regime);
   const stage = invoiceStage(invoice);
   const stored = invoice.stored;
@@ -91,7 +94,7 @@ export function InvoiceDetail({ initialInvoice, party, issuer, bank, onChanged, 
           </Link>
         </div>
         <p className="-mt-2 text-xs font-semibold text-muted">WhatsApp sending switches on when the WhatsApp Business API is connected.</p>
-        <InvoiceDocument invoice={invoice} party={party} issuer={issuer} tax={tax} bank={bank} />
+        <InvoiceDocument invoice={invoice} party={party} issuer={issuedAs} tax={tax} bank={bank} />
         {stored && (
           <GlassCard className="flex flex-col gap-3">
             <CardTitle>Stock drawn and what it cost</CardTitle>
@@ -228,7 +231,7 @@ export function InvoiceDetail({ initialInvoice, party, issuer, bank, onChanged, 
           <DispatchDocumentsPanel
             invoice={invoice}
             grandTotal={totals.grandTotal}
-            einvoice={needsEinvoice(invoice, party)}
+            einvoice={needsEinvoice(invoice, party, issuedAs)}
             onSave={async (kind, document) => keep(await saveInvoiceDocument(invoice.id, kind, document))}
             onRemove={async (kind) => keep(await removeInvoiceDocument(invoice.id, kind))}
           />

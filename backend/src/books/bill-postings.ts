@@ -7,6 +7,8 @@
 //                 freight or loading charge's head; Dr Input CGST + SGST /
 //                 IGST (the claimable part)          Cr vendor
 //   Charges bill: Dr each charge's head, Dr Input GST    Cr vendor
+//   Nothing claimable (we are composition or unregistered): each charge's
+//                 GST is added to its head, as goods GST is to No Input Credit.
 //   GTA freight (reverse charge): the vendor is owed the value only, and
 //                 the GST is ours to pay: Cr CGST + SGST / IGST Payable on RCM.
 // Rounding goes to Round Off (a debit when we pay a little more). What the
@@ -28,7 +30,7 @@ export interface PostedBill {
   payable: number;
   lines: { taxable: number; ownCost: number; itcEligible: boolean }[];
   /** Freight and loading on a goods bill, or a charges bill's charges, each under its head's ledger. */
-  charges: { head: LedgerRef; amount: number }[];
+  charges: { head: LedgerRef; amount: number; tax: number }[];
 }
 
 /** The claimable GST by component; with part of it lost (17(5) lines), each component in proportion. */
@@ -47,13 +49,14 @@ export function billPostings(bill: PostedBill, vendor: LedgerRef, ledgers: Syste
   const purchase = ledgers(bill.regime === 'INTRA_STATE' ? 'PURCHASE_LOCAL' : 'PURCHASE_INTERSTATE');
   const input = inputTax(bill);
   const reverseCharge = bill.regime === 'REVERSE_CHARGE';
+  const chargeTaxIsCost = bill.itcClaimable <= 0;
 
   // Several charges may share a head: one line per head.
   const byHead = new Map<string, [LedgerRef, number]>();
   for (const charge of bill.charges) {
     const key = charge.head.ledger.toLowerCase();
     const entry = byHead.get(key) ?? [charge.head, 0];
-    entry[1] += charge.amount;
+    entry[1] += charge.amount + (chargeTaxIsCost ? charge.tax : 0);
     byHead.set(key, entry);
   }
 

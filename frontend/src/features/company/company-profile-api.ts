@@ -8,6 +8,7 @@ export const COMPANY_PROFILE_PATH = "/company-profile";
 
 export const toCompanyValues = (view: CompanyProfileView): CompanyProfileValues => ({
   legalName: view.legalName,
+  registration: view.registration,
   stateCode: view.stateCode,
   defaultExportRoute: view.defaultExportRoute,
   exportCurrency: view.exportCurrency,

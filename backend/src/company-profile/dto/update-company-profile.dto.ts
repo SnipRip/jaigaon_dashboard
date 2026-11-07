@@ -14,7 +14,11 @@ import {
   trim,
   trimToNull,
 } from '../../common/dto/text-transforms.js';
-import { ExportRoute, PartyCurrency } from '../../generated/prisma/enums.js';
+import {
+  ExportRoute,
+  GstRegistration,
+  PartyCurrency,
+} from '../../generated/prisma/enums.js';
 
 // Field formats only. How GSTIN, PAN and state fit together is checked in
 // company-profile-rules.ts. Every field is optional: send what changed.
@@ -30,6 +34,10 @@ export class UpdateCompanyProfileDto {
   @IsString()
   @MaxLength(100)
   tradeName?: string | null;
+
+  @IsOptional()
+  @IsEnum(GstRegistration)
+  registration?: GstRegistration;
 
   @Transform(codeOrNull)
   @IsOptional()

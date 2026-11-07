@@ -41,7 +41,7 @@ export function TaxExportScreen() {
       ) : (
         <LoadNotice error={luts.error} what="the LUT register" />
       )}
-      <GstDecisionTable companyState={profile.stateCode} />
+      <GstDecisionTable company={profile} />
       <ExportDocumentsCard documents={exportDocuments} />
     </>
   );

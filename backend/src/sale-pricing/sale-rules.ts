@@ -1,13 +1,25 @@
 // Sale GST and line rate sources for quotations and invoices. Pure.
 // The frontend shows the same live from features/gst/gst-rules.ts saleTax.
+import { chargesGst, outsideStateProblem, type OurRegistration } from '../common/gst/our-registration.js';
 import type { TaxSplit } from '../common/gst/tax-split.js';
 import type { ExportRoute, GstTreatment, InvoiceKind, LineRateSource, SaleRegime } from '../generated/prisma/enums.js';
 
 /**
  * Overseas and SEZ buyers: export under LUT (0%) or with IGST paid; else
  * CGST + SGST when the place of supply is our state, IGST from another.
+ * A composition dealer or unregistered business charges no GST (bill of
+ * supply) and may not sell outside its state: `problem` says why.
  */
 export function saleRegime(
+  company: OurRegistration,
+  party: { treatment: GstTreatment; placeOfSupply: string | null; exportRoute: ExportRoute | null },
+): { regime: SaleRegime; split: TaxSplit; problem: string | null } {
+  const regular = regularSale(company.stateCode, party);
+  if (chargesGst(company)) return { ...regular, problem: null };
+  return { regime: 'BILL_OF_SUPPLY', split: 'NONE', problem: regular.regime === 'INTRA_STATE' ? null : outsideStateProblem(company) };
+}
+
+function regularSale(
   companyState: string,
   party: { treatment: GstTreatment; placeOfSupply: string | null; exportRoute: ExportRoute | null },
 ): { regime: SaleRegime; split: TaxSplit } {
@@ -34,18 +46,18 @@ export interface OfferedRates {
  * another state). SEZ buyers are zero-rated like exports either way.
  */
 export function invoiceRegime(
-  companyState: string,
+  company: OurRegistration,
   kind: InvoiceKind,
   party: { treatment: GstTreatment; placeOfSupply: string | null; exportRoute: ExportRoute | null },
   fields: { placeOfSupply?: string | null; exportRoute?: ExportRoute | null },
-): { regime: SaleRegime; split: TaxSplit; placeOfSupply: string | null } {
+): { regime: SaleRegime; split: TaxSplit; placeOfSupply: string | null; problem: string | null } {
   const route = fields.exportRoute ?? party.exportRoute;
   if (kind === 'EXPORT' || party.treatment === 'SEZ') {
-    const exported = saleRegime(companyState, { treatment: 'OVERSEAS', placeOfSupply: null, exportRoute: route });
-    return { ...exported, placeOfSupply: kind === 'LOCAL' ? (fields.placeOfSupply ?? party.placeOfSupply ?? companyState) : null };
+    const exported = saleRegime(company, { treatment: 'OVERSEAS', placeOfSupply: null, exportRoute: route });
+    return { ...exported, placeOfSupply: kind === 'LOCAL' ? (fields.placeOfSupply ?? party.placeOfSupply ?? company.stateCode) : null };
   }
-  const placeOfSupply = fields.placeOfSupply ?? party.placeOfSupply ?? companyState;
-  return { ...saleRegime(companyState, { treatment: party.treatment, placeOfSupply, exportRoute: null }), placeOfSupply };
+  const placeOfSupply = fields.placeOfSupply ?? party.placeOfSupply ?? company.stateCode;
+  return { ...saleRegime(company, { treatment: party.treatment, placeOfSupply, exportRoute: null }), placeOfSupply };
 }
 
 /**

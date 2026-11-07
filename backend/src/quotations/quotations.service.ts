@@ -3,7 +3,7 @@ import { dateOnly } from '../common/dates.js';
 import { PrismaService } from '../database/prisma.service.js';
 import type { Prisma, QuotationStatus } from '../generated/prisma/client.js';
 import { NumberSeriesService } from '../number-series/number-series.service.js';
-import { companyState } from '../purchases/purchase-context.js';
+import { ourRegistration } from '../purchases/purchase-context.js';
 import { SalePricingService } from '../sale-pricing/sale-pricing.service.js';
 import { saleRegime } from '../sale-pricing/sale-rules.js';
 import type { QuotationDto, ReviseQuotationDto } from './dto/quotation.dto.js';
@@ -109,7 +109,8 @@ export class QuotationsService {
     });
     if (!party?.isCustomer) throw new BadRequestException('Pick a customer');
     if (party.isArchived) throw new BadRequestException('This customer is archived');
-    const { regime, split } = saleRegime(await companyState(tx), party);
+    const { regime, split, problem } = saleRegime(await ourRegistration(tx), party);
+    if (problem) throw new BadRequestException(problem);
     const { lines, totals } = await this.pricing.price(tx, { partyId: dto.partyId, date: dto.date, split, lines: dto.lines, excludeQuotationId: quotationId });
 
     let cost = 0;

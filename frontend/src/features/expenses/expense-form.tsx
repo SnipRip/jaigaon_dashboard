@@ -28,6 +28,7 @@ import type { BankCashAccountView } from "@/types/bank-cash";
 import type { ExpenseView } from "@/types/expense";
 import { expenseSchema, type ExpenseFormValues } from "./expense-schema";
 import { createExpense, decisionProblem, expenseDecision, expenseNumberPreviewPath, expensePreview, TO_BACKEND } from "./expenses-api";
+import type { OurRegistration } from "@/types/company";
 
 interface ExpenseFormProps {
   vendors: Party[];
@@ -38,8 +39,8 @@ interface ExpenseFormProps {
   shipments: SelectOption[];
   /** Opened from a shipment page: the expense lands on that shipment. */
   initialShipmentId?: string;
-  /** Our GST state, for a vendor's CGST + SGST or IGST. */
-  companyState?: string;
+  /** Our GST state and registration, for a vendor's CGST + SGST or IGST and whether it can be claimed. */
+  company?: OurRegistration;
   onSaved: (saved: ExpenseView) => Promise<void>;
 }
 
@@ -53,7 +54,7 @@ const CASH_EXPENSE_LIMIT = 10000;
 // the vendor), and whose profit it reduces. The head decides GST and the
 // allocation; the vendor's registration decides whether there is GST and
 // how it splits. The backend works it all out again on save.
-export function ExpenseForm({ vendors, accounts, bills, invoices, shipments, initialShipmentId, companyState, onSaved }: ExpenseFormProps) {
+export function ExpenseForm({ vendors, accounts, bills, invoices, shipments, initialShipmentId, company, onSaved }: ExpenseFormProps) {
   const router = useRouter();
   const today = useToday();
   const { heads: allHeads, error: headsError } = useAccountHeads();
@@ -102,7 +103,7 @@ export function ExpenseForm({ vendors, accounts, bills, invoices, shipments, ini
   const { data: nextNumber } = useSWR<{ number: string | null }>(date ? expenseNumberPreviewPath(date) : null, apiGet);
   const head = heads.find((candidate) => candidate.id === headId);
   const vendor = payeeKind === "vendor" ? vendors.find((candidate) => candidate.id === vendorId) : undefined;
-  const decision = expenseDecision(companyState, vendor, gstBill);
+  const decision = expenseDecision(company, vendor, gstBill);
   const refused = decisionProblem(decision);
   const preview = expensePreview(Number(amount) || 0, decision, head, Number(gstRatePct) || 0, itcEligible);
   const indirect = head?.nature === "indirect-expense";

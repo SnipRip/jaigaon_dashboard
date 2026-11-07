@@ -5,6 +5,12 @@
 // Sale inside our state → CGST + SGST (half the rate each); to another state
 // → IGST (full rate); to a party outside India or an SEZ → zero-rated export,
 // either under LUT (no tax) or with IGST paid and refunded later.
+//
+// When we are a composition dealer or unregistered (company profile), we
+// charge no GST (bill of supply), may sell only inside our state, and can
+// claim none of the GST we pay. The backend decides the same in
+// src/sale-pricing/sale-rules.ts and src/purchases/purchase-rules.ts.
+import type { OurRegistration } from "@/types/company";
 import { stateName } from "./indian-states";
 
 export type GstTreatment = "registered" | "composition" | "unregistered" | "consumer" | "overseas" | "sez";
@@ -36,7 +42,37 @@ export interface TaxDecision {
   detail: string;
   /** Can we claim this GST back as input tax credit? Purchases only. */
   itc?: boolean;
+  /** Set when we may not make this sale at all (composition or unregistered, outside our state). */
+  blocked?: string;
 }
+
+/** Whether we charge GST and claim it back: only a regular registration does. */
+export const chargesGst = (company: OurRegistration) => company.registration === "REGULAR";
+
+export const REGISTRATION_OPTIONS: { value: OurRegistration["registration"]; label: string; hint: string }[] = [
+  { value: "REGULAR", label: "Regular GST", hint: "Tax invoices with CGST + SGST or IGST, input credit claimed, exports allowed" },
+  { value: "COMPOSITION", label: "Composition scheme", hint: "Bill of supply, no GST charged, no input credit, sales only inside our state" },
+  { value: "UNREGISTERED", label: "Not registered", hint: "No GSTIN: plain invoices, no GST, no input credit, sales only inside our state" },
+];
+
+const ourStatus = (company: OurRegistration) => (company.registration === "COMPOSITION" ? "We are a composition dealer" : "We are not registered under GST");
+
+/**
+ * How we were registered when a stored document was issued, from its regime:
+ * a bill of supply was issued without GST, anything else with. Prints old
+ * documents right after the registration changes.
+ */
+export function registrationOn(company: OurRegistration, storedRegime?: string): OurRegistration {
+  if (!storedRegime) return company;
+  if (storedRegime !== "BILL_OF_SUPPLY") return { ...company, registration: "REGULAR" };
+  return chargesGst(company) ? { ...company, registration: "COMPOSITION" } : company;
+}
+
+/** Why a sale outside our state is refused. Same words as the backend. */
+export const outsideStateProblem = (company: OurRegistration) =>
+  company.registration === "COMPOSITION"
+    ? "A composition dealer can sell only inside its own state: no exports, SEZ or other-state sales"
+    : "An unregistered business can sell only inside its own state: register for GST to export or sell to other states";
 
 export interface PartyTaxProfile {
   treatment: GstTreatment;
@@ -47,7 +83,21 @@ export interface PartyTaxProfile {
   isGta?: boolean;
 }
 
-export function saleTax(companyState: string, party: PartyTaxProfile): TaxDecision {
+export function saleTax(company: OurRegistration, party: PartyTaxProfile): TaxDecision {
+  const regular = regularSale(company.stateCode, party);
+  if (chargesGst(company)) return regular;
+  if (regular.regime !== "intra-state") {
+    const blocked = outsideStateProblem(company);
+    return { regime: "no-gst", title: "Not allowed", detail: blocked, blocked };
+  }
+  return {
+    regime: "no-gst",
+    title: company.registration === "COMPOSITION" ? "Bill of supply · no GST" : "No GST",
+    detail: `${ourStatus(company)}, so the invoice charges no GST.`,
+  };
+}
+
+function regularSale(companyState: string, party: PartyTaxProfile): TaxDecision {
   if (party.treatment === "overseas" || party.treatment === "sez") {
     const where = party.treatment === "sez" ? "an SEZ" : "outside India";
     return party.exportRoute === "igst"
@@ -76,7 +126,16 @@ export function saleTax(companyState: string, party: PartyTaxProfile): TaxDecisi
   };
 }
 
-export function purchaseTax(companyState: string, vendor: PartyTaxProfile): TaxDecision {
+export function purchaseTax(company: OurRegistration, vendor: PartyTaxProfile): TaxDecision {
+  const regular = regularPurchase(company.stateCode, vendor);
+  if (chargesGst(company) || !regular.itc) return regular;
+  if (regular.regime === "reverse-charge" && company.registration === "UNREGISTERED") {
+    return { regime: "no-gst", title: "No GST", detail: "Freight from a goods transport agency to an unregistered business carries no GST.", itc: false };
+  }
+  return { ...regular, detail: `${regular.title} on the bill. ${ourStatus(company)}, so none of it can be claimed: it is part of the cost.`, itc: false };
+}
+
+function regularPurchase(companyState: string, vendor: PartyTaxProfile): TaxDecision {
   if (vendor.isGta) {
     return {
       regime: "reverse-charge",

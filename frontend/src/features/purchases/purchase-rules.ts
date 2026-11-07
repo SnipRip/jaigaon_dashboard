@@ -13,6 +13,7 @@ import { taxProfileOf } from "@/features/parties/party-rules";
 import type { Party } from "@/features/parties/types";
 import { addDays } from "@/lib/dates";
 import type { Bill, BillCharge, BillLine, ChargeHead, LandedCostMethod } from "./types";
+import type { OurRegistration } from "@/types/company";
 
 const money = (value: number) => Math.round(value * 100) / 100;
 
@@ -28,13 +29,13 @@ export const MSME_PAYMENT_DAYS = 45;
 export const isMsme = (vendor: Pick<Party, "udyamNumber">) => Boolean(vendor.udyamNumber);
 
 /** The tax decision for a bill: the vendor's treatment, from the bill's source of supply. */
-export const billTax = (companyState: string, vendor: Party, sourceOfSupply?: string): TaxDecision =>
-  purchaseTax(companyState, { ...taxProfileOf(vendor), stateCode: sourceOfSupply || vendor.placeOfSupply });
+export const billTax = (company: OurRegistration, vendor: Party, sourceOfSupply?: string): TaxDecision =>
+  purchaseTax(company, { ...taxProfileOf(vendor), stateCode: sourceOfSupply || vendor.placeOfSupply });
 
 /** How the rate splits. Reverse charge is still CGST + SGST or IGST, only paid by us. */
-export function splitRegime(decision: TaxDecision, companyState: string, sourceOfSupply?: string): Regime {
+export function splitRegime(decision: TaxDecision, company: OurRegistration, sourceOfSupply?: string): Regime {
   if (decision.regime !== "reverse-charge") return decision.regime;
-  return sourceOfSupply === companyState ? "intra-state" : "inter-state";
+  return sourceOfSupply === company.stateCode ? "intra-state" : "inter-state";
 }
 
 /**

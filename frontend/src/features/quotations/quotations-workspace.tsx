@@ -18,6 +18,7 @@ import { formatDayMonth, formatInr, formatPercent, formatQuantity } from "@/lib/
 import { useToday } from "@/lib/use-today";
 import { quotationFigures, quotationLabel, quotationStage, type QuotationStage } from "./quotation-rules";
 import type { Quotation } from "./types";
+import type { OurRegistration } from "@/types/company";
 
 export const STAGE_TONE: Record<QuotationStage, StatusTone> = {
   Draft: "neutral",
@@ -35,18 +36,18 @@ interface QuotationsWorkspaceProps {
   quotations: Quotation[];
   parties: Party[];
   items: Item[];
-  companyState: string;
+  company: OurRegistration;
 }
 
 // Every quotation with its value, margin and where it stands, and how many
 // turn into invoices.
-export function QuotationsWorkspace({ quotations, parties, items, companyState }: QuotationsWorkspaceProps) {
+export function QuotationsWorkspace({ quotations, parties, items, company }: QuotationsWorkspaceProps) {
   const today = useToday();
   const [filter, setFilter] = useState<QuotationStage | "All">("All");
   const [query, setQuery] = useState("");
   const rows = quotations.map((quotation) => {
     const party = parties.find((candidate) => candidate.id === quotation.partyId)!;
-    return { quotation, party, stage: quotationStage(quotation, today), ...quotationFigures(quotation, party, companyState, items) };
+    return { quotation, party, stage: quotationStage(quotation, today), ...quotationFigures(quotation, party, company, items) };
   });
   const needle = query.trim().toLowerCase();
   const visible = rows.filter((row) => (filter === "All" || row.stage === filter) && (!needle || `${quotationLabel(row.quotation)} ${row.party.displayName}`.toLowerCase().includes(needle)));

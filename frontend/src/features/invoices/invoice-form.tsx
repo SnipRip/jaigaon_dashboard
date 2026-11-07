@@ -14,7 +14,7 @@ import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { SelectField } from "@/components/ui/select-field";
 import { StatusChip } from "@/components/ui/status-chip";
 import { TextField } from "@/components/ui/text-field";
-import { describeComponents } from "@/features/gst/gst-rules";
+import { chargesGst, describeComponents } from "@/features/gst/gst-rules";
 import { INDIAN_STATES, stateName } from "@/features/gst/indian-states";
 import { itemLabel, type ItemCatalog } from "@/features/items/item-rules";
 import { LineUnitSelect } from "@/features/items/line-unit-select";
@@ -41,6 +41,7 @@ import { invoiceSchema, type InvoiceFormValues } from "./invoice-schema";
 import { InvoiceTotalsCard } from "./invoice-totals-card";
 import { createInvoice, numberPreviewPath, type InvoiceBody } from "./invoices-api";
 import type { InvoiceKind } from "./types";
+import type { OurRegistration } from "@/types/company";
 
 interface InvoiceFormProps {
   kind: InvoiceKind;
@@ -49,7 +50,7 @@ interface InvoiceFormProps {
   /** Active godowns; the goods leave from one, and its stock is drawn. */
   godowns: GodownView[];
   luts: Lut[];
-  companyState: string;
+  company: OurRegistration;
   /** Sales setting: the item picker lists only items with stock in the chosen godown. */
   inStockOnly: boolean;
   /** Converting a quotation: its customer and lines; it is marked converted on save. */
@@ -70,7 +71,7 @@ const emptyLine = EMPTY_SALE_LINE;
 // customer. Schemes in force show as they would apply. On save the backend
 // prices every line again, takes the number from the series and draws the
 // goods out of the godown's stock, oldest first; it refuses more than is there.
-export function InvoiceForm({ kind, customers, catalog, godowns, luts, companyState, inStockOnly, fromQuotation, onSaved }: InvoiceFormProps) {
+export function InvoiceForm({ kind, customers, catalog, godowns, luts, company, inStockOnly, fromQuotation, onSaved }: InvoiceFormProps) {
   const isExport = kind === "export";
   const eligible = customers.filter((party) => (isExport ? party.treatment === "overseas" || party.treatment === "sez" : party.treatment !== "overseas"));
   const today = useToday();
@@ -131,7 +132,7 @@ export function InvoiceForm({ kind, customers, catalog, godowns, luts, companySt
   });
   const party = eligible.find((candidate) => candidate.id === partyId);
   const lut = isExport && exportRoute === "lut" && date ? lutFor(luts, date) : undefined;
-  const tax = invoiceTax(companyState, { kind, placeOfSupply, exportRoute }, party ?? { treatment: isExport ? "overseas" : "registered" });
+  const tax = invoiceTax(company, { kind, placeOfSupply, exportRoute }, party ?? { treatment: isExport ? "overseas" : "registered" });
 
   // The number a save would take; typed only when the series is not automatic.
   const { data: nextNumber } = useSWR<{ number: string | null; method: string }>(date ? numberPreviewPath(kind, date) : null, apiGet);
@@ -175,7 +176,7 @@ export function InvoiceForm({ kind, customers, catalog, godowns, luts, companySt
       setValue("exportRoute", picked.exportRoute ?? "lut");
       setValue("currency", picked.currency);
     } else {
-      setValue("placeOfSupply", picked.placeOfSupply ?? companyState);
+      setValue("placeOfSupply", picked.placeOfSupply ?? company.stateCode);
     }
   };
   const pickRate = (index: number, rate: number) => {
@@ -504,9 +505,10 @@ export function InvoiceForm({ kind, customers, catalog, godowns, luts, companySt
 
       <div className="flex flex-col gap-3.5 xl:sticky xl:top-3.5">
         <InvoiceTotalsCard totals={totals} tax={tax} currency={currency} schemeDiscount={schemeTotal} />
-        {!isExport && placeOfSupply && (
+        {tax.blocked && <p className="px-2 text-xs font-semibold text-danger-strong">{tax.blocked}.</p>}
+        {!isExport && placeOfSupply && !tax.blocked && chargesGst(company) && (
           <p className="px-2 text-xs font-semibold text-muted">
-            Place of supply {stateName(placeOfSupply)}: {placeOfSupply === companyState ? "same state, CGST + SGST" : "other state, IGST"}.
+            Place of supply {stateName(placeOfSupply)}: {placeOfSupply === company.stateCode ? "same state, CGST + SGST" : "other state, IGST"}.
           </p>
         )}
         {godownName && <p className="px-2 text-xs font-semibold text-muted">Stock is drawn from {godownName}.</p>}

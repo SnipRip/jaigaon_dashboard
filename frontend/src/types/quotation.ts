@@ -4,7 +4,7 @@ import type { AppliedSchemeView } from "./scheme";
 
 export type QuotationStatusView = "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED" | "CANCELLED" | "CONVERTED";
 export type LineRateSourceView = "SPECIAL" | "SHEET" | "LAST_QUOTED" | "LAST_SOLD" | "MANUAL";
-export type SaleRegimeView = "INTRA_STATE" | "INTER_STATE" | "EXPORT_LUT" | "EXPORT_IGST";
+export type SaleRegimeView = "INTRA_STATE" | "INTER_STATE" | "EXPORT_LUT" | "EXPORT_IGST" | "BILL_OF_SUPPLY";
 
 export interface QuotationLineView {
   id: string;

@@ -1,4 +1,5 @@
-import { describeComponents, type TaxDecision } from "@/features/gst/gst-rules";
+import { chargesGst, describeComponents, type TaxDecision } from "@/features/gst/gst-rules";
+import type { GstRegistrationView } from "@/types/company";
 import { stateName } from "@/features/gst/indian-states";
 import type { Party } from "@/features/parties/types";
 import { amountInWords } from "@/lib/amount-in-words";
@@ -14,6 +15,7 @@ export interface Issuer {
   phone: string;
   email: string;
   stateCode: string;
+  registration: GstRegistrationView;
   gstin?: string;
   iec?: string;
 }
@@ -29,7 +31,9 @@ interface InvoiceDocumentProps {
 
 // The printed bill: white paper, not glass, with every particular CGST rule 46
 // asks for. Export invoices swap the buyer's GSTIN for the destination country
-// and carry the LUT or IGST declaration. Printed through `.print-area`.
+// and carry the LUT or IGST declaration. A composition dealer prints a bill
+// of supply with the rule 5(1)(g) line; an unregistered business, a plain
+// invoice without GSTIN. Printed through `.print-area`.
 export function InvoiceDocument({ invoice, party, issuer, tax, bank }: InvoiceDocumentProps) {
   const isExport = invoice.kind === "export";
   const totals = invoiceTotals(invoice.lines, tax.regime);
@@ -37,6 +41,9 @@ export function InvoiceDocument({ invoice, party, issuer, tax, bank }: InvoiceDo
   const references: DispatchDocumentKind[] = ["customs-invoice", "lorry-challan", "eway-bill", "shipping-bill", "leo"];
   const shipTo = invoice.shipTo ?? party.billing;
   const einvoice = invoice.documents["e-invoice"];
+  const withGst = chargesGst(issuer);
+  const composition = issuer.registration === "COMPOSITION";
+  const title = isExport ? "EXPORT INVOICE" : withGst ? "TAX INVOICE" : composition ? "BILL OF SUPPLY" : "INVOICE";
 
   return (
     <article className="print-area rounded-(--radius-tile) bg-white p-6 text-[12px] leading-snug text-ink shadow-[0_10px_40px_rgb(20_40_90/0.12)] sm:p-8">
@@ -46,12 +53,13 @@ export function InvoiceDocument({ invoice, party, issuer, tax, bank }: InvoiceDo
           <p>{issuer.address}</p>
           <p>{issuer.phone} · {issuer.email}</p>
           <p className="font-semibold">
-            GSTIN {issuer.gstin ?? "[to be added]"} · State {stateName(issuer.stateCode)} ({issuer.stateCode})
+            {issuer.registration === "UNREGISTERED" ? "Not registered under GST" : `GSTIN ${issuer.gstin ?? "[to be added]"}`} · State{" "}
+            {stateName(issuer.stateCode)} ({issuer.stateCode})
             {isExport && ` · IEC ${issuer.iec || "[to be added]"}`}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-xl font-semibold tracking-wide">{isExport ? "EXPORT INVOICE" : "TAX INVOICE"}</p>
+          <p className="text-xl font-semibold tracking-wide">{title}</p>
           <p className="text-[11px] font-semibold text-muted">Original for recipient</p>
         </div>
       </header>
@@ -60,7 +68,13 @@ export function InvoiceDocument({ invoice, party, issuer, tax, bank }: InvoiceDo
         <p className="mt-3 border border-ink px-3 py-2 text-center text-[11px] font-semibold">{exportDeclaration(invoice)}</p>
       )}
 
-      {needsEinvoice(invoice, party) && (
+      {composition && (
+        <p className="mt-3 border border-ink px-3 py-2 text-center text-[11px] font-semibold">
+          Composition taxable person, not eligible to collect tax on supplies
+        </p>
+      )}
+
+      {needsEinvoice(invoice, party, issuer) && (
         <section className="mt-3 flex items-start gap-3 border border-line p-2.5 text-[11px]">
           <div className="flex size-[84px] shrink-0 items-center justify-center border border-dashed border-ink/40 p-1 text-center text-[9px] font-semibold text-muted">
             {einvoice ? "Signed QR from the e-invoice portal" : "QR after e-invoice registration"}

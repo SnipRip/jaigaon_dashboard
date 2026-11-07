@@ -371,6 +371,13 @@ enum GstTreatment {
   SEZ
 }
 
+// Our own GST registration (CompanyProfile.registration).
+enum GstRegistration {
+  REGULAR
+  COMPOSITION
+  UNREGISTERED
+}
+
 enum ExportRoute {
   LUT
   IGST
@@ -580,12 +587,16 @@ model ItemPrice {
 // migration company_profile). Its state decides CGST+SGST or IGST on every
 // document; invoices and quotations print the rest.
 model CompanyProfile {
-  id                 Int           @id @default(1)
+  id                 Int             @id @default(1)
   legalName          String
   // Shown on documents when it differs from the legal name.
   tradeName          String?
   gstin              String?
   pan                String?
+  // How we are registered under GST. Composition and unregistered issue a
+  // bill of supply with no GST, claim no input credit and sell only inside
+  // our state (added 7 Nov 2026, for selling this software to other firms).
+  registration       GstRegistration @default(REGULAR)
   // GST state code of our registration ("19", West Bengal).
   stateCode          String
   // Importer-Exporter Code from DGFT.
@@ -602,9 +613,9 @@ model CompanyProfile {
   exportBank         String?
   customsStation     String?
   portCode           String?
-  defaultExportRoute ExportRoute   @default(LUT)
-  exportCurrency     PartyCurrency @default(INR)
-  updatedAt          DateTime      @updatedAt
+  defaultExportRoute ExportRoute     @default(LUT)
+  exportCurrency     PartyCurrency   @default(INR)
+  updatedAt          DateTime        @updatedAt
 }
 
 // How sales screens behave, for the whole company (one row, id 1, created by
@@ -1331,23 +1342,23 @@ model PurchaseOrder {
 }
 
 model PurchaseOrderLine {
-  id          String        @id @default(uuid()) @db.Uuid
-  orderId     String        @db.Uuid
-  order       PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  position    Int
-  itemId      String        @db.Uuid
-  item        Item          @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  id           String        @id @default(uuid()) @db.Uuid
+  orderId      String        @db.Uuid
+  order        PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  position     Int
+  itemId       String        @db.Uuid
+  item         Item          @relation(fields: [itemId], references: [id], onDelete: Restrict)
   // Base units.
-  quantity    Decimal       @db.Decimal(14, 3)
+  quantity     Decimal       @db.Decimal(14, 3)
   // Per base unit, before GST: the rate agreed with the vendor.
-  rate        Decimal       @db.Decimal(14, 4)
-  discountPct Decimal       @default(0) @db.Decimal(5, 2)
-  gstRatePct  Decimal       @db.Decimal(5, 2)
+  rate         Decimal       @db.Decimal(14, 4)
+  discountPct  Decimal       @default(0) @db.Decimal(5, 2)
+  gstRatePct   Decimal       @db.Decimal(5, 2)
   // As entered (line-units.ts): null unit = the base unit.
   lineUnit     String?
-  lineQuantity Decimal      @db.Decimal(14, 3)
-  lineRate     Decimal      @db.Decimal(12, 2)
-  unitFactor   Decimal      @default(1) @db.Decimal(14, 4)
+  lineQuantity Decimal       @db.Decimal(14, 3)
+  lineRate     Decimal       @db.Decimal(12, 2)
+  unitFactor   Decimal       @default(1) @db.Decimal(14, 4)
 
   billLines PurchaseBillLine[]
 
@@ -1448,39 +1459,39 @@ model PurchaseBill {
 }
 
 model PurchaseBillLine {
-  id          String             @id @default(uuid()) @db.Uuid
-  billId      String             @db.Uuid
-  bill        PurchaseBill       @relation(fields: [billId], references: [id], onDelete: Cascade)
-  position    Int
-  itemId      String             @db.Uuid
-  item        Item               @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  orderLineId String?            @db.Uuid
-  orderLine   PurchaseOrderLine? @relation(fields: [orderLineId], references: [id], onDelete: Restrict)
+  id           String             @id @default(uuid()) @db.Uuid
+  billId       String             @db.Uuid
+  bill         PurchaseBill       @relation(fields: [billId], references: [id], onDelete: Cascade)
+  position     Int
+  itemId       String             @db.Uuid
+  item         Item               @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  orderLineId  String?            @db.Uuid
+  orderLine    PurchaseOrderLine? @relation(fields: [orderLineId], references: [id], onDelete: Restrict)
   // As on the bill, kept as printed.
-  description String
-  hsn         String
+  description  String
+  hsn          String
   // Base unit, quantity and rate per base unit (stock and cost use these).
-  unit        String
-  quantity    Decimal            @db.Decimal(14, 3)
-  rate        Decimal            @db.Decimal(14, 4)
-  discountPct Decimal            @default(0) @db.Decimal(5, 2)
-  gstRatePct  Decimal            @db.Decimal(5, 2)
+  unit         String
+  quantity     Decimal            @db.Decimal(14, 3)
+  rate         Decimal            @db.Decimal(14, 4)
+  discountPct  Decimal            @default(0) @db.Decimal(5, 2)
+  gstRatePct   Decimal            @db.Decimal(5, 2)
   // As on the vendor's bill (line-units.ts): null unit = the base unit.
   lineUnit     String?
-  lineQuantity Decimal           @db.Decimal(14, 3)
-  lineRate     Decimal           @db.Decimal(12, 2)
-  unitFactor   Decimal           @default(1) @db.Decimal(14, 4)
+  lineQuantity Decimal            @db.Decimal(14, 3)
+  lineRate     Decimal            @db.Decimal(12, 2)
+  unitFactor   Decimal            @default(1) @db.Decimal(14, 4)
   // Section 17(5) and the like: the GST becomes cost.
-  itcEligible Boolean            @default(true)
-  taxable     Decimal            @db.Decimal(14, 2)
-  tax         Decimal            @db.Decimal(14, 2)
+  itcEligible  Boolean            @default(true)
+  taxable      Decimal            @db.Decimal(14, 2)
+  tax          Decimal            @db.Decimal(14, 2)
   // Taxable plus GST that cannot be claimed.
-  ownCost     Decimal            @db.Decimal(14, 2)
+  ownCost      Decimal            @db.Decimal(14, 2)
   // This line's part of the bill's freight and the tagged charges bills.
-  landedShare Decimal            @db.Decimal(14, 2)
-  landedCost  Decimal            @db.Decimal(14, 2)
+  landedShare  Decimal            @db.Decimal(14, 2)
+  landedCost   Decimal            @db.Decimal(14, 2)
   // Per base unit: what stock from this line is valued at.
-  landedRate  Decimal            @db.Decimal(14, 4)
+  landedRate   Decimal            @db.Decimal(14, 4)
 
   batch StockBatch?
 
@@ -1576,6 +1587,8 @@ enum SaleRegime {
   INTER_STATE
   EXPORT_LUT
   EXPORT_IGST
+  // We are a composition dealer or unregistered: bill of supply, no GST.
+  BILL_OF_SUPPLY
 }
 
 model Quotation {

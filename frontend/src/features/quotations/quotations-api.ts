@@ -65,6 +65,7 @@ export function issuerOf(profile: CompanyProfileView): Issuer {
     phone: [profile.phone, profile.altPhone].filter(Boolean).join(" · "),
     email: profile.email ?? "",
     stateCode: profile.stateCode,
+    registration: profile.registration,
     gstin: profile.gstin ?? undefined,
     iec: profile.iec ?? undefined,
   };

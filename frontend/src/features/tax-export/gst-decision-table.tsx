@@ -3,6 +3,7 @@ import { GlassTable } from "@/components/ui/glass-table";
 import { StatusChip } from "@/components/ui/status-chip";
 import { describeComponents, purchaseTax, saleTax, type PartyTaxProfile } from "@/features/gst/gst-rules";
 import { stateName } from "@/features/gst/indian-states";
+import type { OurRegistration } from "@/types/company";
 
 interface Case {
   label: string;
@@ -15,20 +16,20 @@ interface Case {
 
 // The rules of gst-rules.ts written out for an 18% item, so the owner and the
 // accountant can check them in one table.
-export function GstDecisionTable({ companyState }: { companyState: string }) {
-  const own = stateName(companyState);
+export function GstDecisionTable({ company }: { company: OurRegistration }) {
+  const own = stateName(company.stateCode);
   const cases: Case[] = [
-    { label: `Registered, in ${own}`, profile: { treatment: "registered", stateCode: companyState } },
+    { label: `Registered, in ${own}`, profile: { treatment: "registered", stateCode: company.stateCode } },
     { label: "Registered, in Assam", profile: { treatment: "registered", stateCode: "18" } },
-    { label: "Composition dealer", profile: { treatment: "composition", stateCode: companyState } },
-    { label: "Unregistered business", profile: { treatment: "unregistered", stateCode: companyState } },
-    { label: `Consumer, in ${own}`, profile: { treatment: "consumer", stateCode: companyState }, side: "sale" },
+    { label: "Composition dealer", profile: { treatment: "composition", stateCode: company.stateCode } },
+    { label: "Unregistered business", profile: { treatment: "unregistered", stateCode: company.stateCode } },
+    { label: `Consumer, in ${own}`, profile: { treatment: "consumer", stateCode: company.stateCode }, side: "sale" },
     { label: "Bhutan buyer, under LUT", profile: { treatment: "overseas", exportRoute: "lut" }, side: "sale" },
     { label: "Bhutan buyer, IGST paid", profile: { treatment: "overseas", exportRoute: "igst" }, side: "sale" },
     { label: "Overseas supplier (import)", profile: { treatment: "overseas" }, side: "purchase" },
     {
       label: "Transport agency (GTA) freight, 5%",
-      profile: { treatment: "registered", stateCode: companyState, isGta: true },
+      profile: { treatment: "registered", stateCode: company.stateCode, isGta: true },
       side: "purchase",
       ratePct: 5,
     },
@@ -53,8 +54,8 @@ export function GstDecisionTable({ companyState }: { companyState: string }) {
         </thead>
         <tbody className="font-semibold">
           {cases.map(({ label, profile, side, ratePct = 18 }) => {
-            const sale = side === "purchase" ? undefined : saleTax(companyState, profile);
-            const purchase = side === "sale" ? undefined : purchaseTax(companyState, profile);
+            const sale = side === "purchase" ? undefined : saleTax(company, profile);
+            const purchase = side === "sale" ? undefined : purchaseTax(company, profile);
             return (
               <tr key={label} className="align-top">
                 <td className="text-left font-semibold">{label}</td>

@@ -11,8 +11,8 @@ import type { Prisma } from '../generated/prisma/client.js';
 import { NumberSeriesService } from '../number-series/number-series.service.js';
 import { landBill } from '../purchases/landed-cost.js';
 import { liveShipment } from '../shipments/shipment-locks.js';
-import { companyState, liveVendor } from '../purchases/purchase-context.js';
-import { billDueDays, billTax, type BillTax } from '../purchases/purchase-rules.js';
+import { liveVendor, ourRegistration } from '../purchases/purchase-context.js';
+import { billDueDays, billTax, withoutCredit, type BillTax } from '../purchases/purchase-rules.js';
 import { accountProblem, dateProblem } from '../settlements/settlement-rules.js';
 import { liveSettlementNumbers, settledOf } from '../settlements/settlements.service.js';
 import type { CreateExpenseDto, ExpenseQueryDto } from './dto/expense.dto.js';
@@ -79,12 +79,13 @@ export class ExpensesService {
       fail(headProblem(head));
       fail(allocationProblem(head!, dto.allocation, targetId));
 
-      let tax: BillTax = dto.gstBill === false ? PAYEE_TAX.NO_BILL : PAYEE_TAX.GST_BILL;
+      const company = await ourRegistration(tx);
+      let tax: BillTax = withoutCredit(company, dto.gstBill === false ? PAYEE_TAX.NO_BILL : PAYEE_TAX.GST_BILL);
       let dueDate: string | null = null;
       if (vendorId) {
         await tx.$queryRaw`SELECT 1 FROM "Party" WHERE "id" = ${vendorId}::uuid FOR UPDATE`;
         const vendor = await liveVendor(tx, vendorId);
-        tax = billTax(await companyState(tx), vendor, null);
+        tax = billTax(company, vendor, null);
         fail(vendorTaxProblem(tax));
         if (!accountId) dueDate = addDays(dto.date, billDueDays(vendor));
       }

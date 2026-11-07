@@ -9,6 +9,7 @@ import { FormMessage } from "@/components/ui/form-message";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { GlassTable } from "@/components/ui/glass-table";
 import { StatusChip } from "@/components/ui/status-chip";
+import { registrationOn } from "@/features/gst/gst-rules";
 import type { Issuer } from "@/features/invoices/invoice-document";
 import type { Item } from "@/features/items/types";
 import type { Party } from "@/features/parties/types";
@@ -39,7 +40,7 @@ export function QuotationDetail({ quotation, party, issuer, items, onChanged }: 
   const today = useToday();
   const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  const { tax, totals, profit, costKnown } = quotationFigures(quotation, party, issuer.stateCode, items);
+  const { tax, totals, profit, costKnown } = quotationFigures(quotation, party, registrationOn(issuer, quotation.stored?.regime), items);
   const stage = quotationStage(quotation, today);
   const stored = quotation.stored;
   const canRevise = quotation.status !== "accepted" && quotation.status !== "cancelled" && quotation.status !== "converted";

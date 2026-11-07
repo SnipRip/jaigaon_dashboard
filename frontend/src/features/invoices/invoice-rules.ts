@@ -9,6 +9,7 @@ import { saleTax, taxComponents, type Regime, type TaxComponent, type TaxDecisio
 import type { Party } from "@/features/parties/types";
 import { documentsFor } from "./dispatch-documents";
 import type { DispatchDocumentKind, Invoice, InvoiceKind, InvoiceLine } from "./types";
+import type { OurRegistration } from "@/types/company";
 
 const money = (value: number) => Math.round(value * 100) / 100;
 
@@ -19,14 +20,14 @@ const money = (value: number) => Math.round(value * 100) / 100;
  * invoice uses its route, LUT or IGST.
  */
 export function invoiceTax(
-  companyState: string,
+  company: OurRegistration,
   invoice: Pick<Invoice, "kind" | "placeOfSupply" | "exportRoute">,
   party: Pick<Party, "treatment">,
 ): TaxDecision {
   if (invoice.kind === "export") {
-    return saleTax(companyState, { treatment: party.treatment === "sez" ? "sez" : "overseas", exportRoute: invoice.exportRoute });
+    return saleTax(company, { treatment: party.treatment === "sez" ? "sez" : "overseas", exportRoute: invoice.exportRoute });
   }
-  return saleTax(companyState, { treatment: party.treatment, stateCode: invoice.placeOfSupply });
+  return saleTax(company, { treatment: party.treatment, stateCode: invoice.placeOfSupply });
 }
 
 export interface LineTotals {
@@ -95,8 +96,9 @@ export const EWAY_BILL_LIMIT = 50000;
  * B2B invoices and exports. Sales to consumers and unregistered buyers (B2C)
  * do not get an IRN.
  */
-export const needsEinvoice = (invoice: Pick<Invoice, "kind">, party: Pick<Party, "treatment">) =>
-  invoice.kind === "export" || party.treatment === "registered" || party.treatment === "composition" || party.treatment === "sez";
+export const needsEinvoice = (invoice: Pick<Invoice, "kind">, party: Pick<Party, "treatment">, company: OurRegistration) =>
+  company.registration === "REGULAR" &&
+  (invoice.kind === "export" || party.treatment === "registered" || party.treatment === "composition" || party.treatment === "sez");
 
 /** Is this document required on this invoice? The e-way bill only above the limit. */
 export function isDocumentRequired(kind: DispatchDocumentKind, invoice: Pick<Invoice, "kind">, grandTotal: number, einvoice: boolean) {

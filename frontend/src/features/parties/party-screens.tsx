@@ -35,7 +35,7 @@ export function PartiesScreen({ role }: { role: PartyRole }) {
   const balances = useMemo(() => (open.data ? openBalances(open.data) : undefined), [open.data]);
   if (!parties || !profile) return <LoadNotice error={error ?? profileError} what={ROLE_TEXT[role].many} />;
   if (!balances && !open.error) return <LoadNotice what={ROLE_TEXT[role].many} />;
-  return <PartiesWorkspace role={role} parties={parties} companyState={profile.stateCode} balances={balances} />;
+  return <PartiesWorkspace role={role} parties={parties} company={profile} balances={balances} />;
 }
 
 /** A new party when `partyId` is absent. */
@@ -59,7 +59,7 @@ export function PartyScreen({ role, partyId }: { role: PartyRole; partyId?: stri
       key={party?.id ?? "new"}
       role={role}
       party={party}
-      companyState={profile.stateCode}
+      company={profile}
       onSave={async (values) => {
         const saved = await saveParty(party, values);
         await reload();

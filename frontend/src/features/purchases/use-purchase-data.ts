@@ -31,7 +31,7 @@ export function usePurchaseData({ orders = false } = {}) {
       bills: bills.data.map(toBill),
       orders: orderList.data ?? [],
       parties: vendors.data.map(toParty),
-      companyState: profile.stateCode,
+      company: profile,
       masters,
     };
   }, [bills.data, orderList.data, vendors.data, profile, masters, orders]);

@@ -7,7 +7,7 @@ import { loadItemFacts } from '../items/item-document-facts.js';
 import { enteredColumns, toBaseLine } from '../items/line-units.js';
 import { NumberSeriesService } from '../number-series/number-series.service.js';
 import type { PurchaseOrderDto } from './dto/purchase-order.dto.js';
-import { companyState, liveGodown, liveVendor } from './purchase-context.js';
+import { liveGodown, liveVendor, ourRegistration } from './purchase-context.js';
 import { billFigures, billTax } from './purchase-rules.js';
 import { orderInclude, toOrderView, type PurchaseOrderView } from './purchase-views.js';
 
@@ -119,12 +119,12 @@ export class PurchaseOrdersService {
     };
   }
 
-  /** Views with units and totals; one query each for the vendors, units and our state. */
+  /** Views with units and totals; one query each for the vendors, units and our registration. */
   private async views(db: Db | PrismaService, orders: Prisma.PurchaseOrderGetPayload<{ include: typeof orderInclude }>[]) {
     if (orders.length === 0) return [];
     const tx = db as Db;
-    const [state, vendors, facts] = await Promise.all([
-      companyState(tx),
+    const [company, vendors, facts] = await Promise.all([
+      ourRegistration(tx),
       tx.party.findMany({
         where: { id: { in: [...new Set(orders.map((order) => order.vendorId))] } },
         select: { id: true, treatment: true, placeOfSupply: true, isGta: true },
@@ -143,7 +143,7 @@ export class PurchaseOrdersService {
         itcEligible: true,
         weightKg: null,
       }));
-      const figures = billFigures('GOODS', lines, [], billTax(state, vendorOf.get(order.vendorId)!, null));
+      const figures = billFigures('GOODS', lines, [], billTax(company, vendorOf.get(order.vendorId)!, null));
       return toOrderView(order, units, { taxable: figures.taxable, tax: figures.tax, total: figures.payable });
     });
   }

@@ -2,18 +2,19 @@ import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { StatusChip } from "@/components/ui/status-chip";
 import { describeComponents, purchaseTax, saleTax, type PartyTaxProfile } from "@/features/gst/gst-rules";
 import type { PartyRole } from "./types";
+import type { OurRegistration } from "@/types/company";
 
 interface PartyTaxPreviewProps {
-  companyState: string;
+  company: OurRegistration;
   profile: PartyTaxProfile;
   roles: PartyRole[];
 }
 
 // Live answer to "what tax goes on documents with this party?", recomputed
 // as the GST treatment, GSTIN or place of supply changes.
-export function PartyTaxPreview({ companyState, profile, roles }: PartyTaxPreviewProps) {
-  const sale = roles.includes("customer") ? saleTax(companyState, profile) : undefined;
-  const purchase = roles.includes("vendor") ? purchaseTax(companyState, profile) : undefined;
+export function PartyTaxPreview({ company, profile, roles }: PartyTaxPreviewProps) {
+  const sale = roles.includes("customer") ? saleTax(company, profile) : undefined;
+  const purchase = roles.includes("vendor") ? purchaseTax(company, profile) : undefined;
 
   return (
     <GlassCard className="flex flex-col gap-3.5">

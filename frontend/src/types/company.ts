@@ -1,7 +1,12 @@
 // Our own company profile as the backend returns it (backend/src/company-profile).
+
+/** How we are registered under GST. Composition and unregistered charge no GST. */
+export type GstRegistrationView = "REGULAR" | "COMPOSITION" | "UNREGISTERED";
+
 export interface CompanyProfileView {
   legalName: string;
   tradeName: string | null;
+  registration: GstRegistrationView;
   gstin: string | null;
   pan: string | null;
   /** GST state code of our registration, e.g. "19". */
@@ -21,3 +26,6 @@ export interface CompanyProfileView {
   exportCurrency: "INR" | "BTN";
   updatedAt: string;
 }
+
+/** What every tax decision needs about us: our state and how we are registered. */
+export type OurRegistration = Pick<CompanyProfileView, "stateCode" | "registration">;

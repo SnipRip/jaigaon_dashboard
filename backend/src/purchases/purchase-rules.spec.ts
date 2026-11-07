@@ -1,6 +1,7 @@
 import { allocateLandedCost, billDueDays, billFigures, billTax, chargeRate, lineWeightKg } from './purchase-rules.js';
 
 const WB = '19';
+const US = { stateCode: WB, registration: 'REGULAR' as const };
 const registered = { treatment: 'REGISTERED' as const, placeOfSupply: WB, isGta: false };
 const line = (quantity: number, rate: number, extra: Partial<Parameters<typeof billFigures>[1][number]> = {}) => ({
   quantity,
@@ -14,16 +15,30 @@ const line = (quantity: number, rate: number, extra: Partial<Parameters<typeof b
 
 describe('billTax', () => {
   it('follows the vendor and the source of supply', () => {
-    expect(billTax(WB, registered, WB)).toEqual({ regime: 'INTRA_STATE', itc: true, split: 'INTRA' });
-    expect(billTax(WB, registered, '10')).toEqual({ regime: 'INTER_STATE', itc: true, split: 'INTER' });
-    expect(billTax(WB, { ...registered, treatment: 'UNREGISTERED', placeOfSupply: null }, null)).toEqual({ regime: 'NO_GST', itc: false, split: 'NONE' });
-    expect(billTax(WB, { ...registered, isGta: true }, WB)).toEqual({ regime: 'REVERSE_CHARGE', itc: true, split: 'INTRA' });
+    expect(billTax(US, registered, WB)).toEqual({ regime: 'INTRA_STATE', itc: true, split: 'INTRA' });
+    expect(billTax(US, registered, '10')).toEqual({ regime: 'INTER_STATE', itc: true, split: 'INTER' });
+    expect(billTax(US, { ...registered, treatment: 'UNREGISTERED', placeOfSupply: null }, null)).toEqual({ regime: 'NO_GST', itc: false, split: 'NONE' });
+    expect(billTax(US, { ...registered, isGta: true }, WB)).toEqual({ regime: 'REVERSE_CHARGE', itc: true, split: 'INTRA' });
+  });
+
+  it('claims nothing when we are a composition dealer', () => {
+    const us = { ...US, registration: 'COMPOSITION' as const };
+    expect(billTax(us, registered, WB)).toEqual({ regime: 'INTRA_STATE', itc: false, split: 'INTRA' });
+    expect(billTax(us, { ...registered, isGta: true }, WB)).toEqual({ regime: 'REVERSE_CHARGE', itc: false, split: 'INTRA' });
+    const figures = billFigures('GOODS', [line(100, 50)].map((entry) => ({ ...entry, itcEligible: false })), [], billTax(us, registered, WB));
+    expect(figures).toMatchObject({ tax: 900, itcClaimable: 0, itcLost: 900, cost: 5900 });
+  });
+
+  it('pays no reverse charge on freight when we are unregistered', () => {
+    const us = { ...US, registration: 'UNREGISTERED' as const };
+    expect(billTax(us, { ...registered, isGta: true }, WB)).toEqual({ regime: 'NO_GST', itc: false, split: 'NONE' });
+    expect(billTax(us, registered, '10')).toEqual({ regime: 'INTER_STATE', itc: false, split: 'INTER' });
   });
 });
 
 describe('billFigures', () => {
   it('works out a goods bill with freight on it at the bill rate', () => {
-    const figures = billFigures('GOODS', [line(1000, 55), line(10, 300, { gstRatePct: 12 })], [{ amount: 2000, gstRatePct: 0 }], billTax(WB, registered, WB));
+    const figures = billFigures('GOODS', [line(1000, 55), line(10, 300, { gstRatePct: 12 })], [{ amount: 2000, gstRatePct: 0 }], billTax(US, registered, WB));
     expect(figures.goodsValue).toBe(58000);
     expect(figures.chargesValue).toBe(2000);
     // 55,000 × 18% + 3,000 × 12% + freight 2,000 × 18% (the largest line's rate).
@@ -36,31 +51,31 @@ describe('billFigures', () => {
   });
 
   it('adds GST that cannot be claimed to cost', () => {
-    const figures = billFigures('GOODS', [line(100, 50, { itcEligible: false })], [], billTax(WB, registered, '10'));
+    const figures = billFigures('GOODS', [line(100, 50, { itcEligible: false })], [], billTax(US, registered, '10'));
     expect(figures).toMatchObject({ igst: 900, itcLost: 900, cost: 5900, payable: 5900 });
     expect(figures.lines[0].ownCost).toBe(5900);
   });
 
   it('owes a reverse-charge transporter only the freight', () => {
-    const tax = billTax(WB, { ...registered, isGta: true }, WB);
+    const tax = billTax(US, { ...registered, isGta: true }, WB);
     const rate = chargeRate(tax, { gst: 'FOLLOWS_BILL', gstRatePct: null }, 18);
     const figures = billFigures('CHARGES', [], [{ amount: 8000, gstRatePct: rate }], tax);
     expect(figures).toMatchObject({ tax: 400, payable: 8000, itcClaimable: 400, cost: 8000 });
   });
 
   it('rounds the payable to the rupee', () => {
-    const figures = billFigures('GOODS', [line(3, 33.33)], [], billTax(WB, registered, WB));
+    const figures = billFigures('GOODS', [line(3, 33.33)], [], billTax(US, registered, WB));
     expect(figures.payable - figures.roundOff).toBeCloseTo(117.99, 2);
   });
 });
 
 describe('chargeRate', () => {
-  const tax = billTax(WB, registered, WB);
+  const tax = billTax(US, registered, WB);
   it('takes the head first, then the printed rate', () => {
     expect(chargeRate(tax, { gst: 'NONE', gstRatePct: null }, 18)).toBe(0);
     expect(chargeRate(tax, { gst: 'OWN_RATE', gstRatePct: 12 }, 18)).toBe(12);
     expect(chargeRate(tax, { gst: 'FOLLOWS_BILL', gstRatePct: null }, 5)).toBe(5);
-    expect(chargeRate(billTax(WB, { ...registered, treatment: 'UNREGISTERED' }, null), { gst: 'FOLLOWS_BILL', gstRatePct: null }, 18)).toBe(0);
+    expect(chargeRate(billTax(US, { ...registered, treatment: 'UNREGISTERED' }, null), { gst: 'FOLLOWS_BILL', gstRatePct: null }, 18)).toBe(0);
   });
 });
 

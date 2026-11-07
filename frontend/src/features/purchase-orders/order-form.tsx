@@ -29,12 +29,13 @@ import { formatDate, formatInr, formatRate } from "@/lib/format";
 import { useToday } from "@/lib/use-today";
 import type { PurchaseOrderView } from "@/types/purchase";
 import { DEFAULT_ORDER_TERMS, orderSchema, type OrderFormValues } from "./order-schema";
+import type { OurRegistration } from "@/types/company";
 
 interface OrderFormProps {
   vendors: Party[];
   catalog: ItemCatalog;
   godowns: Godown[];
-  companyState: string;
+  company: OurRegistration;
   /** Editing an order nothing has come in against yet. */
   order?: PurchaseOrderView;
   onSaved: () => Promise<void>;
@@ -45,7 +46,7 @@ const emptyLine = { itemId: "", unit: "", quantity: "", rate: "", discountPct: "
 // A purchase order: what we ask a vendor for, at the rate agreed. No stock
 // moves until the goods bill arrives against it. GST follows the vendor, as
 // on the bill; the rate last paid is offered when an item is picked.
-export function OrderForm({ vendors, catalog, godowns, companyState, order, onSaved }: OrderFormProps) {
+export function OrderForm({ vendors, catalog, godowns, company, order, onSaved }: OrderFormProps) {
   const today = useToday();
   const router = useRouter();
   const [result, setResult] = useState<{ tone: "success" | "error"; text: string } | null>(null);
@@ -84,8 +85,8 @@ export function OrderForm({ vendors, catalog, godowns, companyState, order, onSa
 
   const [vendorId, lines] = useWatch({ control, name: ["vendorId", "lines"] });
   const vendor = vendors.find((candidate) => candidate.id === vendorId);
-  const tax = vendor ? billTax(companyState, vendor) : undefined;
-  const split = tax ? splitRegime(tax, companyState, vendor?.placeOfSupply) : "no-gst";
+  const tax = vendor ? billTax(company, vendor) : undefined;
+  const split = tax ? splitRegime(tax, company, vendor?.placeOfSupply) : "no-gst";
 
   const toLine = (line?: OrderFormValues["lines"][number]) => typedLine(catalog, line);
   const orderLines: InvoiceLine[] = (lines ?? []).map(toLine).filter((line) => line !== undefined);

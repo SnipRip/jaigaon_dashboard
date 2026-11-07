@@ -34,6 +34,7 @@ import { useToday } from "@/lib/use-today";
 import type { QuotationView } from "@/types/quotation";
 import { DEFAULT_TERMS, previewTotals, quotationTax } from "./quotation-rules";
 import { createQuotation, reviseQuotation, type QuotationBody } from "./quotations-api";
+import type { OurRegistration } from "@/types/company";
 
 const decimal = (decimals: number, message: string) => z.string().trim().regex(new RegExp(`^\\d+(\\.\\d{1,${decimals}})?$`), message);
 
@@ -62,7 +63,7 @@ type QuotationFormValues = z.infer<typeof schema>;
 interface QuotationFormProps {
   customers: Party[];
   catalog: ItemCatalog;
-  companyState: string;
+  company: OurRegistration;
   /** Revising this saved quotation: its lines come in, and a note is asked for. */
   revising?: QuotationView;
   /** From Rate enquiry: customer and item quantities. Rates are worked out here. */
@@ -78,7 +79,7 @@ const emptyLine = EMPTY_SALE_LINE;
 // can be typed instead; going below the day's minimum is flagged. Schemes
 // in force are shown as they would apply. The backend prices every line again
 // on save, so what is stored never depends on this screen's arithmetic.
-export function QuotationForm({ customers, catalog, companyState, revising, initial, onSaved }: QuotationFormProps) {
+export function QuotationForm({ customers, catalog, company, revising, initial, onSaved }: QuotationFormProps) {
   const today = useToday();
   const router = useRouter();
   const [result, setResult] = useState<{ tone: "success" | "error"; text: string } | null>(null);
@@ -123,7 +124,7 @@ export function QuotationForm({ customers, catalog, companyState, revising, init
 
   const [partyId, date, lines] = useWatch({ control, name: ["partyId", "date", "lines"] });
   const party = customers.find((candidate) => candidate.id === partyId);
-  const tax = party ? quotationTax(companyState, party) : undefined;
+  const tax = party ? quotationTax(company, party) : undefined;
 
   // Every item's rate options in one call (special, today's, last quoted, costs).
   const itemIds = useMemo(() => [...new Set((lines ?? []).map((line) => line.itemId).filter(Boolean))].sort(), [lines]);

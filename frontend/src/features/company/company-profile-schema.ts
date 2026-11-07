@@ -10,6 +10,7 @@ export const companyProfileSchema = z
   .object({
     legalName: z.string().trim().min(2, "Enter the legal name").max(120),
     tradeName: z.string().trim().max(100),
+    registration: z.enum(["REGULAR", "COMPOSITION", "UNREGISTERED"]),
     stateCode: z.string().regex(/^\d{2}$/, "Pick our GST state"),
     gstin: z.string().trim().toUpperCase(),
     pan: optional(/^[A-Z]{5}\d{4}[A-Z]$/, "PAN is 5 letters, 4 digits, 1 letter"),
@@ -29,6 +30,10 @@ export const companyProfileSchema = z
   })
   .superRefine((values, context) => {
     if (!values.gstin) return;
+    if (values.registration === "UNREGISTERED") {
+      context.addIssue({ code: "custom", path: ["gstin"], message: "An unregistered business has no GSTIN" });
+      return;
+    }
     const check = checkGstin(values.gstin);
     if (!check.valid) context.addIssue({ code: "custom", path: ["gstin"], message: check.reason });
     else if (gstinStateCode(values.gstin) !== values.stateCode) {

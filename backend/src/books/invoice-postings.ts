@@ -29,6 +29,8 @@ const SALES_LEDGER: Record<SaleRegime, LedgerRole> = {
   INTER_STATE: 'SALES_INTERSTATE',
   EXPORT_LUT: 'SALES_EXPORT_LUT',
   EXPORT_IGST: 'SALES_EXPORT_IGST',
+  // Bill of supply (we are composition or unregistered): no output tax.
+  BILL_OF_SUPPLY: 'SALES_LOCAL',
 };
 
 export function invoicePostings(invoice: PostedInvoice, customer: LedgerRef, ledgers: SystemLedgers): Posting[] {

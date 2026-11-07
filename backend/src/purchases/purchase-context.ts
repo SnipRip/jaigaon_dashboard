@@ -1,14 +1,16 @@
 // Lookups both purchase services make inside their transactions: our GST
-// state and the vendor, checked once in the same words everywhere.
+// registration and the vendor, checked once in the same words everywhere.
+// Sales read our registration from here too.
 import { BadRequestException, ConflictException } from '@nestjs/common';
+import type { OurRegistration } from '../common/gst/our-registration.js';
 import type { Prisma } from '../generated/prisma/client.js';
 
 type Db = Prisma.TransactionClient;
 
-export async function companyState(db: Db): Promise<string> {
-  const profile = await db.companyProfile.findUnique({ where: { id: 1 }, select: { stateCode: true } });
+export async function ourRegistration(db: Db): Promise<OurRegistration> {
+  const profile = await db.companyProfile.findUnique({ where: { id: 1 }, select: { stateCode: true, registration: true } });
   if (!profile?.stateCode) throw new ConflictException('Set the company GST state on GST & export setup first');
-  return profile.stateCode;
+  return profile;
 }
 
 export async function liveVendor(db: Db, vendorId: string) {

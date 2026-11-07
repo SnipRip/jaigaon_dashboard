@@ -45,7 +45,7 @@ function useQuotationData() {
 export function QuotationsListScreen() {
   const { data, error } = useQuotationData();
   if (!data) return <LoadNotice error={error} what="quotations" />;
-  return <QuotationsWorkspace quotations={data.quotations} parties={data.parties} items={data.masters.catalog.items} companyState={data.issuer.stateCode} />;
+  return <QuotationsWorkspace quotations={data.quotations} parties={data.parties} items={data.masters.catalog.items} company={data.issuer} />;
 }
 
 /** `customer` and `lines` ("itemId:qty,itemId:qty"; a SKU in older links) come from Rate enquiry. */
@@ -65,7 +65,7 @@ export function NewQuotationScreen({ customer, lines }: { customer?: string; lin
     <QuotationForm
       customers={customers}
       catalog={data.masters.catalog}
-      companyState={data.issuer.stateCode}
+      company={data.issuer}
       initial={{ partyId: customers.some((party) => party.id === customer) ? customer : undefined, lines: carried }}
       onSaved={reload}
     />
@@ -78,7 +78,7 @@ export function ReviseQuotationScreen({ quotationId }: { quotationId: string }) 
   const quotation = data.quotations.find((candidate) => candidate.id === quotationId);
   if (!quotation?.stored) return <LoadNotice error={new Error("This quotation does not exist.")} what="the quotation" />;
   return (
-    <QuotationForm customers={data.parties} catalog={data.masters.catalog} companyState={data.issuer.stateCode} revising={quotation.stored} onSaved={reload} />
+    <QuotationForm customers={data.parties} catalog={data.masters.catalog} company={data.issuer} revising={quotation.stored} onSaved={reload} />
   );
 }
 

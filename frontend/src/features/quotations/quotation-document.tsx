@@ -29,7 +29,7 @@ export function QuotationDocument({ quotation, party, issuer, tax, totals }: Quo
           <p>
             {issuer.phone} · {issuer.email}
           </p>
-          <p className="font-semibold">GSTIN {issuer.gstin ?? "[to be added]"}</p>
+          <p className="font-semibold">{issuer.registration === "UNREGISTERED" ? "Not registered under GST" : `GSTIN ${issuer.gstin ?? "[to be added]"}`}</p>
         </div>
         <div className="text-right">
           <p className="text-xl font-semibold tracking-wide">QUOTATION</p>

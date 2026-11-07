@@ -19,6 +19,7 @@ import { BillStatusChip } from "./bill-status-chip";
 import { viewBill, type BillView } from "./bill-view";
 import { chargeBillsFor, ewayBillMissing, isMsme } from "./purchase-rules";
 import type { Bill } from "./types";
+import type { OurRegistration } from "@/types/company";
 
 type BillFilter = "all" | "goods" | "charges" | "unpaid";
 
@@ -34,18 +35,18 @@ const isUnpaid = ({ status }: BillView) => status === "Open" || status === "Over
 interface PurchasesWorkspaceProps {
   bills: Bill[];
   parties: Party[];
-  companyState: string;
+  company: OurRegistration;
 }
 
 // Every vendor bill, goods and charges, with the tax it carries, the input
 // credit we get back, what is still to pay, and whether its freight and
 // labour have been tagged on for landed cost.
-export function PurchasesWorkspace({ bills, parties, companyState }: PurchasesWorkspaceProps) {
+export function PurchasesWorkspace({ bills, parties, company }: PurchasesWorkspaceProps) {
   const today = useToday();
   const [filter, setFilter] = useState<BillFilter>("all");
   const [query, setQuery] = useState("");
 
-  const rows = bills.map((bill) => viewBill(bill, parties, companyState, today));
+  const rows = bills.map((bill) => viewBill(bill, parties, company, today));
   const byId = new Map(rows.map((row) => [row.bill.id, row]));
   const needle = query.trim().toLowerCase();
   const visible = rows.filter(

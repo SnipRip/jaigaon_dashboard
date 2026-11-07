@@ -10,7 +10,12 @@ import {
 const first14 = '19ABCDE1234F1Z';
 const GSTIN = first14 + gstinCheckChar(first14);
 
-const base: CompanyFacts = { gstin: null, pan: null, stateCode: '19' };
+const base: CompanyFacts = {
+  gstin: null,
+  pan: null,
+  stateCode: '19',
+  registration: 'REGULAR',
+};
 
 describe('settleCompany', () => {
   it('fills the PAN from the GSTIN', () => {
@@ -36,6 +41,22 @@ describe('companyProblem', () => {
   it('accepts a GSTIN from our state with its PAN', () => {
     expect(
       companyProblem({ ...base, gstin: GSTIN, pan: 'ABCDE1234F' }),
+    ).toBeNull();
+  });
+
+  it('accepts an unregistered business without a GSTIN', () => {
+    expect(companyProblem({ ...base, registration: 'UNREGISTERED' })).toBeNull();
+  });
+
+  it('rejects a GSTIN on an unregistered business', () => {
+    expect(
+      companyProblem({ ...base, registration: 'UNREGISTERED', gstin: GSTIN }),
+    ).toMatch(/no GSTIN/);
+  });
+
+  it('accepts a composition dealer with a GSTIN', () => {
+    expect(
+      companyProblem({ ...base, registration: 'COMPOSITION', gstin: GSTIN }),
     ).toBeNull();
   });
 

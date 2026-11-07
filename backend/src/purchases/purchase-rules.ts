@@ -8,7 +8,9 @@
 // IGST at customs; otherwise CGST + SGST in our state, IGST from another.
 // Freight and loading printed on a goods bill take the rate of the bill's
 // largest line. GST we cannot claim (17(5), composition, unregistered) is
-// part of what the goods cost.
+// part of what the goods cost. When we are a composition dealer or
+// unregistered, no GST we pay can be claimed: all of it is cost.
+import { chargesGst, type OurRegistration } from '../common/gst/our-registration.js';
 import { sumTax, taxOn, type TaxAmounts, type TaxSplit } from '../common/gst/tax-split.js';
 import type { GstTreatment, LandedCostMethod, PurchaseRegime } from '../generated/prisma/enums.js';
 
@@ -36,7 +38,21 @@ export interface BillTax {
   split: TaxSplit;
 }
 
-export function billTax(companyState: string, vendor: VendorTaxFacts, sourceOfSupply: string | null): BillTax {
+const NO_GST: BillTax = { regime: 'NO_GST', itc: false, split: 'NONE' };
+
+export function billTax(company: OurRegistration, vendor: VendorTaxFacts, sourceOfSupply: string | null): BillTax {
+  const tax = regularBillTax(company.stateCode, vendor, sourceOfSupply);
+  if (chargesGst(company)) return tax;
+  // GTA freight to an unregistered recipient is exempt; a composition dealer
+  // still pays it under reverse charge, without credit.
+  if (tax.regime === 'REVERSE_CHARGE' && company.registration === 'UNREGISTERED') return NO_GST;
+  return withoutCredit(company, tax);
+}
+
+/** The same bill, with its GST as cost when we cannot claim input credit. */
+export const withoutCredit = (company: OurRegistration, tax: BillTax): BillTax => (chargesGst(company) ? tax : { ...tax, itc: false });
+
+function regularBillTax(companyState: string, vendor: VendorTaxFacts, sourceOfSupply: string | null): BillTax {
   const from = sourceOfSupply ?? vendor.placeOfSupply;
   const split = from === companyState ? 'INTRA' : 'INTER';
   if (vendor.isGta) return { regime: 'REVERSE_CHARGE', itc: true, split };
@@ -44,7 +60,7 @@ export function billTax(companyState: string, vendor: VendorTaxFacts, sourceOfSu
     case 'COMPOSITION':
     case 'UNREGISTERED':
     case 'CONSUMER':
-      return { regime: 'NO_GST', itc: false, split: 'NONE' };
+      return NO_GST;
     case 'OVERSEAS':
     case 'SEZ':
       return { regime: 'IMPORT', itc: true, split: 'INTER' };

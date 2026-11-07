@@ -2,6 +2,7 @@ import { purchaseTax, saleTax, treatmentLabel, type PartyTaxProfile } from "@/fe
 import { stateName } from "@/features/gst/indian-states";
 import type { OpenDocumentView } from "@/types/settlement";
 import type { Party, PartyRole } from "./types";
+import type { OurRegistration } from "@/types/company";
 
 export const taxProfileOf = (party: Pick<Party, "treatment" | "placeOfSupply" | "exportRoute" | "isGta">): PartyTaxProfile => ({
   treatment: party.treatment,
@@ -11,8 +12,8 @@ export const taxProfileOf = (party: Pick<Party, "treatment" | "placeOfSupply" | 
 });
 
 /** The tax decision that matters for this list: sales for customers, bills for vendors. */
-export const taxFor = (role: PartyRole, companyState: string, party: Party) =>
-  role === "customer" ? saleTax(companyState, taxProfileOf(party)) : purchaseTax(companyState, taxProfileOf(party));
+export const taxFor = (role: PartyRole, company: OurRegistration, party: Party) =>
+  role === "customer" ? saleTax(company, taxProfileOf(party)) : purchaseTax(company, taxProfileOf(party));
 
 /** "Siliguri, West Bengal" or "Thimphu, Bhutan". */
 export const placeOf = (party: Party) =>

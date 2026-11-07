@@ -7,7 +7,8 @@ import type { AccountHead, HeadAllocation } from "@/features/masters/types";
 import { apiRequest } from "@/lib/api-client";
 import type { ExpenseAllocationView, ExpenseView } from "@/types/expense";
 import type { PaymentModeView } from "@/types/settlement";
-import type { TaxDecision } from "@/features/gst/gst-rules";
+import { chargesGst, type TaxDecision } from "@/features/gst/gst-rules";
+import type { OurRegistration } from "@/types/company";
 
 export const EXPENSES_PATH = "/expenses";
 export const expensePath = (id: string) => `${EXPENSES_PATH}/${id}`;
@@ -28,9 +29,15 @@ const PAYEE_DECISION: Record<"bill" | "none", TaxDecision> = {
   none: { regime: "no-gst", title: "No GST", detail: "No GST bill", itc: false },
 };
 
-/** The tax decision: the vendor's treatment (as on a bill), else the payee's GST bill or none. */
-export const expenseDecision = (companyState: string | undefined, vendor: Party | undefined, gstBill: boolean): TaxDecision =>
-  vendor && companyState ? billTax(companyState, vendor) : PAYEE_DECISION[gstBill ? "bill" : "none"];
+/**
+ * The tax decision: the vendor's treatment (as on a bill), else the payee's
+ * GST bill or none. A GST bill is never claimable when we charge no GST.
+ */
+export function expenseDecision(company: OurRegistration | undefined, vendor: Party | undefined, gstBill: boolean): TaxDecision {
+  if (vendor && company) return billTax(company, vendor);
+  const decision = PAYEE_DECISION[gstBill ? "bill" : "none"];
+  return company && decision.itc && !chargesGst(company) ? { ...decision, detail: "A GST bill from a local payee: we cannot claim it, so it is cost", itc: false } : decision;
+}
 
 /** Why the vendor's bill does not go through Expenses (the backend refuses the same). */
 export const decisionProblem = (decision: TaxDecision) =>

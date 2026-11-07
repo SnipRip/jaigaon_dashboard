@@ -27,13 +27,14 @@ import { LandedCostCard } from "./landed-cost-card";
 import { billChargeRate, chargeBillsFor, ewayBillMissing, isMsme, MSME_PAYMENT_DAYS } from "./purchase-rules";
 import { setBillAllocation, voidBill } from "./purchases-api";
 import type { Bill, LandedCostMethod } from "./types";
+import type { OurRegistration } from "@/types/company";
 
 interface BillDetailProps {
   bill: Bill;
   bills: Bill[];
   parties: Party[];
   items: Item[];
-  companyState: string;
+  company: OurRegistration;
   /** After a change is saved: reload bills, orders and item costs. */
   onChanged: () => Promise<void>;
 }
@@ -41,7 +42,7 @@ interface BillDetailProps {
 // One vendor bill as entered from the vendor's paper: its lines and the
 // GST on each, input credit, what is left to pay, the e-way bill it came
 // with and, for goods, the landed cost of each item.
-export function BillDetail({ bill, bills, parties, items, companyState, onChanged }: BillDetailProps) {
+export function BillDetail({ bill, bills, parties, items, company, onChanged }: BillDetailProps) {
   const today = useToday();
   const { heads } = useAccountHeads();
   // Until the heads load, a charge shows the name it was saved with.
@@ -71,11 +72,11 @@ export function BillDetail({ bill, bills, parties, items, companyState, onChange
     setMethod(next);
     void act(() => setBillAllocation(bill.id, next), "Landed cost spread again and saved.").then((saved) => saved || setMethod(before));
   };
-  const view = viewBill(bill, parties, companyState, today);
+  const view = viewBill(bill, parties, company, today);
   const { vendor, tax, split, totals, status } = view;
   const balance = Math.max(totals.payable - bill.paid, 0);
   const payments = bill.stored?.payments ?? [];
-  const tagged = chargeBillsFor(bills, bill.id).map((charges) => viewBill(charges, parties, companyState, today));
+  const tagged = chargeBillsFor(bills, bill.id).map((charges) => viewBill(charges, parties, company, today));
   const target = bill.landedCostFor ? bills.find((candidate) => candidate.id === bill.landedCostFor) : undefined;
   const chargeRate = bill.kind === "goods" ? billChargeRate(bill.lines) : undefined;
 

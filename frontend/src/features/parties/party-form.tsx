@@ -19,12 +19,13 @@ import { ROLE_TEXT, taxProfileOf } from "./party-rules";
 import { partySchema, type PartyFormValues } from "./party-schema";
 import { PartyTaxPreview } from "./party-tax-preview";
 import type { Party, PartyRole } from "./types";
+import type { OurRegistration } from "@/types/company";
 
 interface PartyFormProps {
   /** Which list the form was opened from; it is ticked for a new party. */
   role: PartyRole;
   party?: Party;
-  companyState: string;
+  company: OurRegistration;
   /** Saves through the backend; throws an ApiError the form shows. */
   onSave: (values: PartyFormValues) => Promise<void>;
   /** Archives or restores a saved party. */
@@ -73,7 +74,7 @@ function toValues(role: PartyRole, party?: Party): PartyFormValues {
 // Zoho-style contact form for customers and vendors. GST treatment decides
 // which fields show: a GSTIN fills in the state and PAN, an overseas party
 // gets country, tax ID and export route instead of a place of supply.
-export function PartyForm({ role, party, companyState, onSave, onArchive }: PartyFormProps) {
+export function PartyForm({ role, party, company, onSave, onArchive }: PartyFormProps) {
   const [result, setResult] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const {
     register,
@@ -381,7 +382,7 @@ export function PartyForm({ role, party, companyState, onSave, onArchive }: Part
 
       <div className="xl:sticky xl:top-3.5">
         <PartyTaxPreview
-          companyState={companyState}
+          company={company}
           roles={roles}
           profile={taxProfileOf({ treatment, placeOfSupply, exportRoute, isGta })}
         />

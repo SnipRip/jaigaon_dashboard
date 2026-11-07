@@ -4,7 +4,7 @@ import { PrismaService } from '../database/prisma.service.js';
 import type { Prisma, QuotationStatus } from '../generated/prisma/client.js';
 import { inReportingUnit } from '../items/line-units.js';
 import { NumberSeriesService } from '../number-series/number-series.service.js';
-import { companyState, liveGodown } from '../purchases/purchase-context.js';
+import { liveGodown, ourRegistration } from '../purchases/purchase-context.js';
 import { SalePricingService } from '../sale-pricing/sale-pricing.service.js';
 import { invoiceRegime } from '../sale-pricing/sale-rules.js';
 import { liveSettlementNumbers } from '../settlements/settlements.service.js';
@@ -65,7 +65,8 @@ export class InvoicesService {
         await liveGodown(tx, dto.godownId);
         if (dto.quotationId) await this.claimQuotation(tx, dto.quotationId, dto.partyId);
 
-        const { regime, split, placeOfSupply } = invoiceRegime(await companyState(tx), dto.kind, party!, dto);
+        const { regime, split, placeOfSupply, problem } = invoiceRegime(await ourRegistration(tx), dto.kind, party!, dto);
+        fail(problem);
         const lutArn = regime === 'EXPORT_LUT' ? await this.lutOn(tx, dto.date) : null;
         const { lines, totals } = await this.pricing.price(tx, { partyId: dto.partyId, date: dto.date, split, lines: dto.lines });
 

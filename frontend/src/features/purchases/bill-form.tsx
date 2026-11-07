@@ -48,6 +48,7 @@ import {
 } from "./purchase-rules";
 import { createBill, fetchLastRates } from "./purchases-api";
 import type { BillCharge, BillKind, BillLine, ChargeHead } from "./types";
+import type { OurRegistration } from "@/types/company";
 
 interface BillFormProps {
   vendors: Party[];
@@ -55,7 +56,7 @@ interface BillFormProps {
   /** Goods bills a charges bill can be tagged to. */
   purchases: { id: string; label: string }[];
   godowns: Godown[];
-  companyState: string;
+  company: OurRegistration;
   initialKind: BillKind;
   initialFor?: string;
   /** Receiving against this order: its vendor, godown and pending lines come in. */
@@ -82,7 +83,7 @@ const emptyCharge = { head: "", description: "", amount: "", gstRatePct: "18" };
 // GST is never picked: the vendor's treatment and the source of supply decide
 // it (gst-rules.ts). Freight and loading on a goods bill follow the bill's
 // rate; a separate charges bill is tagged to the purchase for landed cost.
-export function BillForm({ vendors, catalog, purchases, godowns, companyState, initialKind, initialFor, order, onSaved }: BillFormProps) {
+export function BillForm({ vendors, catalog, purchases, godowns, company, initialKind, initialFor, order, onSaved }: BillFormProps) {
   const today = useToday();
   const router = useRouter();
   const orderVendor = order && vendors.find((candidate) => candidate.id === order.vendorId);
@@ -147,8 +148,8 @@ export function BillForm({ vendors, catalog, purchases, godowns, companyState, i
   const isGoods = kind === "goods";
   const eligibleVendors = isGoods ? vendors.filter((vendor) => !vendor.isGta) : vendors;
   const vendor = vendors.find((candidate) => candidate.id === vendorId);
-  const tax = vendor ? billTax(companyState, vendor, sourceOfSupply) : undefined;
-  const split = tax ? splitRegime(tax, companyState, sourceOfSupply || vendor?.placeOfSupply) : "no-gst";
+  const tax = vendor ? billTax(company, vendor, sourceOfSupply) : undefined;
+  const split = tax ? splitRegime(tax, company, sourceOfSupply || vendor?.placeOfSupply) : "no-gst";
   // Charges are booked under the live expense heads; each head brings its GST behaviour and where its cost lands.
   const chargeHeads: ChargeHead[] = expenseHeadsOf(heads ?? []);
   const headOf = (ref?: string) => (ref ? findHead(chargeHeads, ref) : undefined);

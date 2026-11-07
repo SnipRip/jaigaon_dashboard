@@ -8,6 +8,7 @@ import { FormMessage } from "@/components/ui/form-message";
 import { CardTitle, GlassCard } from "@/components/ui/glass-card";
 import { SelectField } from "@/components/ui/select-field";
 import { TextField } from "@/components/ui/text-field";
+import { REGISTRATION_OPTIONS } from "@/features/gst/gst-rules";
 import { checkGstin, gstinPan, gstinStateCode } from "@/features/gst/gstin";
 import { INDIAN_STATES, stateName } from "@/features/gst/indian-states";
 import { saveErrorText } from "@/lib/api-client";
@@ -19,14 +20,15 @@ interface CompanyProfileFormProps {
   onSave: (values: CompanyProfileValues) => Promise<CompanyProfileValues>;
 }
 
+const registrationOptions = REGISTRATION_OPTIONS.map((option) => ({ value: option.value, label: option.label }));
 const stateOptions = INDIAN_STATES.map((state) => ({ value: state.code, label: `${state.name} (${state.code})` }));
 
 const fieldGrid = "grid gap-x-3.5 gap-y-3 @xl:grid-cols-2 @4xl:grid-cols-3";
 const sectionTitle = "text-xs font-semibold tracking-wide text-muted uppercase";
 
 // Our own registration, address and export identifiers: what every
-// quotation, invoice and shipping bill prints about us. Our state decides
-// CGST + SGST or IGST on every document.
+// quotation, invoice and shipping bill prints about us. Our registration
+// decides whether documents charge GST at all; our state, CGST + SGST or IGST.
 export function CompanyProfileForm({ initial, onSave }: CompanyProfileFormProps) {
   const [result, setResult] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const {
@@ -37,8 +39,22 @@ export function CompanyProfileForm({ initial, onSave }: CompanyProfileFormProps)
     reset,
     formState: { errors, isDirty, isSubmitting },
   } = useForm<CompanyProfileValues>({ resolver: zodResolver(companyProfileSchema), defaultValues: initial });
-  const [stateCode, gstin] = useWatch({ control, name: ["stateCode", "gstin"] });
-  const gstinValid = Boolean(gstin) && checkGstin(gstin).valid;
+  const [registration, stateCode, gstin] = useWatch({ control, name: ["registration", "stateCode", "gstin"] });
+  const unregistered = registration === "UNREGISTERED";
+  const gstinValid = !unregistered && Boolean(gstin) && checkGstin(gstin).valid;
+  const state = stateName(stateCode);
+  const summary =
+    registration === "REGULAR"
+      ? `Registered in ${state} (state code ${stateCode}). Sales inside ${state} get CGST + SGST; everywhere else in India, IGST.`
+      : registration === "COMPOSITION"
+        ? `Composition dealer in ${state}. Invoices print as a bill of supply with no GST, no input credit is claimed, and sales are only inside ${state}.`
+        : `Not registered under GST, based in ${state}. Invoices carry no GST, no input credit is claimed, and sales are only inside ${state}.`;
+
+  // An unregistered business has no GSTIN: picking it clears the one typed.
+  const onRegistrationChange = (value: string) => {
+    setValue("registration", value as CompanyProfileValues["registration"], { shouldDirty: true });
+    if (value === "UNREGISTERED") setValue("gstin", "", { shouldDirty: true, shouldValidate: true });
+  };
 
   // A valid GSTIN gives our state and PAN.
   const onGstinChange = (value: string) => {
@@ -67,10 +83,7 @@ export function CompanyProfileForm({ initial, onSave }: CompanyProfileFormProps)
     <GlassCard className="@container flex flex-col gap-3.5">
       <div className="flex flex-col gap-1">
         <CardTitle>Our registration</CardTitle>
-        <p className="text-sm font-medium text-muted">
-          Registered in {stateName(stateCode)} (state code {stateCode}). Sales inside {stateName(stateCode)} get CGST + SGST;
-          everywhere else in India, IGST.
-        </p>
+        <p className="text-sm font-medium text-muted">{summary}</p>
       </div>
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
         <section className="flex flex-col gap-3">
@@ -78,6 +91,10 @@ export function CompanyProfileForm({ initial, onSave }: CompanyProfileFormProps)
           <div className={fieldGrid}>
             <TextField label="Legal name" error={errors.legalName?.message} {...register("legalName")} />
             <TextField label="Trade name" placeholder="On documents, if different" error={errors.tradeName?.message} {...register("tradeName")} />
+            <div className="flex flex-col gap-1.5">
+              <SelectField label="GST registration" options={registrationOptions} value={registration} onValueChange={onRegistrationChange} />
+              <p className="text-xs font-medium text-muted">{REGISTRATION_OPTIONS.find((option) => option.value === registration)?.hint}</p>
+            </div>
             <Controller
               control={control}
               name="stateCode"
@@ -94,14 +111,21 @@ export function CompanyProfileForm({ initial, onSave }: CompanyProfileFormProps)
                 </div>
               )}
             />
+            {!unregistered && (
+              <TextField
+                label="Our GSTIN"
+                placeholder="Still to come from the client"
+                error={errors.gstin?.message}
+                {...register("gstin")}
+                onChange={(event) => onGstinChange(event.target.value)}
+              />
+            )}
             <TextField
-              label="Our GSTIN"
-              placeholder="Still to come from the client"
-              error={errors.gstin?.message}
-              {...register("gstin")}
-              onChange={(event) => onGstinChange(event.target.value)}
+              label="PAN"
+              placeholder={unregistered ? "Of the business or its owner" : "Filled from the GSTIN"}
+              error={errors.pan?.message}
+              {...register("pan")}
             />
-            <TextField label="PAN" placeholder="Filled from the GSTIN" error={errors.pan?.message} {...register("pan")} />
           </div>
         </section>
 

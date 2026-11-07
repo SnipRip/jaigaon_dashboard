@@ -17,6 +17,7 @@ import { treatmentLabel, type GstTreatment } from "@/features/gst/gst-rules";
 import { formatInr, formatQuantity } from "@/lib/format";
 import { dueFor, matchesPartySearch, placeOf, ROLE_TEXT, taxFor } from "./party-rules";
 import type { Party, PartyRole } from "./types";
+import type { OurRegistration } from "@/types/company";
 
 type TreatmentFilter = "all" | "with-gstin" | "without-gstin" | "overseas" | "archived";
 
@@ -31,14 +32,14 @@ const FILTERS: { value: TreatmentFilter; label: string; treatments?: GstTreatmen
 interface PartiesWorkspaceProps {
   role: PartyRole;
   parties: Party[];
-  companyState: string;
+  company: OurRegistration;
   /** Live balance per party id from its open documents; absent when the role may not open Payments. */
   balances?: Map<string, number>;
 }
 
 // The customer list or the vendor list: one screen, two roles. Every row
 // shows the tax its documents will carry, decided by gst-rules.ts.
-export function PartiesWorkspace({ role, parties, companyState, balances }: PartiesWorkspaceProps) {
+export function PartiesWorkspace({ role, parties, company, balances }: PartiesWorkspaceProps) {
   const due = (party: Party) => (balances ? (balances.get(party.id) ?? 0) : dueFor(role, party));
   const dueLabel = `${balances ? "" : "Opening "}${role === "customer" ? "receivable" : "payable"}`;
   const [query, setQuery] = useState("");
@@ -52,7 +53,7 @@ export function PartiesWorkspace({ role, parties, companyState, balances }: Part
   const visible = shown.filter((party) => (!allowed || allowed.includes(party.treatment)) && matchesPartySearch(party, query));
 
   const outstanding = mine.reduce((sum, party) => sum + due(party), 0);
-  const noCredit = mine.filter((party) => taxFor(role, companyState, party).itc === false).length;
+  const noCredit = mine.filter((party) => taxFor(role, company, party).itc === false).length;
   const overseas = mine.filter((party) => party.treatment === "overseas").length;
 
   return (
@@ -112,7 +113,7 @@ export function PartiesWorkspace({ role, parties, companyState, balances }: Part
           </thead>
           <tbody className="text-right font-semibold tabular-nums">
             {visible.map((party) => {
-              const tax = taxFor(role, companyState, party);
+              const tax = taxFor(role, company, party);
               return (
                 <tr key={party.id} className="align-top">
                   <td className="text-left">

@@ -81,7 +81,7 @@ describe('bill postings', () => {
   it('books a goods bill with freight to purchase, the head and input GST', () => {
     // 10,000 goods + 500 freight at 18% in our state: 945 + 945 GST, 12,390 payable.
     const lines = billPostings(
-      bill({ cgst: 945, sgst: 945, tax: 1_890, itcClaimable: 1_890, payable: 12_390, lines: [{ taxable: 10_000, ownCost: 10_000, itcEligible: true }], charges: [{ head: freight, amount: 500 }] }),
+      bill({ cgst: 945, sgst: 945, tax: 1_890, itcClaimable: 1_890, payable: 12_390, lines: [{ taxable: 10_000, ownCost: 10_000, itcEligible: true }], charges: [{ head: freight, amount: 500, tax: 90 }] }),
       vendor,
       ledgers,
     );
@@ -117,7 +117,7 @@ describe('bill postings', () => {
 
   it('books GTA freight under reverse charge: vendor gets the value, the GST is ours to pay', () => {
     const lines = billPostings(
-      bill({ regime: 'REVERSE_CHARGE', cgst: 150, sgst: 150, tax: 300, itcClaimable: 300, payable: 6_000, charges: [{ head: freight, amount: 6_000 }] }),
+      bill({ regime: 'REVERSE_CHARGE', cgst: 150, sgst: 150, tax: 300, itcClaimable: 300, payable: 6_000, charges: [{ head: freight, amount: 6_000, tax: 300 }] }),
       { ledger: 'Siliguri Roadways', group: 'Sundry Creditors' },
       ledgers,
     );
@@ -132,9 +132,28 @@ describe('bill postings', () => {
     expect(imbalance(lines)).toBe(0);
   });
 
+  it('books all GST as cost when we are a composition dealer', () => {
+    // 10,000 goods + 500 freight at 18%, nothing claimable.
+    const goods = billPostings(
+      bill({ cgst: 945, sgst: 945, tax: 1_890, itcClaimable: 0, payable: 12_390, lines: [{ taxable: 10_000, ownCost: 11_800, itcEligible: false }], charges: [{ head: freight, amount: 500, tax: 90 }] }),
+      vendor,
+      ledgers,
+    );
+    expect(byLedger(goods)).toEqual({ 'Purchase - No Input Credit': 11_800, 'Freight Inward': 590, 'Tata Steel Ltd': -12_390 });
+    expect(imbalance(goods)).toBe(0);
+
+    const freightBill = billPostings(
+      bill({ regime: 'REVERSE_CHARGE', cgst: 150, sgst: 150, tax: 300, itcClaimable: 0, payable: 6_000, charges: [{ head: freight, amount: 6_000, tax: 300 }] }),
+      vendor,
+      ledgers,
+    );
+    expect(byLedger(freightBill)).toEqual({ 'Freight Inward': 6_300, 'Tata Steel Ltd': -6_000, 'CGST Payable on RCM': -150, 'SGST Payable on RCM': -150 });
+    expect(imbalance(freightBill)).toBe(0);
+  });
+
   it('puts several charges under one head on one line', () => {
     const lines = billPostings(
-      bill({ payable: 700, charges: [{ head: freight, amount: 400 }, { head: { ...freight, ledger: 'freight inward' }, amount: 300 }] }),
+      bill({ payable: 700, charges: [{ head: freight, amount: 400, tax: 0 }, { head: { ...freight, ledger: 'freight inward' }, amount: 300, tax: 0 }] }),
       vendor,
       ledgers,
     );

@@ -19,24 +19,27 @@ import { documentsFor } from "./dispatch-documents";
 import { invoiceStage, invoiceTax, invoiceTotals, missingDocuments, needsEinvoice } from "./invoice-rules";
 import { InvoiceStageChip } from "./invoice-stage-chip";
 import type { Invoice, InvoiceKind } from "./types";
+import { registrationOn } from "@/features/gst/gst-rules";
+import type { OurRegistration } from "@/types/company";
 
 interface InvoicesWorkspaceProps {
   invoices: Invoice[];
   parties: Party[];
-  companyState: string;
+  company: OurRegistration;
 }
 
 // All sales invoices, local and export, with what each still needs: an
 // export is done only when its customs papers and BRC are attached.
-export function InvoicesWorkspace({ invoices, parties, companyState }: InvoicesWorkspaceProps) {
+export function InvoicesWorkspace({ invoices, parties, company }: InvoicesWorkspaceProps) {
   const [kind, setKind] = useState<InvoiceKind | "all">("all");
   const [query, setQuery] = useState("");
 
   const rows = invoices.map((invoice) => {
     const party = parties.find((candidate) => candidate.id === invoice.partyId)!;
-    const tax = invoiceTax(companyState, invoice, party);
+    const issuedAs = registrationOn(company, invoice.stored?.regime);
+    const tax = invoiceTax(issuedAs, invoice, party);
     const totals = invoiceTotals(invoice.lines, tax.regime);
-    return { invoice, party, tax, totals, stage: invoiceStage(invoice), missing: missingDocuments(invoice, totals.grandTotal, needsEinvoice(invoice, party)) };
+    return { invoice, party, tax, totals, stage: invoiceStage(invoice), missing: missingDocuments(invoice, totals.grandTotal, needsEinvoice(invoice, party, issuedAs)) };
   });
   const needle = query.trim().toLowerCase();
   const visible = rows.filter(

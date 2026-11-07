@@ -50,7 +50,7 @@ export function NewExpenseScreen() {
         .filter((shipment) => !shipment.cancelledAt)
         .map((shipment) => ({ value: shipment.id, label: `${shipment.number} · ${shipment.partyName} · ${shipment.vehicleNumber}` }))}
       initialShipmentId={shipments.data.some((shipment) => shipment.id === shipmentId && !shipment.cancelledAt) ? shipmentId : undefined}
-      companyState={profile.stateCode ?? undefined}
+      company={profile}
       onSaved={async (saved) => {
         await expenses.mutate();
         if (saved.target?.kind === "SHIPMENT") await mutate(`${SHIPMENTS_PATH}/${saved.target.id}`);

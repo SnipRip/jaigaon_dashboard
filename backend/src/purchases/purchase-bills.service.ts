@@ -9,7 +9,7 @@ import { NumberSeriesService } from '../number-series/number-series.service.js';
 import { liveSettlementNumbers } from '../settlements/settlements.service.js';
 import type { CreatePurchaseBillDto, LastPurchaseRatesQueryDto, ListPurchaseBillsQueryDto } from './dto/purchase-bill.dto.js';
 import { landBill } from './landed-cost.js';
-import { companyState, liveGodown, liveVendor } from './purchase-context.js';
+import { liveGodown, liveVendor, ourRegistration } from './purchase-context.js';
 import {
   billDueDays,
   billFigures,
@@ -56,7 +56,7 @@ export class PurchaseBillsService {
   create(dto: CreatePurchaseBillDto, userId: string): Promise<PurchaseBillView> {
     return this.prisma.$transaction(async (tx) => {
       const vendor = await liveVendor(tx, dto.vendorId);
-      const state = await companyState(tx);
+      const company = await ourRegistration(tx);
       const goods = dto.kind === 'GOODS';
       const entered = goods ? (dto.lines ?? []) : [];
       const charges = dto.charges ?? [];
@@ -80,7 +80,7 @@ export class PurchaseBillsService {
       });
       if (twice) throw new ConflictException(`Bill ${dto.vendorBillNumber} from this vendor is already entered as ${twice.reference}`);
 
-      const tax = billTax(state, vendor, dto.sourceOfSupply ?? null);
+      const tax = billTax(company, vendor, dto.sourceOfSupply ?? null);
       const facts = await loadItemFacts(tx, entered.map((line) => line.itemId), dto.date);
       // From here on quantity and rate are per base unit; `units` keeps what was typed.
       const lines = entered.map((line) => {

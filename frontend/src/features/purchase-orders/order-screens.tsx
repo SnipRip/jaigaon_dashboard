@@ -26,7 +26,7 @@ export function OrderFormScreen({ orderId }: { orderId?: string }) {
       vendors={data.parties.filter((party) => !party.archived)}
       catalog={data.masters.catalog}
       godowns={data.masters.godowns.map(toGodown)}
-      companyState={data.companyState}
+      company={data.company}
       order={order}
       onSaved={reload}
     />

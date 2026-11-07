@@ -107,7 +107,7 @@ export class BooksService {
           landedCostForId: true,
           vendor: partyName,
           lines: { select: { taxable: true, ownCost: true, itcEligible: true } },
-          charges: { select: { amount: true, head: { select: { name: true, nature: true } } } },
+          charges: { select: { amount: true, tax: true, head: { select: { name: true, nature: true } } } },
         },
       }),
       db.settlement.findMany({
@@ -211,7 +211,7 @@ export class BooksService {
         roundOff: toNumber(bill.roundOff),
         payable: toNumber(bill.payable),
         lines: bill.lines.map((line) => ({ taxable: toNumber(line.taxable), ownCost: toNumber(line.ownCost), itcEligible: line.itcEligible })),
-        charges: bill.charges.map((charge) => ({ head: { ledger: charge.head.name, group: HEAD_GROUPS[charge.head.nature] }, amount: toNumber(charge.amount) })),
+        charges: bill.charges.map((charge) => ({ head: { ledger: charge.head.name, group: HEAD_GROUPS[charge.head.nature] }, amount: toNumber(charge.amount), tax: toNumber(charge.tax) })),
       };
       postings.push(...billPostings(figures, partyLedger(bill.vendor), role));
     }

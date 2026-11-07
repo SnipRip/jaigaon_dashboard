@@ -63,7 +63,7 @@ function useInvoiceData() {
 export function InvoicesListScreen() {
   const { data, error } = useInvoiceData();
   if (!data) return <LoadNotice error={error} what="invoices" />;
-  return <InvoicesWorkspace invoices={data.invoices} parties={data.parties} companyState={data.issuer.stateCode} />;
+  return <InvoicesWorkspace invoices={data.invoices} parties={data.parties} company={data.issuer} />;
 }
 
 /** `quotationId` starts the invoice from that quotation (Convert to invoice). */
@@ -81,7 +81,7 @@ export function NewInvoiceScreen({ kind, quotationId }: { kind: InvoiceKind; quo
       catalog={data.masters.catalog}
       godowns={data.masters.godowns.filter((godown) => !godown.isArchived)}
       luts={data.luts}
-      companyState={data.issuer.stateCode}
+      company={data.issuer}
       inStockOnly={settings?.invoiceInStockOnly ?? false}
       fromQuotation={
         from && {

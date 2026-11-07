@@ -6,6 +6,7 @@ import type { Item } from "@/features/items/types";
 import type { Party } from "@/features/parties/types";
 import { lineCost, lineSales, profitOf } from "@/features/profit/profit-rules";
 import type { Quotation, QuotationStatus } from "./types";
+import type { OurRegistration } from "@/types/company";
 
 export type QuotationStage = "Draft" | "Sent" | "Expired" | "Accepted" | "Rejected" | "Cancelled" | "Converted";
 
@@ -16,8 +17,8 @@ export function quotationStage(quotation: Pick<Quotation, "status" | "validUntil
   return map[quotation.status];
 }
 
-export const quotationTax = (companyState: string, party: Party) =>
-  saleTax(companyState, { treatment: party.treatment, stateCode: party.placeOfSupply, exportRoute: party.exportRoute });
+export const quotationTax = (company: OurRegistration, party: Party) =>
+  saleTax(company, { treatment: party.treatment, stateCode: party.placeOfSupply, exportRoute: party.exportRoute });
 
 const money = (value: number) => Math.round(value * 100) / 100;
 
@@ -46,8 +47,8 @@ function storedTotals(stored: NonNullable<Quotation["stored"]>): InvoiceTotals {
   return { taxable: stored.totals.taxable, taxByName, tax: stored.totals.tax, roundOff: stored.totals.roundOff, grandTotal: stored.totals.total };
 }
 
-export function quotationFigures(quotation: Pick<Quotation, "lines" | "stored">, party: Party, companyState: string, items: Item[]) {
-  const tax = quotationTax(companyState, party);
+export function quotationFigures(quotation: Pick<Quotation, "lines" | "stored">, party: Party, company: OurRegistration, items: Item[]) {
+  const tax = quotationTax(company, party);
   if (quotation.stored) {
     // Saved figures: schemes and the cost at the time of quoting included.
     return {
