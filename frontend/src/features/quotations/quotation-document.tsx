@@ -1,4 +1,4 @@
-import type { TaxDecision } from "@/features/gst/gst-rules";
+import { chargesGst, type TaxDecision } from "@/features/gst/gst-rules";
 import { stateName } from "@/features/gst/indian-states";
 import type { InvoiceTotals } from "@/features/invoices/invoice-rules";
 import { lineTotals } from "@/features/invoices/invoice-rules";
@@ -20,6 +20,8 @@ interface QuotationDocumentProps {
 // The quotation as the customer sees it, on white paper like the invoice.
 // Margin and cost never print. Printed through `.print-area`.
 export function QuotationDocument({ quotation, party, issuer, tax, totals }: QuotationDocumentProps) {
+  // A composition or unregistered business quotes no GST: no rate column, no GST line.
+  const withGst = chargesGst(issuer) || tax.regime.startsWith("export");
   return (
     <article className="print-area rounded-(--radius-tile) bg-white p-6 text-[12px] leading-snug text-ink shadow-[0_10px_40px_rgb(20_40_90/0.12)] sm:p-8">
       <header className="flex flex-wrap items-start justify-between gap-3.5 border-b-2 border-ink pb-3">
@@ -55,7 +57,7 @@ export function QuotationDocument({ quotation, party, issuer, tax, totals }: Quo
             <th className="py-1.5 pr-2 text-right">Qty</th>
             <th className="py-1.5 pr-2 text-right">Rate</th>
             <th className="py-1.5 pr-2 text-right">Disc.</th>
-            <th className="py-1.5 pr-2 text-right">GST</th>
+            {withGst && <th className="py-1.5 pr-2 text-right">GST</th>}
             <th className="py-1.5 text-right">Amount</th>
           </tr>
         </thead>
@@ -79,7 +81,7 @@ export function QuotationDocument({ quotation, party, issuer, tax, totals }: Quo
               </td>
               <td className="py-1.5 pr-2 text-right">{formatRate(line.rate)}</td>
               <td className="py-1.5 pr-2 text-right">{line.discountPct ? `${line.discountPct}%` : "–"}</td>
-              <td className="py-1.5 pr-2 text-right">{line.gstRatePct}%</td>
+              {withGst && <td className="py-1.5 pr-2 text-right">{line.gstRatePct}%</td>}
               <td className="py-1.5 text-right">{formatRate(lineTotals(line, "no-gst").taxable)}</td>
             </tr>
             );
@@ -109,7 +111,7 @@ export function QuotationDocument({ quotation, party, issuer, tax, totals }: Quo
             </>
           )}
           <div className="flex justify-between gap-3.5">
-            <dt>Value before GST</dt>
+            <dt>{withGst ? "Value before GST" : "Value"}</dt>
             <dd>{formatRate(totals.taxable)}</dd>
           </div>
           {Object.entries(totals.taxByName).map(([name, amount]) => (
@@ -118,7 +120,7 @@ export function QuotationDocument({ quotation, party, issuer, tax, totals }: Quo
               <dd>{formatRate(amount ?? 0)}</dd>
             </div>
           ))}
-          {Object.keys(totals.taxByName).length === 0 && (
+          {withGst && Object.keys(totals.taxByName).length === 0 && (
             <div className="flex justify-between gap-3.5">
               <dt>GST</dt>
               <dd>{tax.regime === "export-lut" ? "Nil, under LUT" : "Nil"}</dd>

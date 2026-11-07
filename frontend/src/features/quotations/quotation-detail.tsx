@@ -40,7 +40,9 @@ export function QuotationDetail({ quotation, party, issuer, items, onChanged }: 
   const today = useToday();
   const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  const { tax, totals, profit, costKnown } = quotationFigures(quotation, party, registrationOn(issuer, quotation.stored?.regime), items);
+  // Printed as it was quoted, even if our registration changed since.
+  const issuedAs = { ...issuer, ...registrationOn(issuer, quotation.stored?.regime) };
+  const { tax, totals, profit, costKnown } = quotationFigures(quotation, party, issuedAs, items);
   const stage = quotationStage(quotation, today);
   const stored = quotation.stored;
   const canRevise = quotation.status !== "accepted" && quotation.status !== "cancelled" && quotation.status !== "converted";
@@ -76,7 +78,7 @@ export function QuotationDetail({ quotation, party, issuer, items, onChanged }: 
           </Link>
         </div>
         <p className="-mt-2 text-xs font-semibold text-muted">WhatsApp sending switches on when the WhatsApp Business API is connected.</p>
-        <QuotationDocument quotation={quotation} party={party} issuer={issuer} tax={tax} totals={totals} />
+        <QuotationDocument quotation={quotation} party={party} issuer={issuedAs} tax={tax} totals={totals} />
         {stored && (
           <GlassCard className="flex flex-col gap-3">
             <CardTitle>How each line was priced</CardTitle>

@@ -33,7 +33,8 @@ interface InvoiceDocumentProps {
 // asks for. Export invoices swap the buyer's GSTIN for the destination country
 // and carry the LUT or IGST declaration. A composition dealer prints a bill
 // of supply with the rule 5(1)(g) line; an unregistered business, a plain
-// invoice without GSTIN. Printed through `.print-area`.
+// invoice without GSTIN. Neither shows a GST rate, column or amount (rule 49
+// asks for HSN, description and value only). Printed through `.print-area`.
 export function InvoiceDocument({ invoice, party, issuer, tax, bank }: InvoiceDocumentProps) {
   const isExport = invoice.kind === "export";
   const totals = invoiceTotals(invoice.lines, tax.regime);
@@ -41,7 +42,7 @@ export function InvoiceDocument({ invoice, party, issuer, tax, bank }: InvoiceDo
   const references: DispatchDocumentKind[] = ["customs-invoice", "lorry-challan", "eway-bill", "shipping-bill", "leo"];
   const shipTo = invoice.shipTo ?? party.billing;
   const einvoice = invoice.documents["e-invoice"];
-  const withGst = chargesGst(issuer);
+  const withGst = chargesGst(issuer) || isExport;
   const composition = issuer.registration === "COMPOSITION";
   const title = isExport ? "EXPORT INVOICE" : withGst ? "TAX INVOICE" : composition ? "BILL OF SUPPLY" : "INVOICE";
 
@@ -60,18 +61,13 @@ export function InvoiceDocument({ invoice, party, issuer, tax, bank }: InvoiceDo
         </div>
         <div className="text-right">
           <p className="text-xl font-semibold tracking-wide">{title}</p>
+          {composition && <p className="max-w-[260px] text-[11px] font-semibold">Composition taxable person, not eligible to collect tax on supplies</p>}
           <p className="text-[11px] font-semibold text-muted">Original for recipient</p>
         </div>
       </header>
 
       {isExport && (
         <p className="mt-3 border border-ink px-3 py-2 text-center text-[11px] font-semibold">{exportDeclaration(invoice)}</p>
-      )}
-
-      {composition && (
-        <p className="mt-3 border border-ink px-3 py-2 text-center text-[11px] font-semibold">
-          Composition taxable person, not eligible to collect tax on supplies
-        </p>
       )}
 
       {needsEinvoice(invoice, party, issuer) && (
@@ -109,7 +105,7 @@ export function InvoiceDocument({ invoice, party, issuer, tax, bank }: InvoiceDo
           <p>{shipTo.country ?? stateName(shipTo.stateCode)}</p>
         </div>
         <dl className="grid grid-cols-[auto_1fr] gap-x-3">
-          <dt className="font-semibold text-muted">Invoice no.</dt>
+          <dt className="font-semibold text-muted">{composition ? "Bill no." : "Invoice no."}</dt>
           <dd className="font-semibold">{invoice.number}</dd>
           <dt className="font-semibold text-muted">Date</dt>
           <dd>{formatDate(invoice.date)}</dd>
@@ -126,8 +122,12 @@ export function InvoiceDocument({ invoice, party, issuer, tax, bank }: InvoiceDo
               <dd>
                 {stateName(invoice.placeOfSupply)} ({invoice.placeOfSupply})
               </dd>
-              <dt className="font-semibold text-muted">Reverse charge</dt>
-              <dd>No</dd>
+              {withGst && (
+                <>
+                  <dt className="font-semibold text-muted">Reverse charge</dt>
+                  <dd>No</dd>
+                </>
+              )}
             </>
           )}
           {invoice.vehicleNumber && (
@@ -149,8 +149,8 @@ export function InvoiceDocument({ invoice, party, issuer, tax, bank }: InvoiceDo
               <th className="py-1.5">Qty</th>
               <th className="py-1.5">Rate</th>
               <th className="py-1.5">Disc.</th>
-              <th className="py-1.5">Taxable</th>
-              <th className="py-1.5">GST</th>
+              {withGst && <th className="py-1.5">Taxable</th>}
+              {withGst && <th className="py-1.5">GST</th>}
               <th className="py-1.5">Amount</th>
             </tr>
           </thead>
@@ -175,8 +175,8 @@ export function InvoiceDocument({ invoice, party, issuer, tax, bank }: InvoiceDo
                     {line.discountPct ? `${line.discountPct}%` : line.schemeDiscount ? "" : "—"}
                     {line.schemeDiscount ? <div className="text-[10px]">scheme {formatRate(line.schemeDiscount)}</div> : null}
                   </td>
-                  <td className="py-1.5">{formatRate(totalsForLine.taxable)}</td>
-                  <td className="py-1.5 whitespace-nowrap">{describeComponents(line.gstRatePct, tax.regime)}</td>
+                  {withGst && <td className="py-1.5">{formatRate(totalsForLine.taxable)}</td>}
+                  {withGst && <td className="py-1.5 whitespace-nowrap">{describeComponents(line.gstRatePct, tax.regime)}</td>}
                   <td className="py-1.5 font-semibold">{formatRate(totalsForLine.total)}</td>
                 </tr>
               );
@@ -192,18 +192,18 @@ export function InvoiceDocument({ invoice, party, issuer, tax, bank }: InvoiceDo
               <thead>
                 <tr className="border-b border-ink">
                   <th className="py-1 text-left">HSN</th>
-                  <th className="py-1">Rate</th>
-                  <th className="py-1">Taxable</th>
-                  <th className="py-1">Tax</th>
+                  {withGst && <th className="py-1">Rate</th>}
+                  <th className="py-1">{withGst ? "Taxable" : "Value"}</th>
+                  {withGst && <th className="py-1">Tax</th>}
                 </tr>
               </thead>
               <tbody>
                 {summary.map((row) => (
                   <tr key={`${row.hsn}-${row.ratePct}`}>
                     <td className="py-0.5 text-left">{row.hsn}</td>
-                    <td className="py-0.5">{tax.regime === "export-lut" ? "0% (LUT)" : `${row.ratePct}%`}</td>
+                    {withGst && <td className="py-0.5">{tax.regime === "export-lut" ? "0% (LUT)" : `${row.ratePct}%`}</td>}
                     <td className="py-0.5">{formatRate(row.taxable)}</td>
-                    <td className="py-0.5">{formatRate(row.tax)}</td>
+                    {withGst && <td className="py-0.5">{formatRate(row.tax)}</td>}
                   </tr>
                 ))}
               </tbody>
@@ -217,7 +217,7 @@ export function InvoiceDocument({ invoice, party, issuer, tax, bank }: InvoiceDo
         </div>
         <dl className="flex flex-col gap-0.5 tabular-nums">
           <div className="flex justify-between">
-            <dt>Taxable value</dt>
+            <dt>{withGst ? "Taxable value" : "Value"}</dt>
             <dd>{formatRate(totals.taxable)}</dd>
           </div>
           {Object.entries(totals.taxByName).map(([name, amount]) => (
