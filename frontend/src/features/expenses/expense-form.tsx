@@ -250,7 +250,16 @@ export function ExpenseForm({ vendors, accounts, bills, invoices, shipments, ini
                   name="accountId"
                   render={({ field }) => <SelectField label="From account" options={accountOptions} value={field.value || undefined} onValueChange={field.onChange} />}
                 />
-                {errorText(errors.accountId?.message)}
+                {accountOptions.length === 0 ? (
+                  <p className="text-xs font-semibold text-danger-strong">
+                    {mode === "CASH" ? "No cash account yet. Cash is paid from a cash book, like Cash in hand." : "No bank account yet."}{" "}
+                    <Link href="/masters/bank-cash" className="text-brand underline">
+                      Add one under Bank &amp; cash
+                    </Link>
+                  </p>
+                ) : (
+                  errorText(errors.accountId?.message)
+                )}
               </div>
             </div>
           ) : (
